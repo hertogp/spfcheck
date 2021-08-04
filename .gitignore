@@ -8,3 +8,9 @@ erl_crash.dump
 *.beam
 /config/*.secret.exs
 .elixir_ls/
+
+# Where local notes are kept
+/_notes/
+
+# Scratch pad directory
+/scr/
