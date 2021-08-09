@@ -1,18 +1,20 @@
 defmodule Spfcheck do
-  @moduledoc """
-  Documentation for `Spfcheck`.
-  """
+  @external_resource "README.md"
+  @moduledoc File.read!("README.md")
+             |> String.split("<!-- @MODULEDOC -->")
+             |> Enum.fetch!(1)
+  alias Spf
 
   @doc """
-  Hello world.
-
-  ## Examples
-
-      iex> Spfcheck.hello()
-      :world
+  Check spf for given ip, sender and domain.
 
   """
-  def hello do
-    :world
+  def host(domain) do
+    with {:ok, list} <- Spf.grep(domain),
+         record <- List.first(list) do
+      if IO.inspect(record, label: :record), do: Spf.parse(record), else: {:error, :nospf}
+    else
+      err -> {:error, err}
+    end
   end
 end

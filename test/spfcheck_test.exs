@@ -1,8 +1,10 @@
 defmodule SpfcheckTest do
   use ExUnit.Case
   doctest Spfcheck
+  doctest Spf, import: true
 
   test "greets the world" do
-    assert Spfcheck.hello() == :world
+    {:ok, list} = Spf.grep("example.com")
+    assert list == ["v=spf1 -all"]
   end
 end

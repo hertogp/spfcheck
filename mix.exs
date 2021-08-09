@@ -50,6 +50,7 @@ defmodule Spfcheck.MixProject do
   defp deps do
     [
       {:iptrie, "~> 0.5.0"},
+      {:nimble_parsec, "~> 1.0"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:credo, "~> 0.8", only: [:dev, :test]}
