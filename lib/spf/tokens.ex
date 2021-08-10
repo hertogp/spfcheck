@@ -1,6 +1,6 @@
-defmodule Spf.Helpers do
+defmodule Spf.Tokens do
   @moduledoc """
-  Helper functions for parsing SPF records
+  Functions to turn an SPF string into tokens.
   """
 
   import NimbleParsec
@@ -25,27 +25,6 @@ defmodule Spf.Helpers do
   def bothcases(c),
     do: ascii_char([c])
 
-  # def name() do
-  #   ascii_char(not: ?\ , not: ?:, not: ?=)
-  #   |> times(min: 1)
-  #   |> reduce({IO, :iodata_to_binary, []})
-  #   |> post_traverse({:token, [:name]})
-  # end
-
-  # def name(combinator),
-  #   do: concat(combinator, name())
-
-  # def sep() do
-  #   choice([
-  #     ascii_char([?:, ?=]),
-  #     empty()
-  #   ])
-  #   |> post_traverse({:token, [:sep]})
-  # end
-
-  # def sep(combinator),
-  #   do: concat(combinator, sep())
-
   def digit(),
     do: ascii_char([?0..?9])
 
@@ -60,29 +39,13 @@ defmodule Spf.Helpers do
   end
 
   @doc """
-  Matches 1 or more spaces
+  Matches 1 or more whitespaces (space or tab).
 
   """
-  def spaces() do
-    ascii_char([?\ ])
-    |> times(min: 1)
-    |> reduce({List, :to_string, []})
-    |> post_traverse({:token, [:whitespace]})
-  end
-
-  @doc """
-  Matches one or more non-space characters as a catch all for unknown blobs
-
-  """
-  def nonspaces(),
-    do: ascii_char(not: ?\ ) |> times(min: 1) |> post_traverse({:token, [:unknown]})
-
-  def nonspaces(combinator),
-    do: concat(combinator, nonspaces())
 
   def eoterm() do
     choice([
-      ascii_char([32, ?\t]),
+      whitespace(),
       eos()
     ])
     |> lookahead()
@@ -91,24 +54,57 @@ defmodule Spf.Helpers do
   def eoterm(combinator),
     do: concat(combinator, eoterm())
 
-  def dual_cidr_length() do
-    choice([
-      ignore(string("/"))
-      |> integer(min: 1)
-      |> ignore(string("//"))
-      |> integer(min: 1)
-      |> post_traverse({:token, [:dual_cidr2]}),
-      ignore(string("//"))
-      |> integer(min: 1)
-      |> post_traverse({:token, [:dual_cidr6]}),
-      ignore(string("/"))
-      |> integer(min: 1)
-      |> post_traverse({:token, [:dual_cidr4]})
-    ])
-    |> eoterm()
-  end
+  def eoterm2(),
+    do: lookahead(choice([whitespace(), eos()]))
+
+  def eoterm2(c),
+    do: concat(c, eoterm2())
 
   # TOKENS
+
+  @doc """
+  Turns a parser result into a token 3-element tuple `{:type, value, offset}`
+
+  The following tokens are produced by the tokenizer:
+  - `:whitespace`
+  - `:version`
+  - `:a`
+  - `:mx`
+  - `:include`
+  - `:ip4`
+  - `:ip6`
+  - `:ptr`
+  - `:exists`
+  - `:all`
+  - `:redirect`
+  - `:exp`
+  - `unknown`
+
+  These directive and modifier tokens may have other tokens in their token value:
+  - `:qualifier`
+  - `:expand`
+  - `:macro`
+  - `:transform`
+  - `:literal`
+  - `:dual_cidr2`
+  - `:dual_cidr4`
+  - `:dual_cidr6`
+
+  """
+  def token(rest, args, context, line, offset, atom)
+
+  # Whitespace
+  def token(_rest, args, context, _line, offset, :whitespace) do
+    tokval = List.first(args)
+    {[{:whitespace, args, offset - String.length(tokval)}], context}
+  end
+
+  # Version
+  def token(_rest, args, context, _line, offset, :version) do
+    [n] = args
+    d = length(Integer.digits(n))
+    {[{:version, args, offset - 5 - d}], context}
+  end
 
   # Qualifier
   def token(_rest, args, context, _line, offset, :qualifier) do
@@ -118,31 +114,34 @@ defmodule Spf.Helpers do
     end
   end
 
+  # Include, Exists
+  def token(_rest, args, context, _line, _offset, atom) when atom in [:include, :exists] do
+    [{:qualifier, q, off}, macro] = Enum.reverse(args)
+    {[{atom, [q, macro], off}], context}
+  end
+
   # All
   def token(_rest, args, context, _line, _offset, :all) do
     [{:qualifier, q, off}] = args
-    {[{:all, q, off}], context}
+    {[{:all, [q], off}], context}
   end
 
-  # IP4
-  def token(_rest, args, context, _line, _offset, :ip4) do
-    [{:unknown, ip4, _}, {:qualifier, q, offset}] = args
-    ip4 = List.to_string(ip4) |> pfxparse()
-    {[{:ip4, q, ip4, offset}], context}
+  # IP4, IP6
+  def token(_rest, args, context, _line, _offset, atom) when atom in [:ip4, :ip6] do
+    [{:unknown, addr, _}, {:qualifier, q, offset}] = args
+    addr = List.to_string(addr) |> pfxparse()
+    {[{atom, [q, addr], offset}], context}
   end
 
-  # IP6
-  def token(_rest, args, context, _line, _offset, :ip6) do
-    [{:unknown, ip6, _}, {:qualifier, q, offset}] = args
-    ip6 = List.to_string(ip6) |> pfxparse()
-    {[{:ip6, q, ip6, offset}], context}
-  end
+  # A, MX, PTR
+  def token(_rest, args, context, _line, _offset, atom) when atom in [:a, :mx, :ptr] do
+    {tokval, offset} =
+      case Enum.reverse(args) do
+        [{:qualifier, q, off}] -> {[q], off}
+        [{:qualifier, q, off} | macro] -> {[q, macro], off}
+      end
 
-  # Version
-  def token(_rest, args, context, _line, offset, :version) do
-    n = List.first(args)
-    d = length(Integer.digits(n))
-    {[{:version, n, offset - 5 - d}], context}
+    {[{atom, tokval, offset}], context}
   end
 
   # Literal
@@ -156,6 +155,7 @@ defmodule Spf.Helpers do
     tokval =
       case args do
         [] -> []
+        [?r] -> [r: true]
         [?r | tail] -> [Enum.reverse(tail) |> List.to_integer(), r: true]
         num -> [Enum.reverse(num) |> List.to_integer(), r: false]
       end
@@ -187,28 +187,11 @@ defmodule Spf.Helpers do
     {[{:macro, args, offset}], context}
   end
 
-  # Whitespace
-  def token(_rest, args, context, _line, offset, :whitespace) do
-    tokval = List.first(args)
-    {[{:whitespace, tokval, offset - String.length(tokval)}], context}
-  end
-
   # CatchAll
   def token(_rest, args, context, _line, offset, atom) do
     args = Enum.reverse(args)
     {[{atom, args, offset}], context}
   end
-
-  # DIRECTIVES
-
-  def qualifier() do
-    ascii_char([?+, ?-, ?~, ??])
-    |> optional()
-    |> post_traverse({:token, [:qualifier]})
-  end
-
-  def qualifier(combinator),
-    do: concat(combinator, qualifier())
 
   # order matters: all before a
   def term() do
@@ -224,7 +207,7 @@ defmodule Spf.Helpers do
       ip6(),
       exists(),
       ptr(),
-      spaces(),
+      whitespace(),
       nonspaces()
     ])
   end
@@ -234,6 +217,77 @@ defmodule Spf.Helpers do
 
   def terms(),
     do: term() |> repeat()
+
+  # Helper Tokens
+  def whitespace() do
+    ascii_char([?\ , ?\t])
+    |> times(min: 1)
+    |> reduce({List, :to_string, []})
+    |> post_traverse({:token, [:whitespace]})
+  end
+
+  @doc """
+  Matches one or more non-space characters as a catch all for unknown blobs
+
+  """
+  def nonspaces() do
+    ascii_char(not: ?\ , not: ?\t)
+    |> times(min: 1)
+    |> post_traverse({:token, [:unknown]})
+  end
+
+  def nonspaces(combinator),
+    do: concat(combinator, nonspaces())
+
+  # a dual-cidr-length is valid only at the end of a term
+  # a fact which is used by the macro() combinator
+  # def dual_cidr_length() do
+  #   choice([
+  #     ignore(string("/"))
+  #     |> integer(min: 1)
+  #     |> ignore(string("//"))
+  #     |> integer(min: 1)
+  #     |> post_traverse({:token, [:dual_cidr2]}),
+  #     ignore(string("/"))
+  #     |> integer(min: 1)
+  #     |> post_traverse({:token, [:dual_cidr4]}),
+  #     ignore(string("//"))
+  #     |> integer(min: 1)
+  #     |> post_traverse({:token, [:dual_cidr6]})
+  #   ])
+  #   |> eoterm()
+  # end
+
+  def dual_cidr() do
+    choice([
+      ignore(string("/"))
+      |> integer(min: 1)
+      |> ignore(string("//"))
+      |> integer(min: 1)
+      |> eoterm2()
+      |> post_traverse({:token, [:dual_cidr2]}),
+      ignore(string("/"))
+      |> integer(min: 1)
+      |> eoterm2()
+      |> post_traverse({:token, [:dual_cidr4]}),
+      ignore(string("//"))
+      |> integer(min: 1)
+      |> eoterm2()
+      |> post_traverse({:token, [:dual_cidr6]})
+    ])
+  end
+
+  # when used, this always produces a qualifier token; defaults to '+'
+  def qualifier() do
+    ascii_char([?+, ?-, ?~, ??])
+    |> optional()
+    |> post_traverse({:token, [:qualifier]})
+  end
+
+  def qualifier(combinator),
+    do: concat(combinator, qualifier())
+
+  # DIRECTIVES
 
   def version() do
     anycase("v=spf")
@@ -269,12 +323,11 @@ defmodule Spf.Helpers do
     |> post_traverse({:token, [:ip6]})
   end
 
-  # a = "a" [ ":" domain-spec ] [ dual-cidr-length ]
   def a() do
     qualifier()
     |> ignore(anycase("a"))
     |> optional(ignore(ascii_char([?:])) |> macro())
-    |> optional(dual_cidr_length())
+    |> optional(dual_cidr())
     |> post_traverse({:token, [:a]})
   end
 
@@ -282,7 +335,7 @@ defmodule Spf.Helpers do
     qualifier()
     |> ignore(anycase("mx"))
     |> optional(ignore(ascii_char([?:])) |> macro())
-    |> optional(dual_cidr_length())
+    |> optional(dual_cidr())
     |> post_traverse({:token, [:mx]})
   end
 
@@ -317,16 +370,13 @@ defmodule Spf.Helpers do
 
   # MACROS
 
-  # Notes:
+  # notes:
   # - since a macro-string also matches a domain-end, we match a domain-spec
   #   as a series of m_expand, dual_cidr_length or m_literal's (in that order)
   # - hence, post processing will have to check toplabel validity if the last
   #   element in a :macro value is a binary.
   def m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
-
-  def m_delimiter(combinator),
-    do: concat(combinator, m_delimiter())
 
   def m_letter(),
     do:
@@ -338,16 +388,14 @@ defmodule Spf.Helpers do
   def m_letter(combinator),
     do: concat(combinator, m_letter())
 
-  def m_literal() do
-    ascii_char([0x21..0x24, 0x26..0x7E])
-    |> times(min: 1)
-    |> reduce({IO, :iodata_to_binary, []})
-    |> post_traverse({:token, [:literal]})
-  end
+  def m_literal(),
+    do: ascii_char([0x21..0x24, 0x26..0x7E])
 
   def m_literal(combinator),
     do: concat(combinator, m_literal())
 
+  # a macro-expand without a transform will have a :transform token with
+  # an empty list as token value; otherwise
   def m_transform() do
     times(digit(), min: 0)
     |> optional(ascii_char([?r]))
@@ -380,17 +428,51 @@ defmodule Spf.Helpers do
     |> post_traverse({:token, [:expand2]})
   end
 
+  # def macro() do
+  #   times(
+  #     choice([
+  #       m_expand(),
+  #       # lookahead_not(choice([m_expand(), dual_cidr_length()]))
+  #       lookahead_not(choice([eoterm(), dual_cidr_length()]))
+  #       |> m_literal()
+  #       |> times(min: 1)
+  #       |> reduce({IO, :iodata_to_binary, []})
+  #       |> post_traverse({:token, [:literal]})
+  #     ]),
+  #     min: 1
+  #   )
+  #   |> post_traverse({:token, [:macro]})
+  # end
+
+  # def macro(combinator) do
+  #   concat(combinator, macro())
+  # end
+
+  # EXPERIMENT
+
+  # def macro2() do
+  #   lookahead_not(choice([eos(), dual_ahead()]))
+  #   |> m_literal()
+  #   |> times(min: 1)
+  #   |> reduce({List, :to_string, []})
+  #   |> tag(:literal)
+  #   |> tag(:macro2)
+  # end
+
+  def m_literals() do
+    lookahead_not(dual_cidr())
+    |> m_literal()
+    |> times(min: 1)
+    |> reduce({List, :to_string, []})
+    |> post_traverse({:token, [:literal]})
+  end
+
   def macro() do
-    times(
-      choice([
-        m_expand(),
-        lookahead_not(choice([m_expand(), dual_cidr_length()]))
-        |> ascii_char([0x21..0x24, 0x26..0x7E])
-        |> times(min: 1)
-        |> reduce({IO, :iodata_to_binary, []})
-      ]),
-      min: 1
-    )
+    choice([
+      m_expand(),
+      m_literals()
+    ])
+    |> times(min: 1)
     |> post_traverse({:token, [:macro]})
   end
 

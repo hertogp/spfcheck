@@ -4,7 +4,7 @@ defmodule Spf do
   """
   alias Spfcheck.DNS
   import NimbleParsec
-  import Spf.Helpers
+  import Spf.Tokens
 
   @doc """
   Grep for all spf-like strings found in `domain`'s `:txt` records.
@@ -19,10 +19,10 @@ defmodule Spf do
       {:ok, ["v=spf1 -all"]}
 
   """
-  def grep(domain) do
+  def grep(domain, fun \\ &grepp/1) do
     case DNS.resolve(domain, :txt) do
       {:error, reason} -> {:error, reason}
-      {:ok, rdata} -> {:ok, grepp(rdata)}
+      {:ok, rdata} -> {:ok, fun.(rdata)}
     end
   end
 
@@ -49,5 +49,4 @@ defmodule Spf do
   end
 
   defparsec(:parse, terms())
-  defparsec(:macro, macro() |> repeat())
 end
