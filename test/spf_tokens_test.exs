@@ -10,7 +10,15 @@ defmodule Spf.TokenTest do
   # from https://elixirforum.com/t/trying-to-write-a-simple-nimble-parsec-parser/41344/4
 
   test "macro parses expands" do
-    testcases = ["%{d}", "%{d}/32", "%{d}//128", "%{d}/32//128", "%{d}.co.uk.%{i}/24"]
+    testcases = [
+      "%{d}",
+      "%{d}/32",
+      "%{d}//128",
+      "%{d}/32//128",
+      "%{d}.co.uk.%{i}/24",
+      "%{d}.a%-b"
+    ]
+
     Enum.map(testcases, fn testcase -> IO.inspect(p_macro(testcase), label: testcase) end)
   end
 end

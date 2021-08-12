@@ -138,7 +138,7 @@ defmodule Spf.Tokens do
     {tokval, offset} =
       case Enum.reverse(args) do
         [{:qualifier, q, off}] -> {[q], off}
-        [{:qualifier, q, off} | macro] -> {[q, macro], off}
+        [{:qualifier, q, off} | domain_spec] -> {[q, domain_spec], off}
       end
 
     {[{atom, tokval, offset}], context}
@@ -174,7 +174,7 @@ defmodule Spf.Tokens do
   end
 
   # Macro
-  def token(_rest, args, context, _line, offset, :macro) do
+  def token(_rest, args, context, _line, offset, :domain_spec) do
     # a macro string begins at the same offset as its first matched token
     args = Enum.reverse(args)
 
@@ -184,7 +184,7 @@ defmodule Spf.Tokens do
         str when is_binary(str) -> offset - String.length(str)
       end
 
-    {[{:macro, args, offset}], context}
+    {[{:domain_spec, args, offset}], context}
   end
 
   # CatchAll
@@ -473,7 +473,7 @@ defmodule Spf.Tokens do
       m_literals()
     ])
     |> times(min: 1)
-    |> post_traverse({:token, [:macro]})
+    |> post_traverse({:token, [:domain_spec]})
   end
 
   def macro(combinator) do
