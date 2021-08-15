@@ -65,8 +65,10 @@ defmodule Spf.Tokens do
   # offset = token_end (0-based offset from start of entire binary)
 
   # Whitespace
-  def token(_rest, args, context, _line, offset, :whitespace),
-    do: {[{:whitespace, args, range(context, offset)}], context}
+  def token(_rest, args, context, _line, offset, :whitespace) do
+    IO.inspect({context, offset}, label: :token_wspace)
+    {[{:whitespace, args, range(context, offset)}], context}
+  end
 
   def token(_rest, args, context, _line, offset, :dual_cidr2),
     do: {[{:dual_cidr, Enum.reverse(args), range(context, offset)}], context}
@@ -188,8 +190,7 @@ defmodule Spf.Tokens do
   # Helper Tokens
   def whitespace() do
     start()
-    |> ascii_char([?\ , ?\t])
-    |> times(min: 1)
+    |> times(ascii_char([?\ , ?\t]), min: 1)
     |> reduce({List, :to_string, []})
     |> post_traverse({:token, [:whitespace]})
   end

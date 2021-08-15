@@ -34,12 +34,12 @@ defmodule Spf.Parser do
       log(ctx, :warn, "term after `all`, ignoring: #{inspect(token)}")
     else
       case token do
-        {:all, _tokval, _offset} ->
+        {:all, _tokval, _range} ->
           put_in(ctx, [Access.key(:flags, %{}), Access.key(:all)], true)
           |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
           |> rm_redirect()
 
-        {:redirect, _tokval, _offset} ->
+        {:redirect, _tokval, _range} ->
           if ctx[:flags][:redirect],
             do: log(ctx, :warn, "multiple redirects, ignoring: #{inspect(token)}"),
             else:
@@ -157,14 +157,14 @@ defmodule Spf.Parser do
   end
 
   # whitespace is ignored but may yield a warning
-  def whitespace(ctx, offset, wspace) do
+  def whitespace(ctx, range, wspace) do
     ctx =
       if String.length(wspace) > 1,
-        do: log(ctx, :warn, "col #{offset}: repeated whitespace"),
+        do: log(ctx, :warn, "repeated whitespace: range #{inspect(range)}"),
         else: ctx
 
     if String.contains?(wspace, "\t"),
-      do: log(ctx, :warn, "col #{offset}: whitespace contains tab"),
+      do: log(ctx, :warn, "whitespace contains tab: range( ##{inspect(range)}"),
       else: ctx
   end
 
