@@ -81,7 +81,7 @@ defmodule Spf.Tokens do
     do: {[{:whitespace, args, range(context, offset)}], context}
 
   def token(_rest, args, context, _line, offset, :dual_cidr2),
-    do: {[{:dual_cidr, args, range(context, offset)}], context}
+    do: {[{:dual_cidr, Enum.reverse(args), range(context, offset)}], context}
 
   def token(_rest, args, context, _line, offset, :dual_cidr4),
     do: {[{:dual_cidr, args ++ [128], range(context, offset)}], context}
