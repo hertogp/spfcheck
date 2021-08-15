@@ -72,7 +72,10 @@ defmodule Spf.Parser do
 
   def parse(ctx = %{spf: [spf]}) do
     len = String.length(spf)
-    ctx = Map.put(ctx, :spf, spf)
+
+    ctx =
+      Map.put(ctx, :spf, spf)
+      |> Map.put(:ast, [])
 
     ctx =
       if len > 512,
@@ -125,12 +128,15 @@ defmodule Spf.Parser do
   # Implementation
 
   defp parsep({:ok, tokens, rest, _, _, _}, ctx) do
-    ctx =
-      if String.length(rest) > 0,
-        do: log(ctx, :warn, "residual spf text: '#{rest}'"),
-        else: ctx
+    # TODO:
+    # - move warning to post parser checks
+    #   if String.length(rest) > 0,
+    #     do: log(ctx, :warn, "residual spf text: '#{rest}'"),
+    #     else: ctx
 
-    ctx = Map.put(ctx, :spf_tokens, tokens)
+    ctx =
+      Map.put(ctx, :spf_tokens, tokens)
+      |> Map.put(:spf_rest, rest)
 
     Enum.reduce(tokens, ctx, &execp/2)
   end

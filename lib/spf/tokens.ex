@@ -60,9 +60,15 @@ defmodule Spf.Tokens do
   def eoterm2(c),
     do: concat(c, eoterm2())
 
-  def mark_start(_rest, _args, context, _line, offset) do
+  def mark_start(_rest, _args, context, _line, offset, args \\ []) do
     IO.inspect(context, label: :mark_start)
-    {[], Map.put(context, :start, offset)}
+    {args, Map.put(context, :start, offset)}
+  end
+
+  def range(context, offset) do
+    start = Map.pop(context, :start, 0)
+    stop = offset - 1
+    {context, start..stop}
   end
 
   # TOKENS
@@ -83,10 +89,10 @@ defmodule Spf.Tokens do
 
   # Version
   def token(_rest, args, context, _line, offset, :version) do
-    [n] = args
-    d = length(Integer.digits(n))
-    IO.inspect(context, label: :version)
-    {[{:version, args, offset - 5 - d}], context}
+    # [n] = args
+    # d = length(Integer.digits(n))
+    {context, slice} = range(context, offset)
+    {[{:version, args, slice}], context}
   end
 
   # Qualifier
@@ -272,11 +278,24 @@ defmodule Spf.Tokens do
 
   # DIRECTIVES
 
-  def version() do
+  # def version() do
+  #   anycase("v=spf")
+  #   |> ignore()
+  #   |> integer(min: 1)
+  #   |> post_traverse({:token, [:version]})
+  # end
+
+  def start() do
     empty()
     |> post_traverse({:mark_start, []})
-    |> anycase("v=spf")
-    |> ignore()
+  end
+
+  def start(combinator),
+    do: concat(combinator, start())
+
+  def version() do
+    start()
+    |> ignore(anycase("v=spf"))
     |> integer(min: 1)
     |> post_traverse({:token, [:version]})
   end
