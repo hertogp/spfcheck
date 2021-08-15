@@ -31,18 +31,6 @@ defmodule Spf.Tokens do
   def digit(combinator),
     do: concat(combinator, digit())
 
-  # -> TODO, remove once Pfx.parse becomes available
-  defp pfxparse(pfx) do
-    Pfx.new(pfx)
-  rescue
-    _ -> {:error, pfx}
-  end
-
-  @doc """
-  Matches 1 or more whitespaces (space or tab).
-
-  """
-
   def eoterm() do
     choice([
       whitespace(),
@@ -116,7 +104,7 @@ defmodule Spf.Tokens do
   # IP4, IP6
   def token(_rest, args, context, _line, offset, atom) when atom in [:ip4, :ip6] do
     [{:unknown, addr, _}, {:qualifier, q, _}] = args
-    addr = List.to_string(addr) |> pfxparse()
+    addr = List.to_string(addr)
     {[{atom, [q, addr], range(context, offset)}], context}
   end
 
@@ -211,8 +199,9 @@ defmodule Spf.Tokens do
 
   """
   def nonspaces() do
-    start()
-    |> ascii_char(not: ?\ , not: ?\t)
+    # start()
+    # |> ascii_char(not: ?\ , not: ?\t)
+    ascii_char(not: ?\ , not: ?\t)
     |> times(min: 1)
     |> post_traverse({:token, [:unknown]})
   end
@@ -244,8 +233,7 @@ defmodule Spf.Tokens do
 
   # when used, this always produces a qualifier token; defaults to '+'
   def qualifier() do
-    start()
-    |> ascii_char([?+, ?-, ?~, ??])
+    ascii_char([?+, ?-, ?~, ??])
     |> optional()
     |> post_traverse({:token, [:qualifier]})
   end
@@ -255,13 +243,7 @@ defmodule Spf.Tokens do
 
   # DIRECTIVES
 
-  # def version() do
-  #   anycase("v=spf")
-  #   |> ignore()
-  #   |> integer(min: 1)
-  #   |> post_traverse({:token, [:version]})
-  # end
-
+  # used to mark start in context for a token combinator
   def start() do
     empty()
     |> post_traverse({:mark_start, []})

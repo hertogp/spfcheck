@@ -141,8 +141,8 @@ defmodule Spf.Parser do
     Enum.reduce(tokens, ctx, &execp/2)
   end
 
-  defp execp({token, args, offset} = tok, ctx) do
-    apply(__MODULE__, token, [ctx, offset] ++ args)
+  defp execp({token, args, range} = tok, ctx) do
+    apply(__MODULE__, token, [ctx, range] ++ args)
   rescue
     err ->
       log(ctx, :error, "token `:#{token}` -> #{inspect(err)}")
@@ -240,24 +240,30 @@ defmodule Spf.Parser do
     ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], offset})
   end
 
-  def ip4(ctx, offset, qual, ip) do
+  def ip4(ctx, range, qual, ip) do
     case pfxparse(ip) do
-      {:ok, pfx} -> ast(ctx, {:ip4, [qual, pfx], offset})
-      {:error, _} -> log(ctx, :warn, "col #{offset}: ignoring invalid ip4:#{ip}")
+      {:ok, pfx} ->
+        ast(ctx, {:ip4, [qual, pfx], range})
+
+      {:error, _} ->
+        log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
     end
   end
 
-  def ip6(ctx, offset, qual, ip) do
+  def ip6(ctx, range, qual, ip) do
     case pfxparse(ip) do
-      {:ok, pfx} -> ast(ctx, {:ip6, [qual, pfx], offset})
-      {:error, _} -> log(ctx, :warn, "col #{offset}: ignoring invalid ip6:#{ip}")
+      {:ok, pfx} ->
+        ast(ctx, {:ip6, [qual, pfx], range})
+
+      {:error, _} ->
+        log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
     end
   end
 
   # Modifiers
-  def redirect(ctx, offset, domain_spec),
-    do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], offset})
+  def redirect(ctx, range, domain_spec),
+    do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
 
-  def exp(ctx, offset, domain_spec),
-    do: ast(ctx, {:exp, [domain(ctx, domain_spec)], offset})
+  def exp(ctx, range, domain_spec),
+    do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 end
