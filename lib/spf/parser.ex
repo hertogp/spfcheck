@@ -144,8 +144,8 @@ defmodule Spf.Parser do
   defp execp({token, args, offset} = tok, ctx) do
     apply(__MODULE__, token, [ctx, offset] ++ args)
   rescue
-    _ ->
-      log(ctx, :error, "token `:#{token}` -> no Spf.Parser.#{token} handler available")
+    err ->
+      log(ctx, :error, "token `:#{token}` -> #{inspect(err)}")
       |> ast(tok)
   end
 
@@ -179,6 +179,7 @@ defmodule Spf.Parser do
 
   defp domain(ctx, {:domain_spec, tokens, _offset}) do
     for {token, args, _offset} <- tokens do
+      IO.inspect(token, label: :mexec_token)
       mexec(ctx, token, args)
     end
     |> Enum.join()
@@ -189,9 +190,9 @@ defmodule Spf.Parser do
   # 2. reversal if requested
   # 3. keep (max) N last elements if requested
   # 4. join with "."
-  defp mexec(ctx, :expand, [ltr, keep, reverse, separators]) do
+  defp mexec(ctx, :expand, [ltr, keep, reverse, delimiters]) do
     ctx[:macro][ltr]
-    |> String.split(separators)
+    |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
     |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
     |> Enum.join(".")

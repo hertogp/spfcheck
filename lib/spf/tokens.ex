@@ -60,16 +60,11 @@ defmodule Spf.Tokens do
   def eoterm2(c),
     do: concat(c, eoterm2())
 
-  def mark_start(_rest, _args, context, _line, offset, args \\ []) do
-    IO.inspect(context, label: :mark_start)
-    {args, Map.put(context, :start, offset)}
-  end
+  def mark_start(_rest, _args, context, _line, offset, args \\ []),
+    do: {args, Map.put(context, :start, offset)}
 
-  def range(context, offset) do
-    first = Map.get(context, :start, 0)
-    last = offset - 1
-    Range.new(first, last)
-  end
+  defp range(context, offset),
+    do: Range.new(Map.get(context, :start, 0), offset - 1)
 
   # TOKENS
 
@@ -82,9 +77,17 @@ defmodule Spf.Tokens do
   # offset = token_end (0-based offset from start of entire binary)
 
   # Whitespace
-  def token(_rest, args, context, _line, offset, :whitespace) do
-    {[{:whitespace, args, range(context, offset)}], context}
-  end
+  def token(_rest, args, context, _line, offset, :whitespace),
+    do: {[{:whitespace, args, range(context, offset)}], context}
+
+  def token(_rest, args, context, _line, offset, :dual_cidr2),
+    do: {[{:dual_cidr, args, range(context, offset)}], context}
+
+  def token(_rest, args, context, _line, offset, :dual_cidr4),
+    do: {[{:dual_cidr, args ++ [128], range(context, offset)}], context}
+
+  def token(_rest, args, context, _line, offset, :dual_cidr6),
+    do: {[{:dual_cidr, [32] ++ args, range(context, offset)}], context}
 
   # Version
   def token(_rest, args, context, _line, offset, :version) do
@@ -93,106 +96,97 @@ defmodule Spf.Tokens do
 
   # Qualifier
   def token(_rest, args, context, _line, offset, :qualifier) do
-    case args do
-      [] -> {[{:qualifier, ?+, offset}], context}
-      [q] -> {[{:qualifier, q, offset - 1}], context}
-    end
+    tokval = if args == [], do: [?+], else: args
+    {[{:qualifier, tokval, range(context, offset)}], context}
   end
 
   # Include, Exists
-  def token(_rest, args, context, _line, _offset, atom) when atom in [:include, :exists] do
-    [{:qualifier, q, off}, macro] = Enum.reverse(args)
-    {[{atom, [q, macro], off}], context}
+  def token(_rest, args, context, _line, offset, atom) when atom in [:include, :exists] do
+    IO.inspect(args, label: :tokens_include)
+    [{:qualifier, q, _offset}, macro] = Enum.reverse(args)
+    {[{atom, [q, macro], range(context, offset)}], context}
   end
 
   # All
-  def token(_rest, args, context, _line, _offset, :all) do
-    [{:qualifier, q, off}] = args
-    {[{:all, [q], off}], context}
+  def token(_rest, args, context, _line, offset, :all) do
+    [{:qualifier, q, _offset}] = args
+    {[{:all, [q], range(context, offset)}], context}
   end
 
   # IP4, IP6
-  def token(_rest, args, context, _line, _offset, atom) when atom in [:ip4, :ip6] do
-    [{:unknown, addr, _}, {:qualifier, q, offset}] = args
+  def token(_rest, args, context, _line, offset, atom) when atom in [:ip4, :ip6] do
+    [{:unknown, addr, _}, {:qualifier, q, _}] = args
     addr = List.to_string(addr) |> pfxparse()
-    {[{atom, [q, addr], offset}], context}
+    {[{atom, [q, addr], range(context, offset)}], context}
   end
 
   # A, MX, PTR
-  def token(_rest, args, context, _line, _offset, atom) when atom in [:a, :mx, :ptr] do
-    {tokval, offset} =
+  def token(_rest, args, context, _line, offset, atom) when atom in [:a, :mx, :ptr] do
+    tokval =
       case Enum.reverse(args) do
-        [{:qualifier, q, off}] -> {[q], off}
-        [{:qualifier, q, off} | domain_spec] -> {[q, domain_spec], off}
+        [{:qualifier, q, _range}] -> [q]
+        [{:qualifier, q, _rang} | domain_spec] -> [q, domain_spec]
       end
 
-    {[{atom, tokval, offset}], context}
+    {[{atom, tokval, range(context, offset)}], context}
   end
 
   # Literal
   def token(_rest, args, context, _line, offset, :literal) do
-    [literal] = args
-    {[{:literal, literal, offset - String.length(literal)}], context}
+    [tokval] = args
+    {[{:literal, tokval, range(context, offset)}], context}
   end
 
   # Transform
-  def token(_rest, args, context, _line, offset, :transform) do
+  def token(_rest, args, context, _line, _offset, :transform) do
     tokval =
       case args do
-        [] -> []
-        [?r] -> [r: true]
-        [?r | tail] -> [Enum.reverse(tail) |> List.to_integer(), r: true]
-        num -> [Enum.reverse(num) |> List.to_integer(), r: false]
+        [] -> [0, false]
+        [?r] -> [0, true]
+        [?r | tail] -> [Enum.reverse(tail) |> List.to_integer(), true]
+        num -> [Enum.reverse(num) |> List.to_integer(), false]
       end
 
-    {[{:transform, tokval, offset - length(args)}], context}
+    {tokval, context}
   end
 
-  # Expand
-  def token(_rest, args, context, _line, _offset, :expand1) do
-    [{:transform, _, offset}, _] = args
-    {[{:expand, Enum.reverse(args), offset - 3}], context}
+  # Expand -> {:expand, [letter, keepN, reverse?, delimiters], range}
+  def token(_rest, args, context, _line, offset, :expand1) do
+    IO.inspect(args, label: :expand1)
+    [ltr, reverse, keep | delims] = Enum.reverse(args)
+    delims = if delims == [], do: ["."], else: Enum.map(delims, fn x -> List.to_string([x]) end)
+    IO.inspect(delims, label: :expand1_delims)
+    tokval = [ltr, keep, reverse, delims]
+
+    {[{:expand, tokval, range(context, offset)}], context}
   end
 
-  def token(_rest, args, context, _line, offset, :expand2) do
-    {[{:expand, args, offset - 2}], context}
-  end
+  def token(_rest, args, context, _line, offset, :expand2),
+    do: {[{:expand, args, range(context, offset)}], context}
 
-  # Macro
-  def token(_rest, args, context, _line, offset, :domain_spec) do
-    # a macro string begins at the same offset as its first matched token
-    args = Enum.reverse(args)
-
-    offset =
-      case List.first(args) do
-        {_atom, _args, off} -> off
-        str when is_binary(str) -> offset - String.length(str)
-      end
-
-    {[{:domain_spec, args, offset}], context}
-  end
+  # Domain_spec
+  def token(_rest, args, context, _line, offset, :domain_spec),
+    do: {[{:domain_spec, Enum.reverse(args), range(context, offset)}], context}
 
   # CatchAll
-  def token(_rest, args, context, _line, offset, atom) do
-    args = Enum.reverse(args)
-    {[{atom, args, offset}], context}
-  end
+  def token(_rest, args, context, _line, offset, atom),
+    do: {[{atom, Enum.reverse(args), range(context, offset)}], context}
 
   # order matters: all before a
   def term() do
     choice([
+      whitespace(),
       version(),
-      redirect(),
-      explanation(),
       all(),
       a(),
       mx(),
-      include(),
       ip4(),
       ip6(),
+      include(),
       exists(),
       ptr(),
-      whitespace(),
+      redirect(),
+      explanation(),
       nonspaces()
     ])
   end
@@ -217,7 +211,8 @@ defmodule Spf.Tokens do
 
   """
   def nonspaces() do
-    ascii_char(not: ?\ , not: ?\t)
+    start()
+    |> ascii_char(not: ?\ , not: ?\t)
     |> times(min: 1)
     |> post_traverse({:token, [:unknown]})
   end
@@ -225,38 +220,22 @@ defmodule Spf.Tokens do
   def nonspaces(combinator),
     do: concat(combinator, nonspaces())
 
-  # a dual-cidr-length is valid only at the end of a term
-  # a fact which is used by the macro() combinator
-  # def dual_cidr_length() do
-  #   choice([
-  #     ignore(string("/"))
-  #     |> integer(min: 1)
-  #     |> ignore(string("//"))
-  #     |> integer(min: 1)
-  #     |> post_traverse({:token, [:dual_cidr2]}),
-  #     ignore(string("/"))
-  #     |> integer(min: 1)
-  #     |> post_traverse({:token, [:dual_cidr4]}),
-  #     ignore(string("//"))
-  #     |> integer(min: 1)
-  #     |> post_traverse({:token, [:dual_cidr6]})
-  #   ])
-  #   |> eoterm()
-  # end
-
   def dual_cidr() do
     choice([
-      ignore(string("/"))
+      start()
+      |> ignore(string("/"))
       |> integer(min: 1)
       |> ignore(string("//"))
       |> integer(min: 1)
       |> eoterm2()
       |> post_traverse({:token, [:dual_cidr2]}),
-      ignore(string("/"))
+      start()
+      |> ignore(string("/"))
       |> integer(min: 1)
       |> eoterm2()
       |> post_traverse({:token, [:dual_cidr4]}),
-      ignore(string("//"))
+      start()
+      |> ignore(string("//"))
       |> integer(min: 1)
       |> eoterm2()
       |> post_traverse({:token, [:dual_cidr6]})
@@ -265,7 +244,8 @@ defmodule Spf.Tokens do
 
   # when used, this always produces a qualifier token; defaults to '+'
   def qualifier() do
-    ascii_char([?+, ?-, ?~, ??])
+    start()
+    |> ascii_char([?+, ?-, ?~, ??])
     |> optional()
     |> post_traverse({:token, [:qualifier]})
   end
@@ -304,28 +284,32 @@ defmodule Spf.Tokens do
   end
 
   def include() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("include:"))
     |> macro()
     |> pre_traverse({:token, [:include]})
   end
 
   def ip4() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("ip4:"))
     |> nonspaces()
     |> post_traverse({:token, [:ip4]})
   end
 
   def ip6() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("ip6:"))
     |> nonspaces()
     |> post_traverse({:token, [:ip6]})
   end
 
   def a() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("a"))
     |> optional(ignore(ascii_char([?:])) |> macro())
     |> optional(dual_cidr())
@@ -333,7 +317,8 @@ defmodule Spf.Tokens do
   end
 
   def mx() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("mx"))
     |> optional(ignore(ascii_char([?:])) |> macro())
     |> optional(dual_cidr())
@@ -341,14 +326,16 @@ defmodule Spf.Tokens do
   end
 
   def exists() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("exists:"))
     |> macro()
     |> post_traverse({:token, [:exists]})
   end
 
   def ptr() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("ptr"))
     |> optional(ignore(ascii_char([?:])) |> macro())
     |> post_traverse({:token, [:ptr]})
@@ -356,26 +343,21 @@ defmodule Spf.Tokens do
 
   # MODIFIERS
   def redirect() do
-    anycase("redirect=")
-    |> ignore()
+    start()
+    |> ignore(anycase("redirect="))
     |> macro()
     |> post_traverse({:token, [:redirect]})
   end
 
   def explanation() do
-    anycase("exp=")
-    |> ignore()
+    start()
+    |> ignore(anycase("exp="))
     |> macro()
     |> post_traverse({:token, [:exp]})
   end
 
   # MACROS
 
-  # notes:
-  # - since a macro-string also matches a domain-end, we match a domain-spec
-  #   as a series of m_expand, dual_cidr_length or m_literal's (in that order)
-  # - hence, post processing will have to check toplabel validity if the last
-  #   element in a :macro value is a binary.
   def m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
 
@@ -429,37 +411,6 @@ defmodule Spf.Tokens do
     |> post_traverse({:token, [:expand2]})
   end
 
-  # def macro() do
-  #   times(
-  #     choice([
-  #       m_expand(),
-  #       # lookahead_not(choice([m_expand(), dual_cidr_length()]))
-  #       lookahead_not(choice([eoterm(), dual_cidr_length()]))
-  #       |> m_literal()
-  #       |> times(min: 1)
-  #       |> reduce({IO, :iodata_to_binary, []})
-  #       |> post_traverse({:token, [:literal]})
-  #     ]),
-  #     min: 1
-  #   )
-  #   |> post_traverse({:token, [:macro]})
-  # end
-
-  # def macro(combinator) do
-  #   concat(combinator, macro())
-  # end
-
-  # EXPERIMENT
-
-  # def macro2() do
-  #   lookahead_not(choice([eos(), dual_ahead()]))
-  #   |> m_literal()
-  #   |> times(min: 1)
-  #   |> reduce({List, :to_string, []})
-  #   |> tag(:literal)
-  #   |> tag(:macro2)
-  # end
-
   def m_literals() do
     lookahead_not(dual_cidr())
     |> m_literal()
@@ -467,6 +418,9 @@ defmodule Spf.Tokens do
     |> reduce({List, :to_string, []})
     |> post_traverse({:token, [:literal]})
   end
+
+  def m_literals(combinator),
+    do: concat(combinator, m_literals())
 
   def macro() do
     choice([

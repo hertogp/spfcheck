@@ -7,6 +7,31 @@ defmodule Spf do
   alias Spfcheck.DNS
   import Spf.Tokens
 
+  # TODO REMOVE
+  def example() do
+    domain = "rws.nl"
+    ip = "127.0.0.1"
+    sender = "me@localhost"
+
+    context = %{
+      spf: [" v=spf1 a a:%{d} a:%{d1r.}"],
+      domain: domain,
+      ip: ip,
+      sender: sender,
+      opts: [],
+      verdict: "unknown",
+      dns: %{},
+      macro: mletters(domain, ip, sender),
+      verbosity: 3,
+      msg: [],
+      flags: %{}
+    }
+
+    context
+    |> parse()
+    |> check()
+  end
+
   defp grep(ctx) do
     result =
       DNS.resolve(ctx[:domain], :txt)
