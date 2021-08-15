@@ -2,51 +2,97 @@ defmodule Spf do
   @moduledoc """
   Functions to get and debug SPF records.
   """
-  alias Spfcheck.DNS
   import NimbleParsec
+
+  alias Spfcheck.DNS
   import Spf.Tokens
 
-  @doc """
-  Grep for all spf-like strings found in `domain`'s `:txt` records.
+  defp grep(ctx) do
+    result =
+      DNS.resolve(ctx[:domain], :txt)
+      |> DNS.grep(&spf?/1)
 
-  Returns an `{:ok, [binary]}` if it succeeds. Note that the list may be
-  empty or may contain multiple strings, which is usually considered an
-  error.  Returns `{:error, reason}` when resolving failed.
-
-  ## Example
-
-      iex> Spf.grep("example.com")
-      {:ok, ["v=spf1 -all"]}
-
-  """
-  def grep(domain, fun \\ &grepp/1) do
-    case DNS.resolve(domain, :txt) do
-      {:error, reason} -> {:error, reason}
-      {:ok, rdata} -> {:ok, fun.(rdata)}
+    case result do
+      {:ok, spf} -> Map.put(ctx, :spf, spf)
+      {:error, reason} -> Map.put(ctx, :error, reason) |> Map.put(:spf, [])
     end
   end
 
-  defp grepp(rdata) do
-    rdata
-    |> Enum.map(&as_string/1)
-    |> Enum.filter(&spf?/1)
-  end
-
   # check if string contains v=spf, even if malformed
-  defp spf?(str) do
+  def spf?(str) when is_binary(str) do
     str
     |> String.downcase()
     |> String.replace([" ", "\t", "\n", "\r"], "")
-    |> String.contains?("v=spf")
+    |> String.contains?("v=spf1")
   end
 
-  # See https://erlang.org/doc/man/inet_res.html#type-dns_data
-  # dns_data() = .. | [string()] | ..
-  defp as_string(rrelement) do
-    rrelement
-    |> Enum.map(fn x -> List.to_string(x) end)
-    |> Enum.join("")
+  def spf?(_),
+    do: false
+
+  defparsec(:tokenize, Spf.Tokens.terms())
+  defdelegate parse(context), to: Spf.Parser
+
+  def mletters(domain, ip, sender) do
+    pfx = Pfx.new(ip)
+
+    %{
+      # d = <domain>
+      ?d => domain,
+      # c = SMTP client IP (easily readable format)
+      ?c => "#{pfx}",
+      # i = <ip>, for ip6 this expands to dotted format
+      ?i => if(pfx.maxlen == 32, do: "#{pfx}", else: Pfx.format(pfx, width: 4, base: 16)),
+      # s = <sender>
+      ?s => sender,
+      # o = domain of <sender> (after last @ in sender)
+      ?o => String.replace(sender, ~r(^.*@), ""),
+      # l = local-part of <sender> (before last @ in sender)
+      ?l => String.replace(sender, ~r(@[^@]*$), ""),
+      # p = the validated domain name of <ip> (do not use)
+      ?p => Pfx.dns_ptr(ip),
+      # v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
+      ?v => (pfx.maxlen == 32 && "in-addr") || "ip6",
+      # h = HELO/EHLO domain (fake it with domain part of sender)
+      ?h => String.replace(sender, ~r(^.*@), ""),
+      # r = domain name of host performing the check
+      ?r => "localhost",
+      # t = current timestamp (epoch seconds)
+      ?t => DateTime.utc_now() |> DateTime.to_unix()
+    }
   end
 
-  defparsec(:parse, terms())
+  def eval(domain, ip \\ "127.0.0.1", sender \\ "postmaster@localhost", opts \\ []) do
+    context = %{
+      # <domain> to provide authorisation, recursive calls may change this
+      domain: domain,
+      # <ip> of sender, stays the same on recursive calls
+      ip: ip,
+      # <sender>, stays the same on recursive calls
+      sender: sender,
+      # user options
+      opts: opts,
+      # default verdict
+      verdict: "unknown",
+      # dns cache, may be preloaded via opts
+      dns: Keyword.get(opts, :dns, %{}),
+      # expanded macro letters
+      macro: mletters(domain, ip, sender),
+      # verbosity level, default is errors + warnings + notes, not info
+      verbosity: Keyword.get(opts, :verbosity, 3),
+      # parser/eval messages
+      msg: [],
+      # parser state flags
+      flags: %{}
+    }
+
+    context
+    |> grep()
+    |> parse()
+    |> check()
+  end
+
+  def check(x) do
+    IO.inspect(x, label: :x)
+    Map.get(x, :verdict, "oops")
+  end
 end
