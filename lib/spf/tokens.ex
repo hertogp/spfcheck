@@ -68,7 +68,7 @@ defmodule Spf.Tokens do
   def range(context, offset) do
     first = Map.get(context, :start, 0)
     last = offset - 1
-    {context, Range.new(first, last)}
+    Range.new(first, last)
   end
 
   # TOKENS
@@ -83,16 +83,12 @@ defmodule Spf.Tokens do
 
   # Whitespace
   def token(_rest, args, context, _line, offset, :whitespace) do
-    tokval = List.first(args)
-    {[{:whitespace, args, offset - String.length(tokval)}], context}
+    {[{:whitespace, args, range(context, offset)}], context}
   end
 
   # Version
   def token(_rest, args, context, _line, offset, :version) do
-    # [n] = args
-    # d = length(Integer.digits(n))
-    {context, slice} = range(context, offset)
-    {[{:version, args, slice}], context}
+    {[{:version, args, range(context, offset)}], context}
   end
 
   # Qualifier
@@ -209,7 +205,8 @@ defmodule Spf.Tokens do
 
   # Helper Tokens
   def whitespace() do
-    ascii_char([?\ , ?\t])
+    start()
+    |> ascii_char([?\ , ?\t])
     |> times(min: 1)
     |> reduce({List, :to_string, []})
     |> post_traverse({:token, [:whitespace]})
