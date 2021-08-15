@@ -36,8 +36,8 @@ defmodule Spf.Parser do
       case token do
         {:all, _tokval, _offset} ->
           put_in(ctx, [Access.key(:flags, %{}), Access.key(:all)], true)
-          |> rm_redirect()
           |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
+          |> rm_redirect()
 
         {:redirect, _tokval, _offset} ->
           if ctx[:flags][:redirect],

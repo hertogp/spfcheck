@@ -60,38 +60,20 @@ defmodule Spf.Tokens do
   def eoterm2(c),
     do: concat(c, eoterm2())
 
+  def mark_start(_rest, _args, context, _line, offset) do
+    IO.inspect(context, label: :mark_start)
+    {[], Map.put(context, :start, offset)}
+  end
+
   # TOKENS
 
-  @doc """
-  Turns a parser result into a token 3-element tuple `{:type, value, offset}`
-
-  The following tokens are produced by the tokenizer:
-  - `:whitespace`
-  - `:version`
-  - `:a`
-  - `:mx`
-  - `:include`
-  - `:ip4`
-  - `:ip6`
-  - `:ptr`
-  - `:exists`
-  - `:all`
-  - `:redirect`
-  - `:exp`
-  - `unknown`
-
-  These directive and modifier tokens may have other tokens in their token value:
-  - `:qualifier`
-  - `:expand`
-  - `:macro`
-  - `:transform`
-  - `:literal`
-  - `:dual_cidr2`
-  - `:dual_cidr4`
-  - `:dual_cidr6`
-
-  """
+  # token = {atom, args, range}
+  # - atom is type of token
+  # - args is args for Parser.token handler function
+  # - range is {start, end} of token in spf string
   def token(rest, args, context, line, offset, atom)
+  # line = {linenr, start_line (0-based offset from start of entire binary)
+  # offset = token_end (0-based offset from start of entire binary)
 
   # Whitespace
   def token(_rest, args, context, _line, offset, :whitespace) do
@@ -103,6 +85,7 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, :version) do
     [n] = args
     d = length(Integer.digits(n))
+    IO.inspect(context, label: :version)
     {[{:version, args, offset - 5 - d}], context}
   end
 
@@ -290,7 +273,9 @@ defmodule Spf.Tokens do
   # DIRECTIVES
 
   def version() do
-    anycase("v=spf")
+    empty()
+    |> post_traverse({:mark_start, []})
+    |> anycase("v=spf")
     |> ignore()
     |> integer(min: 1)
     |> post_traverse({:token, [:version]})
