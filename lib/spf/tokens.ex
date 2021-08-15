@@ -66,9 +66,9 @@ defmodule Spf.Tokens do
   end
 
   def range(context, offset) do
-    start = Map.pop(context, :start, 0)
-    stop = offset - 1
-    {context, start..stop}
+    first = Map.get(context, :start, 0)
+    last = offset - 1
+    {context, Range.new(first, last)}
   end
 
   # TOKENS
