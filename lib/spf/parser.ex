@@ -35,6 +35,45 @@ defmodule Spf.Parser do
     end
   end
 
+  defp cidr(nil),
+    do: [32, 128]
+
+  defp cidr({:dual_cidr, args, _}),
+    do: args
+
+  defp domain(ctx, nil),
+    do: ctx[:domain]
+
+  defp domain(ctx, {:domain_spec, tokens, _range}) do
+    for {token, args, _range} <- tokens do
+      mexec(ctx, token, args)
+    end
+    |> Enum.join()
+  end
+
+  # transformers:
+  # 1. split on "." or the delimiters provided
+  # 2. reversal if requested
+  # 3. keep (max) N last elements if requested
+  # 4. join with "."
+  defp mexec(ctx, :expand, [ltr, keep, reverse, delimiters]) do
+    ctx[:macro][ltr]
+    |> String.split(delimiters)
+    |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
+    |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
+    |> Enum.join(".")
+  end
+
+  defp mexec(_ctx, :literal, str),
+    do: str
+
+  defp taketok(args, token) do
+    case List.keytake(args, token, 0) do
+      nil -> {nil, args}
+      {tok, args} -> {tok, args}
+    end
+  end
+
   # either append or ignore new token
   defp ast(ctx, token) do
     if ctx[:flags][:all] do
@@ -221,114 +260,4 @@ defmodule Spf.Parser do
   #       log(ctx, :error, "unknown SPF version (#{n}): #{inspect(String.slice(ctx[:spf], slice))}"),
   #     else: ctx
   # end
-
-  # whitespace is ignored but may yield a warning
-  # def whitespace(ctx, range, wspace) do
-  #   ctx =
-  #     if String.length(wspace) > 1,
-  #       do: log(ctx, :warn, "repeated whitespace: range #{inspect(range)}"),
-  #       else: ctx
-
-  #   if String.contains?(wspace, "\t"),
-  #     do: log(ctx, :warn, "whitespace contains tab: range( ##{inspect(range)}"),
-  #     else: ctx
-  # end
-
-  defp cidr(nil),
-    do: [32, 128]
-
-  defp cidr({:dual_cidr, args, _}),
-    do: args
-
-  defp domain(ctx, nil),
-    do: ctx[:domain]
-
-  defp domain(ctx, {:domain_spec, tokens, _range}) do
-    for {token, args, _range} <- tokens do
-      mexec(ctx, token, args)
-    end
-    |> Enum.join()
-  end
-
-  # transformers:
-  # 1. split on "." or the delimiters provided
-  # 2. reversal if requested
-  # 3. keep (max) N last elements if requested
-  # 4. join with "."
-  defp mexec(ctx, :expand, [ltr, keep, reverse, delimiters]) do
-    ctx[:macro][ltr]
-    |> String.split(delimiters)
-    |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
-    |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
-    |> Enum.join(".")
-  end
-
-  defp mexec(_ctx, :literal, str),
-    do: str
-
-  # MECHANISMS
-
-  defp taketok(args, token) do
-    case List.keytake(args, token, 0) do
-      nil -> {nil, args}
-      {tok, args} -> {tok, args}
-    end
-  end
-
-  # def a(ctx, range, qual, args \\ []) do
-  #   {spec, _} = taketok(args, :domain_spec)
-  #   {dual, _} = taketok(args, :dual_cidr)
-  #   # TODO: may be check args length is <= 2?
-  #   ast(ctx, {:a, [qual, domain(ctx, spec), cidr(dual)], range})
-  # end
-
-  # def mx(ctx, range, qual, args \\ []) do
-  #   {spec, _} = taketok(args, :domain_spec)
-  #   {dual, _} = taketok(args, :dual_cidr)
-  #   ast(ctx, {:mx, [qual, domain(ctx, spec), cidr(dual)], range})
-  # end
-
-  # def include(ctx, range, qual, domain_spec) do
-  #   ast(ctx, {:include, [qual, domain(ctx, domain_spec)], range})
-  # end
-
-  # def exists(ctx, range, qual, domain_spec) do
-  #   ast(ctx, {:exists, [qual, domain(ctx, domain_spec)], range})
-  # end
-
-  # def all(ctx, range, qual) do
-  #   ast(ctx, {:all, [qual], range})
-  # end
-
-  # def ptr(ctx, range, qual, args \\ []) do
-  #   domain_spec = if args == [], do: nil, else: hd(args)
-  #   ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
-  # end
-
-  # def ip4(ctx, range, qual, ip) do
-  #   case pfxparse(ip) do
-  #     {:ok, pfx} ->
-  #       ast(ctx, {:ip4, [qual, pfx], range})
-
-  #     {:error, _} ->
-  #       log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
-  #   end
-  # end
-
-  # def ip6(ctx, range, qual, ip) do
-  #   case pfxparse(ip) do
-  #     {:ok, pfx} ->
-  #       ast(ctx, {:ip6, [qual, pfx], range})
-
-  #     {:error, _} ->
-  #       log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
-  #   end
-  # end
-
-  # # Modifiers
-  # def redirect(ctx, range, domain_spec),
-  #   do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
-
-  # def exp(ctx, range, domain_spec),
-  #   do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 end
