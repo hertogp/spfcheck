@@ -257,7 +257,8 @@ defmodule Spf.Tokens do
   end
 
   def all() do
-    qualifier()
+    start()
+    |> qualifier()
     |> ignore(anycase("all"))
     |> post_traverse({:token, [:all]})
   end
@@ -357,7 +358,7 @@ defmodule Spf.Tokens do
     do: concat(combinator, m_literal())
 
   # a macro-expand without a transform will have a :transform token with
-  # an empty list as token value; otherwise
+  # an empty list as token value
   def m_transform() do
     times(digit(), min: 0)
     |> optional(ascii_char([?r]))
