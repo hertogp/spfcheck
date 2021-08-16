@@ -117,19 +117,27 @@ defmodule Spf.Parser do
   end
 
   def parse(ctx = %{spf: [spf]}) do
-    len = String.length(spf)
+    {:ok, tokens, rest, _, _, _} = Spf.tokenize(spf)
 
     ctx =
       Map.put(ctx, :spf, spf)
+      |> Map.put(:spf_tokens, tokens)
+      |> Map.put(:spf_rest, rest)
       |> Map.put(:ast, [])
+
+    len = String.length(spf)
 
     ctx =
       if len > 512,
         do: log(ctx, :warn, "spf record length: #{len} exceeds recommended length of 512"),
         else: ctx
 
-    Spf.tokenize(spf)
-    |> parsep(ctx)
+    ctx =
+      if String.length(rest) > 0,
+        do: log(ctx, :DEBUG, "SPF string residue found: #{rest}"),
+        else: ctx
+
+    Enum.reduce(tokens, ctx, &check/2)
   end
 
   def parse(ctx = %{spf: spf}) do
@@ -170,22 +178,6 @@ defmodule Spf.Parser do
   #   - collect validated names (lookup name -> ip is <ip>, then name is validated)
   #   - filter names, keep eqal to <target> domain or subdomain thereof
   #   - 1+ name remains -> match, if empty -> no-match
-
-  # Implementation
-
-  defp parsep({:ok, tokens, rest, _, _, _}, ctx) do
-    # TODO:
-    # - move warning to post parser checks
-    #   if String.length(rest) > 0,
-    #     do: log(ctx, :warn, "residual spf text: '#{rest}'"),
-    #     else: ctx
-
-    ctx =
-      Map.put(ctx, :spf_tokens, tokens)
-      |> Map.put(:spf_rest, rest)
-
-    Enum.reduce(tokens, ctx, &check/2)
-  end
 
   # Check Tokens
 
