@@ -17,13 +17,20 @@ defmodule Spf.Parser do
     Map.update(ctx, :msg, [{type, str}], fn msgs -> [{type, str} | msgs] end)
   end
 
+  defp log(ctx, type, {_token, _tokval, range} = token, msg) do
+    start = range.first
+    tokstr = String.slice(ctx[:spf], range)
+    IO.puts(:stderr, "[#{type}] col #{start}: '#{tokstr}' - #{msg}")
+    Map.update(ctx, :msg, [{type, token, msg}], fn msgs -> [{type, token, msg} | msgs] end)
+  end
+
   defp rm_redirect(ctx) do
     case List.keytake(ctx[:ast], :redirect, 0) do
       nil ->
         ctx
 
       {redir, ast} ->
-        log(ctx, :warn, "since `all` is present, ignoring: #{inspect(redir)}")
+        log(ctx, :warn, redir, "ignored:  `all` is present")
         |> Map.put(:ast, ast)
     end
   end
@@ -31,7 +38,7 @@ defmodule Spf.Parser do
   # either append or ignore new token
   defp ast(ctx, token) do
     if ctx[:flags][:all] do
-      log(ctx, :warn, "term after `all`, ignoring: #{inspect(token)}")
+      log(ctx, :warn, token, "ignored: term past `all`")
     else
       case token do
         {:all, _tokval, _range} ->
@@ -41,7 +48,7 @@ defmodule Spf.Parser do
 
         {:redirect, _tokval, _range} ->
           if ctx[:flags][:redirect],
-            do: log(ctx, :warn, "multiple redirects, ignoring: #{inspect(token)}"),
+            do: log(ctx, :warn, token, "ignored: multiple redirects"),
             else:
               put_in(ctx, [Access.key(:flags, %{}), Access.key(:redirect)], true)
               |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
@@ -145,7 +152,7 @@ defmodule Spf.Parser do
     apply(__MODULE__, token, [ctx, range] ++ args)
   rescue
     err ->
-      log(ctx, :error, "token `:#{token}` -> #{inspect(err)}")
+      log(ctx, :error, tok, "#{inspect(err)}")
       |> ast(tok)
   end
 
