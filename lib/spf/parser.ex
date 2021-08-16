@@ -184,8 +184,8 @@ defmodule Spf.Parser do
   defp domain(ctx, nil),
     do: ctx[:domain]
 
-  defp domain(ctx, {:domain_spec, tokens, _offset}) do
-    for {token, args, _offset} <- tokens do
+  defp domain(ctx, {:domain_spec, tokens, _range}) do
+    for {token, args, _range} <- tokens do
       mexec(ctx, token, args)
     end
     |> Enum.join()
@@ -216,34 +216,34 @@ defmodule Spf.Parser do
     end
   end
 
-  def a(ctx, offset, qual, args \\ []) do
+  def a(ctx, range, qual, args \\ []) do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
     # TODO: may be check args length is <= 2?
-    ast(ctx, {:a, [qual, domain(ctx, spec), cidr(dual)], offset})
+    ast(ctx, {:a, [qual, domain(ctx, spec), cidr(dual)], range})
   end
 
-  def mx(ctx, offset, qual, args \\ []) do
+  def mx(ctx, range, qual, args \\ []) do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
-    ast(ctx, {:mx, [qual, domain(ctx, spec), cidr(dual)], offset})
+    ast(ctx, {:mx, [qual, domain(ctx, spec), cidr(dual)], range})
   end
 
-  def include(ctx, offset, qual, domain_spec) do
-    ast(ctx, {:include, [qual, domain(ctx, domain_spec)], offset})
+  def include(ctx, range, qual, domain_spec) do
+    ast(ctx, {:include, [qual, domain(ctx, domain_spec)], range})
   end
 
-  def exists(ctx, offset, qual, domain_spec) do
-    ast(ctx, {:exists, [qual, domain(ctx, domain_spec)], offset})
+  def exists(ctx, range, qual, domain_spec) do
+    ast(ctx, {:exists, [qual, domain(ctx, domain_spec)], range})
   end
 
-  def all(ctx, offset, qual) do
-    ast(ctx, {:all, [qual], offset})
+  def all(ctx, range, qual) do
+    ast(ctx, {:all, [qual], range})
   end
 
-  def ptr(ctx, offset, qual, args \\ []) do
+  def ptr(ctx, range, qual, args \\ []) do
     domain_spec = if args == [], do: nil, else: hd(args)
-    ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], offset})
+    ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
   end
 
   def ip4(ctx, range, qual, ip) do
