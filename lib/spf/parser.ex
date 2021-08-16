@@ -100,7 +100,7 @@ defmodule Spf.Parser do
 
   # Parser
 
-  def parse(ctx = %{error: reason}) do
+  def parse(%{error: reason} = ctx) do
     verdict =
       case reason do
         :nxdomain -> "none"
@@ -111,12 +111,12 @@ defmodule Spf.Parser do
     |> Map.put(:verdict, verdict)
   end
 
-  def parse(ctx = %{spf: []}) do
+  def parse(%{spf: []} = ctx) do
     log(ctx, :note, "no spf records found")
     |> Map.put(:verdict, "none")
   end
 
-  def parse(ctx = %{spf: [spf]}) do
+  def parse(%{spf: [spf]} = ctx) do
     {:ok, tokens, rest, _, _, _} = Spf.tokenize(spf)
 
     ctx =

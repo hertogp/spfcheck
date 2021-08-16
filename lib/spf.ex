@@ -33,11 +33,9 @@ defmodule Spf do
   end
 
   defp grep(ctx) do
-    result =
-      DNS.resolve(ctx[:domain], :txt)
-      |> DNS.grep(&spf?/1)
+    {ctx, result} = DNS.resolve(ctx, ctx[:domain], :txt)
 
-    case result do
+    case DNS.grep(result, &spf?/1) do
       {:ok, spf} -> Map.put(ctx, :spf, spf)
       {:error, reason} -> Map.put(ctx, :error, reason) |> Map.put(:spf, [])
     end
@@ -86,28 +84,41 @@ defmodule Spf do
     }
   end
 
-  def eval(domain, ip \\ "127.0.0.1", sender \\ "postmaster@localhost", opts \\ []) do
+  def eval(domain, opts \\ []) do
+    ip = Keyword.get(opts, :ip, "127.0.0.1")
+    sender = Keyword.get(opts, :sender, "postmaster@host.local")
+    macros = mletters(domain, ip, sender)
+
     context = %{
-      # <domain> to provide authorisation, recursive calls may change this
+      # <domain> to provide authorisation
       domain: domain,
-      # <ip> of sender, stays the same on recursive calls
       ip: ip,
-      # <sender>, stays the same on recursive calls
       sender: sender,
-      # user options
       opts: opts,
-      # default verdict
       verdict: "unknown",
-      # dns cache, may be preloaded via opts
+      # dns cache
       dns: Keyword.get(opts, :dns, %{}),
-      # expanded macro letters
-      macro: mletters(domain, ip, sender),
+      macro: macros,
+      # recursion level
+      depth: 0,
+      # used to restore macro after recursive call returns
+      mstack: %{0 => macros},
       # verbosity level, default is errors + warnings + notes, not info
       verbosity: Keyword.get(opts, :verbosity, 3),
       # parser/eval messages
       msg: [],
       # parser state flags
-      flags: %{}
+      flags: %{},
+      # track/guard overall dns queries, void lookups and dns mechanisms
+      num_dnsq: 0,
+      max_dnsq: 10,
+      num_dnsv: 0,
+      max_dnsv: 2,
+      num_dnsm: 0,
+      max_dnsm: 10,
+      # maps depth->domain, domain->depth
+      map: %{},
+      ast: []
     }
 
     context

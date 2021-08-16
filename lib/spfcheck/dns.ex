@@ -22,14 +22,33 @@ defmodule Spfcheck.DNS do
   Returns `{:ok, [rr's]}` in case of success, `{:error, :code}` otherwise.
 
   """
-  @spec resolve(binary, atom) :: {:ok, list} | {:error, atom}
-  def resolve(name, type \\ :a) do
-    name
-    |> String.to_charlist()
-    |> :inet_res.resolve(:in, type)
-    |> resultp()
+  @spec resolve(map, binary, atom) :: {map, any}
+  def resolve(ctx, name, type \\ :a) when is_map(ctx) and is_binary(name),
+    do: cached(ctx, name, type) || cache(ctx, name, type)
+
+  defp cached(ctx, name, type) do
+    result = ctx[:dns][{name, type}]
+    IO.inspect(result, label: :dns_cached)
+
+    if result,
+      do: {ctx, result},
+      else: result
+  end
+
+  defp cache(ctx, name, type) do
+    result =
+      name
+      |> String.to_charlist()
+      |> :inet_res.resolve(:in, type)
+      |> resultp()
+
+    keys = [Access.key(:dns), Access.key({name, type})]
+    {put_in(ctx, keys, result), result}
   rescue
-    CaseClauseError -> {:error, :qtype}
+    CaseClauseError ->
+      keys = [Access.key(:dns), Access.key({name, type})]
+      err = {:error, :qtype}
+      {put_in(ctx, keys, err), err}
   end
 
   # returns {:error, reason} or {:ok, rdata}-tuple
