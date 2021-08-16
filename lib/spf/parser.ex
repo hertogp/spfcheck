@@ -145,35 +145,94 @@ defmodule Spf.Parser do
       Map.put(ctx, :spf_tokens, tokens)
       |> Map.put(:spf_rest, rest)
 
-    Enum.reduce(tokens, ctx, &execp/2)
+    Enum.reduce(tokens, ctx, &check/2)
   end
 
-  defp execp({token, args, range} = tok, ctx) do
-    apply(__MODULE__, token, [ctx, range] ++ args)
-  rescue
-    err ->
-      log(ctx, :error, tok, "#{inspect(err)}")
-      |> ast(tok)
+  # Check Tokens
+
+  # Version
+  defp check({:version, [n], _range} = token, ctx) do
+    case n do
+      1 -> ctx
+      _ -> log(ctx, :error, token, "unknown SPF version")
+    end
   end
 
-  def version(ctx, slice, n) do
-    if n != 1,
-      do:
-        log(ctx, :error, "unknown SPF version (#{n}): #{inspect(String.slice(ctx[:spf], slice))}"),
-      else: ctx
-  end
-
-  # whitespace is ignored but may yield a warning
-  def whitespace(ctx, range, wspace) do
+  # Whitespace
+  defp check({:whitespace, [wspace], _range} = token, ctx) do
     ctx =
       if String.length(wspace) > 1,
-        do: log(ctx, :warn, "repeated whitespace: range #{inspect(range)}"),
+        do: log(ctx, :warn, token, "repeated whitespace"),
         else: ctx
 
     if String.contains?(wspace, "\t"),
-      do: log(ctx, :warn, "whitespace contains tab: range( ##{inspect(range)}"),
+      do: log(ctx, :warn, token, "whitespace contains tab"),
       else: ctx
   end
+
+  # A
+  defp check({atom, [qual | args], range}, ctx) when atom in [:a, :mx] do
+    {spec, _} = taketok(args, :domain_spec)
+    {dual, _} = taketok(args, :dual_cidr)
+    ast(ctx, {atom, [qual, domain(ctx, spec), cidr(dual)], range})
+  end
+
+  # Include, Exists
+  defp check({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
+    do: ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range})
+
+  # All
+  defp check({:all, [qual], range}, ctx),
+    do: ast(ctx, {:all, [qual], range})
+
+  # Ptr
+  defp check({:ptr, [qual | args], range}, ctx) do
+    domain_spec = if args == [], do: nil, else: hd(args)
+    ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
+  end
+
+  # IP4, IP6
+  defp check({atom, [qual, ip], range} = token, ctx) when atom in [:ip4, :ip6] do
+    case pfxparse(ip) do
+      {:ok, pfx} -> ast(ctx, {atom, [qual, pfx], range})
+      {:error, _} -> log(ctx, :warn, token, "ignoring invalid IP")
+    end
+  end
+
+  # Redirect, Exp
+  defp check({token, [domain_spec], range}, ctx) when token in [:redirect, :exp],
+    do: ast(ctx, {token, [domain(ctx, domain_spec)], range})
+
+  # CatchAll
+  defp check(token, ctx),
+    do: log(ctx, :DEBUG, token, "no handler available")
+
+  # defp execp({token, args, range} = tok, ctx) do
+  #   apply(__MODULE__, token, [ctx, range] ++ args)
+  # rescue
+  #   err ->
+  #     log(ctx, :error, tok, "#{inspect(err)}")
+  #     |> ast(tok)
+  # end
+
+  # def version(ctx, slice, n) do
+  #   if n != 1,
+  #     do:
+  #       log(ctx, :error, "unknown SPF version (#{n}): #{inspect(String.slice(ctx[:spf], slice))}"),
+  #     else: ctx
+  # end
+
+  # whitespace is ignored but may yield a warning
+  # def whitespace(ctx, range, wspace) do
+  #   ctx =
+  #     if String.length(wspace) > 1,
+  #       do: log(ctx, :warn, "repeated whitespace: range #{inspect(range)}"),
+  #       else: ctx
+
+  #   if String.contains?(wspace, "\t"),
+  #     do: log(ctx, :warn, "whitespace contains tab: range( ##{inspect(range)}"),
+  #     else: ctx
+  # end
 
   defp cidr(nil),
     do: [32, 128]
@@ -216,60 +275,60 @@ defmodule Spf.Parser do
     end
   end
 
-  def a(ctx, range, qual, args \\ []) do
-    {spec, _} = taketok(args, :domain_spec)
-    {dual, _} = taketok(args, :dual_cidr)
-    # TODO: may be check args length is <= 2?
-    ast(ctx, {:a, [qual, domain(ctx, spec), cidr(dual)], range})
-  end
+  # def a(ctx, range, qual, args \\ []) do
+  #   {spec, _} = taketok(args, :domain_spec)
+  #   {dual, _} = taketok(args, :dual_cidr)
+  #   # TODO: may be check args length is <= 2?
+  #   ast(ctx, {:a, [qual, domain(ctx, spec), cidr(dual)], range})
+  # end
 
-  def mx(ctx, range, qual, args \\ []) do
-    {spec, _} = taketok(args, :domain_spec)
-    {dual, _} = taketok(args, :dual_cidr)
-    ast(ctx, {:mx, [qual, domain(ctx, spec), cidr(dual)], range})
-  end
+  # def mx(ctx, range, qual, args \\ []) do
+  #   {spec, _} = taketok(args, :domain_spec)
+  #   {dual, _} = taketok(args, :dual_cidr)
+  #   ast(ctx, {:mx, [qual, domain(ctx, spec), cidr(dual)], range})
+  # end
 
-  def include(ctx, range, qual, domain_spec) do
-    ast(ctx, {:include, [qual, domain(ctx, domain_spec)], range})
-  end
+  # def include(ctx, range, qual, domain_spec) do
+  #   ast(ctx, {:include, [qual, domain(ctx, domain_spec)], range})
+  # end
 
-  def exists(ctx, range, qual, domain_spec) do
-    ast(ctx, {:exists, [qual, domain(ctx, domain_spec)], range})
-  end
+  # def exists(ctx, range, qual, domain_spec) do
+  #   ast(ctx, {:exists, [qual, domain(ctx, domain_spec)], range})
+  # end
 
-  def all(ctx, range, qual) do
-    ast(ctx, {:all, [qual], range})
-  end
+  # def all(ctx, range, qual) do
+  #   ast(ctx, {:all, [qual], range})
+  # end
 
-  def ptr(ctx, range, qual, args \\ []) do
-    domain_spec = if args == [], do: nil, else: hd(args)
-    ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
-  end
+  # def ptr(ctx, range, qual, args \\ []) do
+  #   domain_spec = if args == [], do: nil, else: hd(args)
+  #   ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
+  # end
 
-  def ip4(ctx, range, qual, ip) do
-    case pfxparse(ip) do
-      {:ok, pfx} ->
-        ast(ctx, {:ip4, [qual, pfx], range})
+  # def ip4(ctx, range, qual, ip) do
+  #   case pfxparse(ip) do
+  #     {:ok, pfx} ->
+  #       ast(ctx, {:ip4, [qual, pfx], range})
 
-      {:error, _} ->
-        log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
-    end
-  end
+  #     {:error, _} ->
+  #       log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
+  #   end
+  # end
 
-  def ip6(ctx, range, qual, ip) do
-    case pfxparse(ip) do
-      {:ok, pfx} ->
-        ast(ctx, {:ip6, [qual, pfx], range})
+  # def ip6(ctx, range, qual, ip) do
+  #   case pfxparse(ip) do
+  #     {:ok, pfx} ->
+  #       ast(ctx, {:ip6, [qual, pfx], range})
 
-      {:error, _} ->
-        log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
-    end
-  end
+  #     {:error, _} ->
+  #       log(ctx, :warn, "ignoring invalid mechanism: '#{String.slice(ctx[:spf], range)}'")
+  #   end
+  # end
 
-  # Modifiers
-  def redirect(ctx, range, domain_spec),
-    do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
+  # # Modifiers
+  # def redirect(ctx, range, domain_spec),
+  #   do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
 
-  def exp(ctx, range, domain_spec),
-    do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
+  # def exp(ctx, range, domain_spec),
+  #   do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 end
