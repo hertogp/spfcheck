@@ -66,7 +66,6 @@ defmodule Spf.Tokens do
 
   # Whitespace
   def token(_rest, args, context, _line, offset, :whitespace) do
-    IO.inspect({context, offset}, label: :token_wspace)
     {[{:whitespace, args, range(context, offset)}], context}
   end
 
@@ -92,7 +91,6 @@ defmodule Spf.Tokens do
 
   # Include, Exists
   def token(_rest, args, context, _line, offset, atom) when atom in [:include, :exists] do
-    IO.inspect(args, label: :tokens_include)
     [{:qualifier, q, _offset}, macro] = Enum.reverse(args)
     {[{atom, [q, macro], range(context, offset)}], context}
   end
@@ -142,10 +140,8 @@ defmodule Spf.Tokens do
 
   # Expand -> {:expand, [letter, keepN, reverse?, delimiters], range}
   def token(_rest, args, context, _line, offset, :expand1) do
-    IO.inspect(args, label: :expand1)
     [ltr, reverse, keep | delims] = Enum.reverse(args)
     delims = if delims == [], do: ["."], else: Enum.map(delims, fn x -> List.to_string([x]) end)
-    IO.inspect(delims, label: :expand1_delims)
     tokval = [ltr, keep, reverse, delims]
 
     {[{:expand, tokval, range(context, offset)}], context}

@@ -179,7 +179,6 @@ defmodule Spf.Parser do
 
   defp domain(ctx, {:domain_spec, tokens, _offset}) do
     for {token, args, _offset} <- tokens do
-      IO.inspect(token, label: :mexec_token)
       mexec(ctx, token, args)
     end
     |> Enum.join()
