@@ -13,18 +13,6 @@ defmodule Spf.Parser do
     _ -> {:error, pfx}
   end
 
-  defp log(ctx, type, str) do
-    IO.puts(:stderr, "[#{type}] #{str}")
-    Map.update(ctx, :msg, [{type, str}], fn msgs -> [{type, str} | msgs] end)
-  end
-
-  defp log(ctx, type, {_token, _tokval, range} = token, msg) do
-    start = range.first
-    tokstr = String.slice(ctx[:spf], range)
-    IO.puts(:stderr, "[#{type}] col #{start}: '#{tokstr}' - #{msg}")
-    Map.update(ctx, :msg, [{type, token, msg}], fn msgs -> [{type, token, msg} | msgs] end)
-  end
-
   defp rm_redirect(ctx) do
     case List.keytake(ctx[:ast], :redirect, 0) do
       nil ->
@@ -215,7 +203,7 @@ defmodule Spf.Parser do
   end
 
   # A, MX
-  defp check({atom, [qual | args], range}, ctx) when atom in [:a, :mx] do
+  defp check({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
 

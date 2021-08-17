@@ -100,8 +100,12 @@ defmodule Spf.Utils do
   """
   def addip(ctx, ips, dual, value) when is_list(ips) do
     kvs = Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
-    Map.put(ctx, :ipt, Iptrie.put(ctx[:ipt], kvs))
+    ipt = Enum.reduce(kvs, ctx[:ipt], &ipt_update/2)
+    Map.put(ctx, :ipt, ipt)
   end
+
+  defp ipt_update({k, v}, ipt),
+    do: Iptrie.update(ipt, k, [v], fn list -> [v | list] end)
 
   defp prefix(ip, [len4, len6]) do
     pfx = Pfx.new(ip)
