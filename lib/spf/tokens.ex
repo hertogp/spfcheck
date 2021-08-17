@@ -85,7 +85,7 @@ defmodule Spf.Tokens do
 
   # Qualifier
   def token(_rest, args, context, _line, offset, :qualifier) do
-    tokval = if args == [], do: [?+], else: args
+    tokval = if args == [], do: ?+, else: hd(args)
     {[{:qualifier, tokval, range(context, offset)}], context}
   end
 

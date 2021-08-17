@@ -3,6 +3,8 @@ defmodule Spf.Utils do
   Helper functions for all Spf modules
   """
 
+  alias Spf.DNS
+
   @doc """
   Returns a map with macroletters expansions for given `domain`, `ip` and `sender`.
 
@@ -95,12 +97,40 @@ defmodule Spf.Utils do
   end
 
   @doc """
-  Add key,value pair to `ctx.ipt`.
+  Resolve MX names and add ip's to `ctx.ipt`
+  """
+  def addmx(ctx, domain, dual, value) do
+    {ctx, dns} = DNS.resolve(ctx, domain, :mx)
+
+    case dns do
+      {:error, reason} ->
+        log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+
+      {:ok, rrs} ->
+        Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
+        |> Enum.reduce(ctx, fn name, acc -> addname(acc, name, dual, value) end)
+    end
+  end
+
+  @doc """
+  Resolve a domain name and add it's ip to `ctx.ipt`
+  """
+  def addname(ctx, domain, dual, value) do
+    {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
+
+    case dns do
+      {:ok, rrs} -> addip(ctx, rrs, dual, value)
+      {:error, reason} -> log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+    end
+  end
+
+  @doc """
+  Add key,value pairs to `ctx.ipt`.
 
   """
   def addip(ctx, ips, dual, value) when is_list(ips) do
     kvs = Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
-    ipt = Enum.reduce(kvs, ctx[:ipt], &ipt_update/2)
+    ipt = Enum.reduce(kvs, ctx.ipt, &ipt_update/2)
     Map.put(ctx, :ipt, ipt)
   end
 
