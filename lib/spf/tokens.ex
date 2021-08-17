@@ -268,7 +268,7 @@ defmodule Spf.Tokens do
     |> qualifier()
     |> ignore(anycase("include:"))
     |> macro()
-    |> pre_traverse({:token, [:include]})
+    |> post_traverse({:token, [:include]})
   end
 
   def ip4() do

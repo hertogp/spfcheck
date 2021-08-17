@@ -1,7 +1,9 @@
-defmodule Spfcheck.DNS do
+defmodule Spf.DNS do
   @moduledoc """
-  DNS helper functions for Spfcheck.
+  DNS helper functions
   """
+
+  import Spf.Utils
 
   # https://www.rfc-editor.org/rfc/rfc6895.html
   # Decimal RCODE-name Description                     Reference
@@ -24,18 +26,17 @@ defmodule Spfcheck.DNS do
   """
   @spec resolve(map, binary, atom) :: {map, any}
   def resolve(ctx, name, type \\ :a) when is_map(ctx) and is_binary(name),
-    do: cached(ctx, name, type) || cache(ctx, name, type)
+    do: cached(ctx, name, type) || resolved(ctx, name, type)
 
   defp cached(ctx, name, type) do
     result = ctx[:dns][{name, type}]
-    IO.inspect(result, label: :dns_cached)
 
     if result,
-      do: {ctx, result},
+      do: {tick(ctx, :num_dnsq), {:ok, result}},
       else: result
   end
 
-  defp cache(ctx, name, type) do
+  defp resolved(ctx, name, type) do
     result =
       name
       |> String.to_charlist()
@@ -43,7 +44,15 @@ defmodule Spfcheck.DNS do
       |> resultp()
 
     keys = [Access.key(:dns), Access.key({name, type})]
-    {put_in(ctx, keys, result), result}
+
+    ctx =
+      case result do
+        {:error, :nxdomain} -> tick(ctx, :num_dnsq) |> tick(:num_dnsv)
+        {:ok, []} -> tick(ctx, :num_dnsq) |> tick(:num_dnsv)
+        {:ok, rrs} -> tick(ctx, :num_dnsq) |> put_in(keys, rrs)
+      end
+
+    {ctx, result}
   rescue
     CaseClauseError ->
       keys = [Access.key(:dns), Access.key({name, type})]

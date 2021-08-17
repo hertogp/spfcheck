@@ -3,6 +3,7 @@ defmodule Spf.Parser do
   Functions to parse a list of tokens, given a context of ip, sender and domain
   """
 
+  import Spf.Utils
   # Helpers
 
   # -> TODO, remove once Pfx.parse becomes available
@@ -46,7 +47,7 @@ defmodule Spf.Parser do
 
   defp domain(ctx, {:domain_spec, tokens, _range}) do
     for {token, args, _range} <- tokens do
-      mexec(ctx, token, args)
+      expand(ctx, token, args)
     end
     |> Enum.join()
   end
@@ -56,7 +57,7 @@ defmodule Spf.Parser do
   # 2. reversal if requested
   # 3. keep (max) N last elements if requested
   # 4. join with "."
-  defp mexec(ctx, :expand, [ltr, keep, reverse, delimiters]) do
+  defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
     ctx[:macro][ltr]
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
@@ -64,7 +65,7 @@ defmodule Spf.Parser do
     |> Enum.join(".")
   end
 
-  defp mexec(_ctx, :literal, str),
+  defp expand(_ctx, :literal, str),
     do: str
 
   defp taketok(args, token) do
@@ -75,6 +76,18 @@ defmodule Spf.Parser do
   end
 
   # either append or ignore new token
+  defp ast(ctx, {:exp, _, _} = token) do
+    if ctx[:nth] > 0 do
+      log(ctx, :info, token, "ignored: is #{ctx[:nth]}-th spf's explain")
+    else
+      if ctx[:exp] do
+        log(ctx, :info, token, "ignored: multiple explains")
+      else
+        Map.put(ctx, :exp, token)
+      end
+    end
+  end
+
   defp ast(ctx, token) do
     if ctx[:flags][:all] do
       log(ctx, :warn, token, "ignored: term past `all`")
@@ -201,16 +214,18 @@ defmodule Spf.Parser do
       else: ctx
   end
 
-  # A
+  # A, MX
   defp check({atom, [qual | args], range}, ctx) when atom in [:a, :mx] do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
+
     ast(ctx, {atom, [qual, domain(ctx, spec), cidr(dual)], range})
+    |> tick(:num_dnsm)
   end
 
   # Include, Exists
   defp check({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
-    do: ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range})
+    do: ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range}) |> tick(:num_dnsm)
 
   # All
   defp check({:all, [qual], range}, ctx),
@@ -219,7 +234,9 @@ defmodule Spf.Parser do
   # Ptr
   defp check({:ptr, [qual | args], range}, ctx) do
     domain_spec = if args == [], do: nil, else: hd(args)
+
     ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
+    |> tick(:num_dnsm)
   end
 
   # IP4, IP6
@@ -231,25 +248,14 @@ defmodule Spf.Parser do
   end
 
   # Redirect, Exp
-  defp check({token, [domain_spec], range}, ctx) when token in [:redirect, :exp],
-    do: ast(ctx, {token, [domain(ctx, domain_spec)], range})
+  defp check({:redirect, [domain_spec], range}, ctx),
+    do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range}) |> tick(:num_dnsm)
+
+  # Exp - not included in count of dns mechanisms
+  defp check({:exp, [domain_spec], range}, ctx),
+    do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 
   # CatchAll
   defp check(token, ctx),
     do: log(ctx, :DEBUG, token, "no handler available")
-
-  # defp execp({token, args, range} = tok, ctx) do
-  #   apply(__MODULE__, token, [ctx, range] ++ args)
-  # rescue
-  #   err ->
-  #     log(ctx, :error, tok, "#{inspect(err)}")
-  #     |> ast(tok)
-  # end
-
-  # def version(ctx, slice, n) do
-  #   if n != 1,
-  #     do:
-  #       log(ctx, :error, "unknown SPF version (#{n}): #{inspect(String.slice(ctx[:spf], slice))}"),
-  #     else: ctx
-  # end
 end
