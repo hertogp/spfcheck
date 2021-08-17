@@ -43,7 +43,7 @@ defmodule Spf.DNS do
       |> :inet_res.resolve(:in, type)
       |> resultp()
 
-    keys = [Access.key(:dns), Access.key({name, type})]
+    keys = [:dns, {name, type}]
 
     ctx =
       case result do

@@ -51,12 +51,14 @@ defmodule Spf.Utils do
   def context(domain, opts \\ []) do
     ip = Keyword.get(opts, :ip, "127.0.0.1")
     sender = Keyword.get(opts, :sender, "postmaster@host.local")
+    atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
     mletters = macros(domain, ip, sender)
 
     %{
       # <domain> to provide authorisation
       domain: domain,
       ip: ip,
+      atype: atype,
       sender: sender,
       opts: opts,
       verdict: "unknown",
@@ -90,6 +92,36 @@ defmodule Spf.Utils do
       # ip -> [{qualifier, depth, domain, token}]
       ipt: Iptrie.new()
     }
+  end
+
+  @doc """
+  Add key,value pair to `ctx.ipt`.
+
+  """
+  def addip(ctx, ips, dual, value) when is_list(ips) do
+    kvs = Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
+    Map.put(ctx, :ipt, Iptrie.put(ctx[:ipt], kvs))
+  end
+
+  defp prefix(ip, [len4, len6]) do
+    pfx = Pfx.new(ip)
+
+    case pfx.maxlen do
+      32 -> Pfx.keep(pfx, len4)
+      _ -> Pfx.keep(pfx, len6)
+    end
+  end
+
+  def log(ctx, type, str) do
+    IO.puts(:stderr, "[#{type}] #{str}")
+    Map.update(ctx, :msg, [{type, str}], fn msgs -> [{type, str} | msgs] end)
+  end
+
+  def log(ctx, type, {_token, _tokval, range} = token, msg) do
+    start = range.first
+    tokstr = String.slice(ctx[:spf], range)
+    IO.puts(:stderr, "[#{type}] col #{start}: '#{tokstr}' - #{msg}")
+    Map.update(ctx, :msg, [{type, token, msg}], fn msgs -> [{type, token, msg} | msgs] end)
   end
 
   # check if string contains v=spf, even if malformed
