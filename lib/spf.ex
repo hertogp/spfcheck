@@ -19,7 +19,7 @@ defmodule Spf do
   end
 
   def report(ctx) do
-    IO.puts("check(#{ctx.domain}, #{ctx.ip}, #{ctx.sender}) -> #{ctx.verdict}")
+    IO.puts("check(#{ctx.domain}, #{ctx.ip}, #{ctx.sender}) -> #{ctx.verdict}#{ctx.explanation}")
   end
 
   defparsec(:tokenize, Spf.Tokens.terms())

@@ -89,6 +89,7 @@ defmodule Spf.Utils do
       f_redirect: false,
       # explain term (if any)
       explain: nil,
+      explanation: ", no explanation provided",
       # track some stats: dns queries, void lookups, dns mech's, checks done
       num_dnsq: 0,
       num_dnsv: 0,
