@@ -68,7 +68,7 @@ defmodule Spf.Utils do
       cur_spf: Keyword.get(opts, :cur_spf, 0),
       verbosity: Keyword.get(opts, :verbosity, 3),
       msg: [],
-      f_include: Keyword.get(opts, :included, false),
+      f_include: false,
       f_all: false,
       f_redirect: false,
       explain: nil,
@@ -137,14 +137,17 @@ defmodule Spf.Utils do
 
   def log(ctx, type, str) do
     IO.puts(:stderr, "[#{type}] #{str}")
-    Map.update(ctx, :msg, [{type, str}], fn msgs -> [{type, str} | msgs] end)
+    Map.update(ctx, :msg, [{ctx.nth, type, str}], fn msgs -> [{ctx.nth, type, str} | msgs] end)
   end
 
   def log(ctx, type, {_token, _tokval, range} = token, msg) do
     start = range.first
     tokstr = String.slice(ctx[:spf], range)
-    IO.puts(:stderr, "[#{type}] col #{start}: '#{tokstr}' - #{msg}")
-    Map.update(ctx, :msg, [{type, token, msg}], fn msgs -> [{type, token, msg} | msgs] end)
+    IO.puts(:stderr, "[spf #{ctx.nth}][#{type}] col #{start}: '#{tokstr}' - #{msg}")
+
+    Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
+      [{ctx.nth, type, token, msg} | msgs]
+    end)
   end
 
   # check if string contains v=spf, even if malformed

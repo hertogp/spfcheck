@@ -65,7 +65,7 @@ defmodule Spf.Parser do
   # either append or ignore new token
   defp ast(ctx, {:exp, _, _} = token) do
     if ctx.f_include do
-      log(ctx, :info, token, "ignored: included explain")
+      log(ctx, :info, token, "spf #{ctx.nth} ignored: included explain")
     else
       if ctx.explain do
         log(ctx, :info, token, "ignored: multiple explains")

@@ -70,8 +70,7 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:include, [q, domain], _range} = term | tail]) do
-    IO.inspect({q, domain}, label: :eval_include)
-    IO.inspect(ctx.map, label: :eval_include_map)
+    IO.inspect(ctx.map[domain], label: :xxx)
 
     if ctx.map[domain] do
       log(ctx, :error, term, "ignored: seen before")
@@ -83,9 +82,16 @@ defmodule Spf.Eval do
         |> eval()
 
       if ctx.verdict in ["fail", "softfail", "neutral"] do
-        pop(ctx) |> evalp(tail)
+        log(ctx, :info, term, "no match")
+        |> pop()
+        |> (fn x ->
+              IO.inspect(x.f_include, label: :zz)
+              x
+            end).()
+        |> evalp(tail)
       else
         Map.put(ctx, :verdict, verdict(q))
+        |> log(:info, term, "SPF match")
       end
     end
   end
@@ -94,9 +100,10 @@ defmodule Spf.Eval do
     if ctx.map[domain] do
       log(ctx, :error, term, "domain seen before")
     else
-      nth = Map.get(ctx, :nth) + 1
+      nth = ctx.cnt
 
       test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
+      |> tick(:cnt)
       |> Map.put(:f_redirect, false)
       |> Map.put(:f_include, false)
       |> Map.put(:f_all, false)
