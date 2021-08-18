@@ -135,20 +135,26 @@ defmodule Spf.Utils do
     end
   end
 
-  def log(ctx, type, str) do
-    nth = String.pad_leading("#{ctx.nth}", 2)
+  defp loglead(nth, type, depth) do
+    nth = String.pad_leading("#{nth}", 2)
     type = String.pad_leading("#{type}", 5)
-    depth = String.duplicate("| ", ctx.depth)
-    IO.puts(:stderr, "[spf #{nth}][#{type}] #{depth} #{str}")
+    depth = String.duplicate("| ", depth)
+    "[spf #{nth}][#{type}] #{depth}"
+  end
+
+  def log(ctx, type, str) do
+    # nth = String.pad_leading("#{ctx.nth}", 2)
+    # type = String.pad_leading("#{type}", 5)
+    # depth = String.duplicate("| ", ctx.depth)
+    lead = loglead(ctx.nth, type, ctx.depth)
+    IO.puts(:stderr, "#{lead}> #{str}")
     Map.update(ctx, :msg, [{ctx.nth, type, str}], fn msgs -> [{ctx.nth, type, str} | msgs] end)
   end
 
   def log(ctx, type, {_token, _tokval, range} = token, msg) do
-    tokstr = String.slice(ctx[:spf], range) <> "#{inspect(token)}"
-    nth = String.pad_leading("#{ctx.nth}", 2)
-    type = String.pad_leading("#{type}", 5)
-    depth = String.duplicate("| ", ctx.depth)
-    IO.puts(:stderr, "[spf #{nth}][#{type}] #{depth}> #{tokstr} - #{msg}")
+    tokstr = String.slice(ctx[:spf], range)
+    lead = loglead(ctx.nth, type, ctx.depth)
+    IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
 
     Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
       [{ctx.nth, type, token, msg} | msgs]

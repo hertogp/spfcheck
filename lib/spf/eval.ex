@@ -9,10 +9,10 @@ defmodule Spf.Eval do
   defp match(ctx, term, tail) do
     # see if current state is a match
     # TODO: add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
-    {pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
+    {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
-      log(ctx, :info, term, "SPF match by #{pfx}")
+      log(ctx, :info, term, "matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
     else
@@ -84,15 +84,6 @@ defmodule Spf.Eval do
         |> Spf.parse()
         |> eval()
 
-      # if ctx.verdict in ["fail", "softfail", "neutral"] do
-      #   pop(ctx)
-      #   |> log(:info, term, "no match")
-      #   |> evalp(tail)
-      # else
-      #   Map.put(ctx, :verdict, verdict(q))
-      #   |> log(:info, term, "SPF match")
-      # end
-
       case ctx.verdict do
         v when v in ["neutral", "fail", "softfail"] ->
           pop(ctx)
@@ -101,6 +92,7 @@ defmodule Spf.Eval do
 
         "pass" ->
           Map.put(ctx, :verdict, verdict(q))
+          |> pop()
           |> log(:info, term, "match")
 
         v when v in ["none", "permerror"] ->
