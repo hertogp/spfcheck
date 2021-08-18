@@ -13,9 +13,12 @@ defmodule Spf.Eval do
 
     if qlist do
       log(ctx, :info, term, "SPF match by #{pfx}")
+      |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
     else
-      evalp(ctx, tail)
+      log(ctx, :info, term, "no match")
+      |> tick(:num_checks)
+      |> evalp(tail)
     end
   end
 
@@ -48,6 +51,7 @@ defmodule Spf.Eval do
       evalp(ctx, tail)
     else
       log(ctx, :info, term, "SPF match by #{List.to_string([q])}all")
+      |> tick(:num_checks)
       |> Map.put(:verdict, verdict(q))
     end
   end
@@ -186,7 +190,10 @@ defmodule Spf.Eval do
     pfx = Pfx.new(ip)
 
     if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
-      String.downcase(name) |> String.ends_with?(String.downcase(domain))
+      String.downcase(name)
+      |> String.ends_with?(String.downcase(domain))
+    else
+      false
     end
   end
 end
