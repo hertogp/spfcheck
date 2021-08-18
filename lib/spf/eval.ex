@@ -91,6 +91,23 @@ defmodule Spf.Eval do
         Map.put(ctx, :verdict, verdict(q))
         |> log(:info, term, "SPF match")
       end
+
+      case ctx.verdict do
+        v when v in ["neutral", "fail", "softfail"] ->
+          log(ctx, :info, term, "no match")
+          |> pop()
+          |> evalp(tail)
+
+        "pass" ->
+          Map.put(ctx, :verdict, verdict(q))
+          |> log(:info, term, "match")
+
+        v when v in ["none", "permerror"] ->
+          Map.put(ctx, :verdict, "permerror") |> log(:info, term, "permerror")
+
+        "temperror" ->
+          ctx
+      end
     end
   end
 

@@ -142,7 +142,7 @@ defmodule Spf.Parser do
 
   def parse(ctx = %{spf: spf}) do
     log(ctx, :error, "#{length(spf)} spf records found")
-    |> Map.put(:spf, spf)
+    |> Map.put(:spf, "")
     |> Map.put(:verdict, "permerror")
   end
 
