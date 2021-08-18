@@ -47,9 +47,18 @@ defmodule Spf.DNS do
 
     ctx =
       case result do
-        {:error, :nxdomain} -> tick(ctx, :num_dnsq) |> tick(:num_dnsv)
-        {:ok, []} -> tick(ctx, :num_dnsq) |> tick(:num_dnsv)
-        {:ok, rrs} -> tick(ctx, :num_dnsq) |> put_in(keys, rrs)
+        {:error, :nxdomain} ->
+          tick(ctx, :num_dnsq)
+          |> tick(:num_dnsv)
+          |> log(:error, "DNS #{name} #{type}: void (nxdomain)")
+
+        {:ok, []} ->
+          tick(ctx, :num_dnsq)
+          |> tick(:num_dnsv)
+          |> log(:error, "DNS #{name} #{type}: void (zero answers)")
+
+        {:ok, rrs} ->
+          tick(ctx, :num_dnsq) |> put_in(keys, rrs)
       end
 
     {ctx, result}
@@ -60,23 +69,7 @@ defmodule Spf.DNS do
       {put_in(ctx, keys, err), err}
   end
 
-  # returns {:error, reason} or {:ok, rdata}-tuple
-  # DNS Return Message
-  # DNS Response Code     Function 
-  # NOERROR      RCODE:0  DNS Query completed successfully
-  # FORMERR      RCODE:1  DNS Query Format Error
-  # SERVFAIL     RCODE:2  Server failed to complete the DNS request
-  # NXDOMAIN     RCODE:3  Domain name does not exist.
-  # NOTIMP       RCODE:4  Function not implemented
-  # REFUSED      RCODE:5  The server refused to answer for the query
-  # YXDOMAIN     RCODE:6  Name that should not exist, does exist
-  # XRRSET       RCODE:7  RRset that should not exist, does exist
-  # NOTAUTH      RCODE:8  Server not authoritative for the zone
-  # NOTZONE      RCODE:9  Name not in zone
-
   defp resultp(msg) do
-    IO.inspect(msg, label: :resolve)
-
     case msg do
       {:error, reason} -> {:error, reason}
       {:ok, record} -> {:ok, rrdata(record)}
@@ -85,11 +78,6 @@ defmodule Spf.DNS do
 
   # returns the RDATA of the RR's in `record` as a list
   # See https://erlang.org/doc/man/inet_res.html#type-dns_data
-  # - record must have answer list (i.e. resolve() was :ok)
-  # - :anlist is a list of rr-tuples
-  # - an rr-tuple has {:dns_rr, domain, type, class, ttl, data} (or variant with options)
-  # - inet_dns.rr(rr-tuple, :atom) -> field-value, where atoms are :domain, .., :data
-  # - rrdata can be: a charlist, {addr, soa, ..}--tuple, binary, list of charlists
   defp rrdata(record) do
     record
     |> :inet_dns.msg(:anlist)
@@ -97,7 +85,6 @@ defmodule Spf.DNS do
     |> Enum.map(fn rrdata -> stringify(rrdata) end)
   end
 
-  # turn a charlist or list of charlists into single string
   defp stringify(rrdata) when is_list(rrdata),
     do: IO.iodata_to_binary(rrdata)
 

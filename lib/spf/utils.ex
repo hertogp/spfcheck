@@ -46,41 +46,32 @@ defmodule Spf.Utils do
 
   @doc """
   Returns a context map for SPF parsing and evaluation.
-
-  During recursive calls, only `domain` may change.  
-
   """
   def context(domain, opts \\ []) do
     ip = Keyword.get(opts, :ip, "127.0.0.1")
     sender = Keyword.get(opts, :sender, "postmaster@host.local")
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
-    mletters = macros(domain, ip, sender)
 
     %{
-      # <domain> to provide authorisation
+      nth: 0,
+      cnt: 1,
       domain: domain,
+      map: %{0 => domain, domain => 0},
+      stack: [],
       ip: ip,
       atype: atype,
       sender: sender,
-      opts: opts,
-      verdict: "unknown",
-      # dns cache
+      verdict: "neutral",
       dns: Keyword.get(opts, :dns, %{}),
-      macro: mletters,
-      # spf counter
+      macro: macros(domain, ip, sender),
       num_spf: Keyword.get(opts, :num_spf, 0),
       cur_spf: Keyword.get(opts, :cur_spf, 0),
-      # maps num_spf -> domain, domain -> num_spf
-      d2d: %{},
-      # maps num_spf -> macros
-      mstack: %{0 => mletters},
-      # verbosity level, default is errors + warnings + notes, not info
       verbosity: Keyword.get(opts, :verbosity, 3),
-      # parser/eval messages
       msg: [],
-      # parser state flags
-      flags: %{},
-      # track/guard overall dns queries, void lookups and dns mechanisms
+      f_include: Keyword.get(opts, :included, false),
+      f_all: false,
+      f_redirect: false,
+      explain: nil,
       num_dnsq: 0,
       num_dnsv: 0,
       num_dnsm: 0,
@@ -89,9 +80,7 @@ defmodule Spf.Utils do
       max_dnsm: 10,
       num_checks: 0,
       ast: [],
-      # calculated afterwards relative to macro[?t]
       duration: 0,
-      # ip -> [{qualifier, depth, domain, token}]
       ipt: Iptrie.new()
     }
   end

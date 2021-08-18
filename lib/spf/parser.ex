@@ -2,11 +2,10 @@ defmodule Spf.Parser do
   @moduledoc """
   Functions to parse a list of tokens, given a context of ip, sender and domain
   """
-
   import Spf.Utils
+
   # Helpers
 
-  # -> TODO, remove once Pfx.parse becomes available
   defp pfxparse(pfx) do
     {:ok, Pfx.new(pfx)}
   rescue
@@ -24,14 +23,14 @@ defmodule Spf.Parser do
     end
   end
 
-  defp cidr(nil),
+  defp cidr([]),
     do: [32, 128]
 
   defp cidr({:dual_cidr, args, _}),
     do: args
 
-  defp domain(ctx, nil),
-    do: ctx[:domain]
+  defp domain(ctx, []),
+    do: ctx.domain
 
   defp domain(ctx, {:domain_spec, tokens, _range}) do
     for {token, args, _range} <- tokens do
@@ -46,7 +45,7 @@ defmodule Spf.Parser do
   # 3. keep (max) N last elements if requested
   # 4. join with "."
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
-    ctx[:macro][ltr]
+    ctx.macro[ltr]
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
     |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
@@ -58,39 +57,39 @@ defmodule Spf.Parser do
 
   defp taketok(args, token) do
     case List.keytake(args, token, 0) do
-      nil -> {nil, args}
+      nil -> {[], args}
       {tok, args} -> {tok, args}
     end
   end
 
   # either append or ignore new token
   defp ast(ctx, {:exp, _, _} = token) do
-    if ctx[:nth] > 0 do
-      log(ctx, :info, token, "ignored: is #{ctx[:nth]}-th spf's explain")
+    if ctx.f_include do
+      log(ctx, :info, token, "ignored: included explain")
     else
-      if ctx[:exp] do
+      if ctx.explain do
         log(ctx, :info, token, "ignored: multiple explains")
       else
-        Map.put(ctx, :exp, token)
+        Map.put(ctx, :explain, token)
       end
     end
   end
 
   defp ast(ctx, token) do
-    if ctx[:flags][:all] do
+    if ctx.f_all do
       log(ctx, :warn, token, "ignored: term past `all`")
     else
       case token do
         {:all, _tokval, _range} ->
-          put_in(ctx, [Access.key(:flags, %{}), Access.key(:all)], true)
+          Map.put(ctx, :f_all, true)
           |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
           |> rm_redirect()
 
         {:redirect, _tokval, _range} ->
-          if ctx[:flags][:redirect],
+          if ctx.f_redirect,
             do: log(ctx, :warn, token, "ignored: multiple redirects"),
             else:
-              put_in(ctx, [Access.key(:flags, %{}), Access.key(:redirect)], true)
+              Map.put(ctx, :f_redirect, true)
               |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
 
         _ ->
@@ -235,7 +234,7 @@ defmodule Spf.Parser do
     end
   end
 
-  # Redirect, Exp
+  # Redirect
   defp check({:redirect, [domain_spec], range}, ctx),
     do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range}) |> tick(:num_dnsm)
 
@@ -245,5 +244,5 @@ defmodule Spf.Parser do
 
   # CatchAll
   defp check(token, ctx),
-    do: log(ctx, :DEBUG, token, "no handler available")
+    do: log(ctx, :DEBUG, token, "Spf.parser.check: no handler available")
 end

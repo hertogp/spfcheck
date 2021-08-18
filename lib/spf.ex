@@ -9,7 +9,7 @@ defmodule Spf do
   import Spf.Utils
   import Spf.Eval
 
-  defp grep(ctx) do
+  def grep(ctx) do
     {ctx, result} = DNS.resolve(ctx, ctx[:domain], :txt)
 
     case DNS.grep(result, &spf?/1) do

@@ -112,7 +112,7 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, atom) when atom in [:a, :mx, :ptr] do
     tokval =
       case Enum.reverse(args) do
-        [{:qualifier, q, _range}] -> [q]
+        [{:qualifier, q, _range}] -> [q, []]
         [{:qualifier, q, _rang} | domain_spec] -> [q, domain_spec]
       end
 
