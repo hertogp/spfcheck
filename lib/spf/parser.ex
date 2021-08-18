@@ -104,11 +104,12 @@ defmodule Spf.Parser do
     verdict =
       case reason do
         :nxdomain -> "none"
+        :timeout -> "temperror"
+        :illegal_name -> "permerror"
         _ -> "temperror"
       end
 
-    log(ctx, :error, "#{ctx.domain} #{inspect(reason)}")
-    |> Map.put(:verdict, verdict)
+    Map.put(ctx, :verdict, verdict)
   end
 
   def parse(%{spf: []} = ctx) do
@@ -128,14 +129,8 @@ defmodule Spf.Parser do
     len = String.length(spf)
 
     ctx =
-      if len > 512,
-        do: log(ctx, :warn, "spf record length: #{len} exceeds recommended length of 512"),
-        else: ctx
-
-    ctx =
-      if String.length(rest) > 0,
-        do: log(ctx, :DEBUG, "SPF string residue found: #{rest}"),
-        else: ctx
+      test(ctx, :warn, :check, len > 512, "SPF record length (#{len}) exceeds 512 characters")
+      |> test(:DEBUG, :check, String.length(rest) > 0, "SPF string residue: #{rest}")
 
     Enum.reduce(tokens, ctx, &check/2)
   end

@@ -78,24 +78,25 @@ defmodule Spf.Eval do
       log(ctx, :error, term, "ignored: seen before")
     else
       ctx =
-        push(ctx, domain)
+        log(ctx, :note, term, "recurse")
+        |> push(domain)
         |> Spf.grep()
         |> Spf.parse()
         |> eval()
 
-      if ctx.verdict in ["fail", "softfail", "neutral"] do
-        log(ctx, :info, term, "no match")
-        |> pop()
-        |> evalp(tail)
-      else
-        Map.put(ctx, :verdict, verdict(q))
-        |> log(:info, term, "SPF match")
-      end
+      # if ctx.verdict in ["fail", "softfail", "neutral"] do
+      #   pop(ctx)
+      #   |> log(:info, term, "no match")
+      #   |> evalp(tail)
+      # else
+      #   Map.put(ctx, :verdict, verdict(q))
+      #   |> log(:info, term, "SPF match")
+      # end
 
       case ctx.verdict do
         v when v in ["neutral", "fail", "softfail"] ->
-          log(ctx, :info, term, "no match")
-          |> pop()
+          pop(ctx)
+          |> log(:info, term, "no match")
           |> evalp(tail)
 
         "pass" ->
@@ -142,6 +143,7 @@ defmodule Spf.Eval do
 
   defp push(ctx, domain) do
     state = %{
+      depth: ctx.depth,
       domain: ctx.domain,
       f_include: ctx.f_include,
       f_redirect: ctx.f_redirect,
@@ -155,6 +157,7 @@ defmodule Spf.Eval do
     nth = ctx.cnt
 
     tick(ctx, :cnt)
+    |> tick(:depth)
     |> Map.put(:stack, [state | ctx.stack])
     |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
     |> Map.put(:domain, domain)
@@ -176,12 +179,6 @@ defmodule Spf.Eval do
         |> Map.merge(state)
     end
   end
-
-  defp test(ctx, label, term, true, msg),
-    do: log(ctx, label, term, msg)
-
-  defp test(ctx, _, _, false, _),
-    do: ctx
 
   # ptr - validate names
   def validated(ctx, {:ptr, [_, domain], _} = term, {:error, reason}),

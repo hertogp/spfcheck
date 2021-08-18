@@ -55,6 +55,7 @@ defmodule Spf.Utils do
     %{
       nth: 0,
       cnt: 1,
+      depth: 0,
       domain: domain,
       map: %{0 => domain, domain => 0},
       stack: [],
@@ -63,6 +64,7 @@ defmodule Spf.Utils do
       sender: sender,
       verdict: "neutral",
       dns: Keyword.get(opts, :dns, %{}),
+      dns_timeout: 10,
       macro: macros(domain, ip, sender),
       verbosity: Keyword.get(opts, :verbosity, 3),
       msg: [],
@@ -134,19 +136,33 @@ defmodule Spf.Utils do
   end
 
   def log(ctx, type, str) do
-    IO.puts(:stderr, "[#{type}] #{str}")
+    nth = String.pad_leading("#{ctx.nth}", 2)
+    type = String.pad_leading("#{type}", 5)
+    depth = String.duplicate("| ", ctx.depth)
+    IO.puts(:stderr, "[spf #{nth}][#{type}] #{depth} #{str}")
     Map.update(ctx, :msg, [{ctx.nth, type, str}], fn msgs -> [{ctx.nth, type, str} | msgs] end)
   end
 
   def log(ctx, type, {_token, _tokval, range} = token, msg) do
-    start = range.first
-    tokstr = String.slice(ctx[:spf], range)
-    IO.puts(:stderr, "[spf #{ctx.nth}][#{type}] col #{start}: '#{tokstr}' - #{msg}")
+    tokstr = String.slice(ctx[:spf], range) <> "#{inspect(token)}"
+    nth = String.pad_leading("#{ctx.nth}", 2)
+    type = String.pad_leading("#{type}", 5)
+    depth = String.duplicate("| ", ctx.depth)
+    IO.puts(:stderr, "[spf #{nth}][#{type}] #{depth}> #{tokstr} - #{msg}")
 
     Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
       [{ctx.nth, type, token, msg} | msgs]
     end)
   end
+
+  @doc """
+  Adds log message if test is true
+  """
+  def test(ctx, label, term, true, msg),
+    do: log(ctx, label, term, msg)
+
+  def test(ctx, _, _, false, _),
+    do: ctx
 
   # check if string contains v=spf, even if malformed
   @doc """

@@ -29,7 +29,7 @@ defmodule Spf.DNS do
     do: cached(ctx, name, type) || resolved(ctx, name, type)
 
   defp cached(ctx, name, type) do
-    result = ctx[:dns][{name, type}]
+    result = ctx.dns[{name, type}]
 
     if result,
       do: {tick(ctx, :num_dnsq), {:ok, result}},
@@ -40,10 +40,8 @@ defmodule Spf.DNS do
     result =
       name
       |> String.to_charlist()
-      |> :inet_res.resolve(:in, type)
+      |> :inet_res.resolve(:in, type, [{:timeout, ctx.dns_timeout}])
       |> resultp()
-
-    keys = [:dns, {name, type}]
 
     ctx =
       case result do
@@ -52,21 +50,31 @@ defmodule Spf.DNS do
           |> tick(:num_dnsv)
           |> log(:error, "DNS #{name} #{type}: void (nxdomain)")
 
+        {:error, :timeout} ->
+          tick(ctx, :num_dnsq)
+          |> log(:error, "DNS #{name} #{type}: timeout")
+
         {:ok, []} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
           |> log(:error, "DNS #{name} #{type}: void (zero answers)")
 
         {:ok, rrs} ->
-          tick(ctx, :num_dnsq) |> put_in(keys, rrs)
+          tick(ctx, :num_dnsq)
+          |> Map.put(:dns, Map.put(ctx.dns, {name, type}, rrs))
       end
 
     {ctx, result}
   rescue
     CaseClauseError ->
-      keys = [Access.key(:dns), Access.key({name, type})]
-      err = {:error, :qtype}
-      {put_in(ctx, keys, err), err}
+      error = {:error, :qtype}
+      ctx = Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+      {ctx, error}
+
+    FunctionClauseError ->
+      error = {:error, :illegal_name}
+      ctx = Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+      {ctx, error}
   end
 
   defp resultp(msg) do
@@ -97,7 +105,7 @@ defmodule Spf.DNS do
   ## Example
 
       iex> DNS.resolve("www.example.com", :txt)
-      ...> |> DNS.grep(fn x -> String.contains?("spf") end)
+      ...> |> DNS.grep(fn x -> String.contains?("v=spf1") end)
       ["v=spf1 -all"]
 
   """
