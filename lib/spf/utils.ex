@@ -64,8 +64,6 @@ defmodule Spf.Utils do
       verdict: "neutral",
       dns: Keyword.get(opts, :dns, %{}),
       macro: macros(domain, ip, sender),
-      num_spf: Keyword.get(opts, :num_spf, 0),
-      cur_spf: Keyword.get(opts, :cur_spf, 0),
       verbosity: Keyword.get(opts, :verbosity, 3),
       msg: [],
       f_include: false,

@@ -13,7 +13,7 @@ defmodule Spf.Eval do
 
     if qlist do
       log(ctx, :info, term, "SPF match by #{pfx}")
-      |> Map.put(:verdict, verdict(qlist, ctx.num_spf))
+      |> Map.put(:verdict, verdict(qlist, ctx.nth))
     else
       evalp(ctx, tail)
     end
@@ -29,8 +29,8 @@ defmodule Spf.Eval do
     end
   end
 
-  def verdict(qlist, num_spf) do
-    {{qualifier, _nth}, _} = List.keytake(qlist, num_spf, 1) || {{:error, num_spf}, qlist}
+  def verdict(qlist, nth) do
+    {{qualifier, _nth}, _} = List.keytake(qlist, nth, 1) || {{:error, nth}, qlist}
 
     verdict(qualifier)
   end
@@ -39,12 +39,12 @@ defmodule Spf.Eval do
     do: evalp(ctx, ctx[:ast])
 
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
-    addname(ctx, domain, dual, {q, ctx.num_spf})
+    addname(ctx, domain, dual, {q, ctx.nth})
     |> match(term, tail)
   end
 
   defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
-    if ctx.cur_spf > 0 do
+    if ctx.f_include do
       evalp(ctx, tail)
     else
       log(ctx, :info, term, "SPF match by #{List.to_string([q])}all")
@@ -53,12 +53,12 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
-    addmx(ctx, domain, dual, {q, ctx.num_spf})
+    addmx(ctx, domain, dual, {q, ctx.nth})
     |> match(term, tail)
   end
 
   defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
-    addip(ctx, [pfx], [32, 128], {q, ctx.num_spf})
+    addip(ctx, [pfx], [32, 128], {q, ctx.nth})
     |> match(term, tail)
   end
 
@@ -70,8 +70,6 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:include, [q, domain], _range} = term | tail]) do
-    IO.inspect(ctx.map[domain], label: :xxx)
-
     if ctx.map[domain] do
       log(ctx, :error, term, "ignored: seen before")
     else
@@ -84,10 +82,6 @@ defmodule Spf.Eval do
       if ctx.verdict in ["fail", "softfail", "neutral"] do
         log(ctx, :info, term, "no match")
         |> pop()
-        |> (fn x ->
-              IO.inspect(x.f_include, label: :zz)
-              x
-            end).()
         |> evalp(tail)
       else
         Map.put(ctx, :verdict, verdict(q))
@@ -127,24 +121,28 @@ defmodule Spf.Eval do
 
   defp push(ctx, domain) do
     state = %{
+      domain: ctx.domain,
       f_include: ctx.f_include,
       f_redirect: ctx.f_redirect,
       f_all: ctx.f_all,
       nth: ctx.nth,
       macro: ctx.macro,
-      ast: ctx.ast
+      ast: ctx.ast,
+      spf: ctx.spf
     }
 
     nth = ctx.cnt
 
-    Map.put(ctx, :stack, [state | ctx.stack])
+    tick(ctx, :cnt)
+    |> Map.put(:stack, [state | ctx.stack])
+    |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
+    |> Map.put(:domain, domain)
     |> Map.put(:f_include, true)
     |> Map.put(:f_redirect, false)
     |> Map.put(:f_all, false)
-    |> tick(:cnt)
     |> Map.put(:nth, nth)
     |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
-    |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
+    |> Map.put(:ast, [])
   end
 
   defp pop(ctx) do
@@ -175,7 +173,7 @@ defmodule Spf.Eval do
     {ctx, dns} = DNS.resolve(ctx, name, ctx.atype)
 
     case validate?(dns, ctx.ip, name, domain) do
-      true -> addip(ctx, [ctx.ip], [32, 128], {q, ctx.num_spf})
+      true -> addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth})
       false -> ctx
     end
   end
