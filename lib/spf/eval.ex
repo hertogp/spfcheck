@@ -12,7 +12,7 @@ defmodule Spf.Eval do
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
-      log(ctx, :info, term, "matches #{ctx.ip}")
+      log(ctx, :note, term, "matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
     else
@@ -111,6 +111,7 @@ defmodule Spf.Eval do
       nth = ctx.cnt
 
       test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
+      |> log(:note, term, "redirect")
       |> tick(:cnt)
       |> Map.put(:f_redirect, false)
       |> Map.put(:f_include, false)

@@ -53,25 +53,43 @@ defmodule Spf.Utils do
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
 
     %{
+      # the nth spf record is now current
       nth: 0,
+      # linear increasing count of spf records
       cnt: 1,
+      # current recursion depth (for pretty logging)
       depth: 0,
+      # current <domain> whose authorisation is evaluated
       domain: domain,
+      # tracks what was seen before: nth=>domain, domain=>nth; for reporting
       map: %{0 => domain, domain => 0},
+      # push state (part of ctx) when recursing on include'd domains
       stack: [],
+      # <ip> for which authorization is sought
       ip: ip,
+      # type of A RR lookup (A or AAAA), depends on <ip>
       atype: atype,
+      # <sender> that is using <ip> to send mail
       sender: sender,
+      # default verdict is ?all, ie neutral
       verdict: "neutral",
+      # dns cache, taken from opts if available so user can try out new SPF records
       dns: Keyword.get(opts, :dns, %{}),
-      dns_timeout: 10,
+      # default :inet_res timeout in msec
+      dns_timeout: 2000,
+      # how macro letters expand for current domain
       macro: macros(domain, ip, sender),
+      # output errors (0), warnings (1), notes (2), info (3) or debug (4) messages, or not.
       verbosity: Keyword.get(opts, :verbosity, 3),
+      # log of messages, whether outputted or not
       msg: [],
+      # parser state flags
       f_include: false,
       f_all: false,
       f_redirect: false,
+      # explain term (if any)
       explain: nil,
+      # track some stats: dns queries, void lookups, dns mech's, checks done
       num_dnsq: 0,
       num_dnsv: 0,
       num_dnsm: 0,
@@ -79,8 +97,11 @@ defmodule Spf.Utils do
       max_dnsv: 2,
       max_dnsm: 10,
       num_checks: 0,
+      # list of terms to be evaluated to arrive at a verdict
       ast: [],
+      # how long the evaluation took
       duration: 0,
+      # ip -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
       ipt: Iptrie.new()
     }
   end
@@ -119,12 +140,19 @@ defmodule Spf.Utils do
   """
   def addip(ctx, ips, dual, value) when is_list(ips) do
     kvs = Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
-    ipt = Enum.reduce(kvs, ctx.ipt, &ipt_update/2)
-    Map.put(ctx, :ipt, ipt)
+    Enum.reduce(kvs, ctx, &ipt_update/2)
   end
 
-  defp ipt_update({k, v}, ipt),
-    do: Iptrie.update(ipt, k, [v], fn list -> [v | list] end)
+  defp ipt_update({k, v}, ctx) do
+    ctx =
+      case Iptrie.lookup(ctx.ipt, k) do
+        {k2, v2} -> log(ctx, :warn, "#{k} covered by #{k2} with #{inspect(v2)}")
+        nil -> ctx
+      end
+
+    ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
+    Map.put(ctx, :ipt, ipt)
+  end
 
   defp prefix(ip, [len4, len6]) do
     pfx = Pfx.new(ip)
@@ -177,6 +205,8 @@ defmodule Spf.Utils do
   """
   @spec spf?(binary) :: boolean
   def spf?(str) when is_binary(str) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
+    # - we're a bit more relaxed
     str
     |> String.downcase()
     |> String.replace([" ", "\t", "\n", "\r"], "")

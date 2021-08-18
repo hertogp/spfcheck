@@ -101,11 +101,14 @@ defmodule Spf.Parser do
   # Parser
 
   def parse(%{error: reason} = ctx) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
+    # - timeout or RCODE other than [0 success, 3 nxdomain] -> temperror
+    # - RCODE 3: nxdomain -> none
     verdict =
       case reason do
         :nxdomain -> "none"
-        :timeout -> "temperror"
         :illegal_name -> "permerror"
+        :timeout -> "temperror"
         _ -> "temperror"
       end
 
@@ -113,24 +116,22 @@ defmodule Spf.Parser do
   end
 
   def parse(%{spf: []} = ctx) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
     log(ctx, :note, "no spf records found")
     |> Map.put(:verdict, "none")
   end
 
   def parse(%{spf: [spf]} = ctx) do
     {:ok, tokens, rest, _, _, _} = Spf.tokenize(spf)
-
-    ctx =
-      Map.put(ctx, :spf, spf)
-      |> Map.put(:spf_tokens, tokens)
-      |> Map.put(:spf_rest, rest)
-      |> Map.put(:ast, [])
-
     len = String.length(spf)
 
     ctx =
-      test(ctx, :warn, :check, len > 512, "SPF record length (#{len}) exceeds 512 characters")
+      Map.put(ctx, :spf, spf)
+      |> test(:warn, :check, len > 512, "SPF record length (#{len}) exceeds 512 characters")
       |> test(:DEBUG, :check, String.length(rest) > 0, "SPF string residue: #{rest}")
+      |> Map.put(:spf_tokens, tokens)
+      |> Map.put(:spf_rest, rest)
+      |> Map.put(:ast, [])
 
     Enum.reduce(tokens, ctx, &check/2)
   end
@@ -144,7 +145,6 @@ defmodule Spf.Parser do
   # Checks
   # TODO: implement a number of checks
   # - dns name checks (4.3) (both initially and for expanded names)
-  # --4.4 txt record lookup, timeout or RCODE not in [0, 3] -> temperror
   # - 4.5 spf record selection: starts with 'v=spf1'
   # - 4.6 spf syntax is checked -> any error yields a permerror
   # - 4.6.1 eval mechanisms left to right (default is implicit ?all = neutral)

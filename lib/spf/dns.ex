@@ -31,9 +31,15 @@ defmodule Spf.DNS do
   defp cached(ctx, name, type) do
     result = ctx.dns[{name, type}]
 
-    if result,
-      do: {tick(ctx, :num_dnsq), {:ok, result}},
-      else: result
+    if result do
+      ctx =
+        tick(ctx, :num_dnsq)
+        |> log(:warn, "DNS cached answer for #{name}, #{type}")
+
+      {ctx, {:ok, result}}
+    else
+      result
+    end
   end
 
   defp resolved(ctx, name, type) do
