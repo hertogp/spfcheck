@@ -39,7 +39,7 @@ defmodule Spf.Eval do
   end
 
   def eval(ctx),
-    do: evalp(ctx, ctx[:ast])
+    do: evalp(ctx, ctx.ast)
 
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
     addname(ctx, domain, dual, {q, ctx.nth})

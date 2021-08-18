@@ -127,7 +127,7 @@ defmodule Spf.Parser do
 
     ctx =
       Map.put(ctx, :spf, spf)
-      |> test(:warn, :check, len > 512, "SPF record length (#{len}) exceeds 512 characters")
+      |> test(:warn, :check, len > 512, "SPF string length #{len} > 512 characters")
       |> test(:DEBUG, :check, String.length(rest) > 0, "SPF string residue: #{rest}")
       |> Map.put(:spf_tokens, tokens)
       |> Map.put(:spf_rest, rest)
