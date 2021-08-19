@@ -9,12 +9,6 @@ defmodule Spfcheck do
   Check spf for given ip, sender and domain.
 
   """
-  def host(domain) do
-    with {:ok, list} <- Spf.grep(domain),
-         record <- List.first(list) do
-      if IO.inspect(record, label: :record), do: Spf.parse(record), else: {:error, :nospf}
-    else
-      err -> {:error, err}
-    end
-  end
+  def host(domain),
+    do: Spf.check(domain)
 end
