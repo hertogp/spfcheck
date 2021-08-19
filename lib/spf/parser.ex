@@ -205,6 +205,14 @@ defmodule Spf.Parser do
     |> tick(:num_dnsm)
   end
 
+  # Ptr
+  defp check({:ptr, [qual, args], range}, ctx) do
+    {spec, _} = taketok(args, :domain_spec)
+
+    ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
+    |> tick(:num_dnsm)
+  end
+
   # Include, Exists
   defp check({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
     do: ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range}) |> tick(:num_dnsm)
@@ -212,14 +220,6 @@ defmodule Spf.Parser do
   # All
   defp check({:all, [qual], range}, ctx),
     do: ast(ctx, {:all, [qual], range})
-
-  # Ptr
-  defp check({:ptr, [qual | args], range}, ctx) do
-    domain_spec = if args == [], do: nil, else: hd(args)
-
-    ast(ctx, {:ptr, [qual, domain(ctx, domain_spec)], range})
-    |> tick(:num_dnsm)
-  end
 
   # IP4, IP6
   defp check({atom, [qual, ip], range} = token, ctx) when atom in [:ip4, :ip6] do

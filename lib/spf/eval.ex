@@ -9,6 +9,7 @@ defmodule Spf.Eval do
   # Helpers
 
   defp match(ctx, term, tail) do
+    IO.inspect({ctx, term}, label: :eval_match_12)
     # see if current state is a match
     # TODO: add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
@@ -66,6 +67,7 @@ defmodule Spf.Eval do
     |> Map.put(:nth, nth)
     |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
     |> Map.put(:ast, [])
+    |> Map.put(:spf, "")
   end
 
   defp pop(ctx) do
@@ -147,6 +149,11 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:ptr, _termval, _range} = term | tail]) do
+    # Note:
+    # 1 lookup DNS ptr record for <ip>
+    # 2 for each name returned, lookup their ips
+    # 3 keep names where <ip> is amongst ips
+    # 4 match any of the names is a (sub)domain of <tgt-name> (see errata)
     {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), :ptr)
 
     validated(ctx, term, dns)
@@ -185,6 +192,8 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:redirect, [domain], _range} = term | tail]) do
+    IO.inspect(domain, label: :eval_redirect)
+
     if ctx.map[domain] do
       log(ctx, :error, term, "domain seen before")
     else
@@ -193,13 +202,15 @@ defmodule Spf.Eval do
       test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
       |> log(:note, term, "redirect")
       |> tick(:cnt)
-      |> Map.put(:f_redirect, false)
+      |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
+      |> Map.put(:domain, domain)
       |> Map.put(:f_include, false)
+      |> Map.put(:f_redirect, false)
       |> Map.put(:f_all, false)
       |> Map.put(:nth, nth)
-      |> Map.put(:domain, domain)
-      |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
       |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
+      |> Map.put(:ast, [])
+      |> Map.put(:spf, "")
       |> Spf.grep()
       |> Spf.parse()
       |> eval()

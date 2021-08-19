@@ -69,6 +69,7 @@ defmodule Spf.Tokens do
     {[{:whitespace, args, range(context, offset)}], context}
   end
 
+  # DualCidr
   def token(_rest, args, context, _line, offset, :dual_cidr2),
     do: {[{:dual_cidr, Enum.reverse(args), range(context, offset)}], context}
 
@@ -153,6 +154,12 @@ defmodule Spf.Tokens do
   # Domain_spec
   def token(_rest, args, context, _line, offset, :domain_spec),
     do: {[{:domain_spec, Enum.reverse(args), range(context, offset)}], context}
+
+  # Redirect
+  def token(_rest, args, context, _line, offset, :redirect) do
+    IO.inspect(args, label: :redirect)
+    {[{:redirect, Enum.reverse(args), range(context, offset)}], context}
+  end
 
   # CatchAll
   def token(_rest, args, context, _line, offset, atom),
