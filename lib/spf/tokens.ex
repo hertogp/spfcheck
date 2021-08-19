@@ -156,10 +156,8 @@ defmodule Spf.Tokens do
     do: {[{:domain_spec, Enum.reverse(args), range(context, offset)}], context}
 
   # Redirect
-  def token(_rest, args, context, _line, offset, :redirect) do
-    IO.inspect(args, label: :redirect)
-    {[{:redirect, Enum.reverse(args), range(context, offset)}], context}
-  end
+  def token(_rest, args, context, _line, offset, :redirect),
+    do: {[{:redirect, Enum.reverse(args), range(context, offset)}], context}
 
   # CatchAll
   def token(_rest, args, context, _line, offset, atom),
@@ -179,7 +177,7 @@ defmodule Spf.Tokens do
       exists(),
       ptr(),
       redirect(),
-      explanation(),
+      exp(),
       nonspaces()
     ])
   end
@@ -336,11 +334,22 @@ defmodule Spf.Tokens do
     |> post_traverse({:token, [:redirect]})
   end
 
-  def explanation() do
+  def exp() do
     start()
     |> ignore(anycase("exp="))
     |> macro()
     |> post_traverse({:token, [:exp]})
+  end
+
+  def exp_str() do
+    start()
+    |> choice([
+      macro(),
+      whitespace(),
+      nonspaces()
+    ])
+    |> times(min: 1)
+    |> post_traverse({:token, [:exp_str]})
   end
 
   # MACROS

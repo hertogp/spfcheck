@@ -9,7 +9,6 @@ defmodule Spf.Eval do
   # Helpers
 
   defp match(ctx, term, tail) do
-    IO.inspect({ctx, term}, label: :eval_match_12)
     # see if current state is a match
     # TODO: add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
@@ -101,7 +100,6 @@ defmodule Spf.Eval do
     do: false
 
   defp validate?({:ok, rrs}, ip, name, domain) do
-    IO.inspect(rrs, label: :rrs)
     pfx = Pfx.new(ip)
 
     if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
@@ -113,7 +111,57 @@ defmodule Spf.Eval do
   end
 
   defp explain(ctx) do
-    Map.put(ctx, :explanation, ", its just not in the cards")
+    # either computed or an empty string
+    # - macro-expand exp's domain-spec
+    # - fetch its txt record(s)
+    # - in case of any error (nxdomain, 2+ record etc..) -> ignore exp modifier
+    # - macro-expand the txt record rdata
+    IO.inspect(ctx.explain)
+
+    if ctx.explain do
+      {_token, [domain], _range} = ctx.explain
+      {ctx, dns} = DNS.resolve(ctx, domain, :txt)
+
+      case dns do
+        {:error, reason} ->
+          log(ctx, :warn, ctx.explain, "DNS error #{reason}")
+
+        {:ok, []} ->
+          log(ctx, :warn, ctx.explain, "DNS void lookup (0 answers)")
+
+        {:ok, list} when length(list) > 1 ->
+          log(ctx, :warn, ctx.explain, "DNS too many txt records")
+
+        {:ok, [explain]} ->
+          log(ctx, :info, ctx.explain, "'#{explain}'")
+          |> Map.put(:explanation, explainp(ctx, explain))
+      end
+    end
+  end
+
+  defp explainp(ctx, explain) do
+    IO.inspect(Spf.exp_tokens(explain), label: :explain_tokens)
+
+    case Spf.exp_tokens(explain) do
+      {:error, _, _, _, _, _} -> ""
+      {:ok, [{:exp_str, tokens, _range}], _, _, _, _} -> expand(ctx, tokens)
+    end
+  end
+
+  defp expand(ctx, {:domain_spec, _, _} = spec),
+    do: Spf.Parser.domain(ctx, spec)
+
+  defp expand(_ctx, {:whitespace, [str], _}),
+    do: str
+
+  defp expand(_ctx, {:unknown, [str], _}),
+    do: str
+
+  defp expand(ctx, tokens) when is_list(tokens) do
+    for token <- tokens do
+      expand(ctx, token)
+    end
+    |> Enum.join()
   end
 
   # API

@@ -29,10 +29,10 @@ defmodule Spf.Parser do
   defp cidr({:dual_cidr, args, _}),
     do: args
 
-  defp domain(ctx, []),
+  def domain(ctx, []),
     do: ctx.domain
 
-  defp domain(ctx, {:domain_spec, tokens, _range}) do
+  def domain(ctx, {:domain_spec, tokens, _range}) do
     for {token, args, _range} <- tokens do
       expand(ctx, token, args)
     end

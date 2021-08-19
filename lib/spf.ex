@@ -19,10 +19,13 @@ defmodule Spf do
   end
 
   def report(ctx) do
-    IO.puts("check(#{ctx.domain}, #{ctx.ip}, #{ctx.sender}) -> #{ctx.verdict}#{ctx.explanation}")
+    IO.puts(
+      "check(#{ctx.domain}, #{ctx.ip}, #{ctx.sender}) -> #{ctx.verdict} (#{ctx.explanation})"
+    )
   end
 
   defparsec(:tokenize, Spf.Tokens.terms())
+  defparsec(:exp_tokens, Spf.Tokens.exp_str())
   defdelegate parse(context), to: Spf.Parser
 
   def check(domain, opts \\ []) do
