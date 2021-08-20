@@ -1,28 +1,45 @@
 defmodule Spf.Tokens do
   @moduledoc """
-  Functions to turn an SPF string into tokens.
+  Functions to turn an SPF string or an explain string into tokens.
+
+  A token is represented by a tuple: {type, value, range} = token. The following tokens
+  may be produced by this module:
+
+  - `{:whitespace, [string], range}`, where string is 1+ space or tab
+  - `{dual_cidr, [len4, len6], range}`, where len4/6 are prefix lengths
+  - `{:version, [num], range}`, where num should be 1
+  - `{:qualifier, [q], range}`, where is one of `?+, ?-, ?~, ??`
+
+
   """
 
   import NimbleParsec
 
+  @type t :: NimbleParsec.t()
+
   # Helpers
-  def anycase(string) do
+
+  @spec anycase(binary) :: t
+  defp anycase(string) do
+    # Combinator that matches given `string`, case-insensitive.
     string
     |> String.to_charlist()
     |> Enum.map(&bothcases/1)
     |> Enum.reduce(empty(), fn elm, acc -> concat(acc, elm) end)
   end
 
-  def anycase(combinator, string),
-    do: concat(combinator, anycase(string))
+  # @spec anycase(t, binary) :: t
+  # def anycase(combinator, string),
+  #   do: concat(combinator, anycase(string))
 
-  def bothcases(c) when ?a <= c and c <= ?z,
+  @spec bothcases(char) :: t
+  defp bothcases(c) when ?a <= c and c <= ?z,
     do: ascii_char([c, c - 32])
 
-  def bothcases(c) when ?A <= c and c <= ?Z,
+  defp bothcases(c) when ?A <= c and c <= ?Z,
     do: ascii_char([c, c + 32])
 
-  def bothcases(c),
+  defp bothcases(c),
     do: ascii_char([c])
 
   def digit(),
@@ -31,22 +48,11 @@ defmodule Spf.Tokens do
   def digit(combinator),
     do: concat(combinator, digit())
 
-  def eoterm() do
-    choice([
-      whitespace(),
-      eos()
-    ])
-    |> lookahead()
-  end
-
-  def eoterm(combinator),
-    do: concat(combinator, eoterm())
-
-  def eoterm2(),
+  def eoterm(),
     do: lookahead(choice([whitespace(), eos()]))
 
-  def eoterm2(c),
-    do: concat(c, eoterm2())
+  def eoterm(c),
+    do: concat(c, eoterm())
 
   def mark_start(_rest, _args, context, _line, offset, args \\ []),
     do: {args, Map.put(context, :start, offset)}
@@ -218,17 +224,17 @@ defmodule Spf.Tokens do
       |> integer(min: 1)
       |> ignore(string("//"))
       |> integer(min: 1)
-      |> eoterm2()
+      |> eoterm()
       |> post_traverse({:token, [:dual_cidr2]}),
       start()
       |> ignore(string("/"))
       |> integer(min: 1)
-      |> eoterm2()
+      |> eoterm()
       |> post_traverse({:token, [:dual_cidr4]}),
       start()
       |> ignore(string("//"))
       |> integer(min: 1)
-      |> eoterm2()
+      |> eoterm()
       |> post_traverse({:token, [:dual_cidr6]})
     ])
   end
@@ -391,7 +397,7 @@ defmodule Spf.Tokens do
     ])
   end
 
-  def m_expand1 do
+  defp m_expand1 do
     ignore(string("%{"))
     |> m_letter()
     |> m_transform()
@@ -400,7 +406,7 @@ defmodule Spf.Tokens do
     |> post_traverse({:token, [:expand1]})
   end
 
-  def m_expand2() do
+  defp m_expand2() do
     ignore(ascii_char([?%]))
     |> ascii_char([?%, ?-, ?_])
     |> reduce({List, :first, []})

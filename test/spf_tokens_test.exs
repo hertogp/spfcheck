@@ -2,6 +2,7 @@ defmodule Spf.TokenTest do
   use ExUnit.Case
   import NimbleParsec
   import Spf.Tokens
+  doctest Spf.Tokens, import: true
 
   # Parsers
   defparsec(:p_macro, macro())
