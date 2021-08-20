@@ -19,6 +19,12 @@ defmodule Spf.Tokens do
 
   @type t :: NimbleParsec.t()
 
+  @typedoc """
+  The range (`start..stop//step)` of a token in the input string.
+
+  """
+  @type range :: Range.t()
+
   @m __MODULE__
 
   # Helpers
@@ -295,10 +301,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:include, `[`domain_spec`](`Spf.Tokens.domain_spec/0`)`, range}`.
-
-  Where `domain_spec` = [`domain_spec`](`Spf.Tokens.domain_spec/0`)
-
+  Token `{:include, [`[`domain_spec`](`Spf.Tokens.domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
   """
   @spec include() :: t
   def include() do
@@ -400,11 +403,17 @@ defmodule Spf.Tokens do
   defp m_letter(combinator),
     do: concat(combinator, m_letter())
 
-  defp m_literal(),
+  defp literal(),
     do: ascii_char([0x21..0x24, 0x26..0x7E])
 
-  defp m_literal(combinator),
-    do: concat(combinator, m_literal())
+  @doc """
+  Token `{:literal, value, range}`.
+
+  Where `value = = 1*( %x21-24 / %x26-7E)  ; visible characters except "%"`
+  """
+  @spec literal(t) :: t
+  def literal(combinator),
+    do: concat(combinator, literal())
 
   # a domain_spec-expand without a transform will have a :transform token with
   # an empty list as token value
@@ -417,14 +426,29 @@ defmodule Spf.Tokens do
   defp m_transform(combinator),
     do: concat(combinator, m_transform())
 
-  defp m_expand() do
+  @doc """
+  Token {:expand, value, range}.
+
+  Where
+  ```
+  value = ( "%{" macro-letter transformers 1*delimiter "}" ) / "%%" / "%_" / "%-"
+  macro-letter     = "s" / "l" / "o" / "d" / "i" / "p" / "h" / "c" / "r" / "t" / "v" /
+                     "S" / "L" / "O" / "D" / "I" / "P" / "H" / "C" / "R" / "T" / "V"
+  transformers     = *DIGIT [ "r" / "R" ]
+  delimiter        = "." / "-" / "+" / "," / "/" / "_" / "="
+  DIGIT            =  %x30-39 ; 0-9
+  ```
+
+  """
+  @spec expand() :: t
+  def expand() do
     choice([
-      m_expand1(),
-      m_expand2()
+      expand1(),
+      expand2()
     ])
   end
 
-  defp m_expand1 do
+  defp expand1 do
     ignore(string("%{"))
     |> m_letter()
     |> m_transform()
@@ -433,7 +457,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:expand1]})
   end
 
-  defp m_expand2() do
+  defp expand2() do
     ignore(ascii_char([?%]))
     |> ascii_char([?%, ?-, ?_])
     |> reduce({List, :first, []})
@@ -442,7 +466,7 @@ defmodule Spf.Tokens do
 
   defp m_literals() do
     lookahead_not(dual_cidr())
-    |> m_literal()
+    |> literal()
     |> times(min: 1)
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:literal]})
@@ -450,7 +474,7 @@ defmodule Spf.Tokens do
 
   defp domain_spec() do
     choice([
-      m_expand(),
+      expand(),
       m_literals()
     ])
     |> times(min: 1)
@@ -460,7 +484,7 @@ defmodule Spf.Tokens do
   @doc """
   Token `{:domain_spec, value, range}`.
 
-  Where `value` = `*( expand / literal).
+  Where `value = 1*( `[`expand`](`Spf.Tokens.expand/0`)` / `[`literal`](`Spf.Tokens.literal/1`)`)`.
   """
   @spec domain_spec(t) :: t
   def domain_spec(combinator) do
