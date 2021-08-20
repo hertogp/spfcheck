@@ -5,7 +5,6 @@ defmodule Spf do
   import NimbleParsec
 
   alias Spf.DNS
-  import Spf.Tokens
   import Spf.Utils
   import Spf.Eval
 

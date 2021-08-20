@@ -1,7 +1,6 @@
 defmodule SpfcheckTest do
   use ExUnit.Case
   doctest Spfcheck
-  doctest Spf, import: true
 
   test "greets the world" do
     {:ok, list} = Spf.grep("example.com")
