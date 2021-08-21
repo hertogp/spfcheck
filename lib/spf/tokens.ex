@@ -508,22 +508,19 @@ defmodule Spf.Tokens do
   defp m_transform(combinator),
     do: concat(combinator, m_transform())
 
-  z.@(
-    doc("""
-    Token `{:expand, [l, N, reverse, split], `[`range`](`t:range/0`)`}`.
+  @doc """
+  Token `{:expand, [letter keep, reverse, split], `[`range`](`t:range/0`)`}`.
 
-    Where
-    ```
-    l = ?s / ?l / ?o / ?d / ?i / ?p / ?h / ?c / ?r / ?t / ?v /
-        ?S / ?L / ?O / ?D / ?I / ?P / ?H / ?C / ?R / ?T / ?V
-    N = number of parts to keep
-    reverse = a boolean, indicating if reversal is required
-    split = list of splitting characters (?. / ?- / ?+ / ?, / ?/ / ?_ / ?=)
-    ```
+  Where
+  ```
+  letter  = ?s / ?l / ?o / ?d / ?i / ?p / ?h / ?c / ?r / ?t / ?v /
+            ?S / ?L / ?O / ?D / ?I / ?P / ?H / ?C / ?R / ?T / ?V
+  keep    = number of parts to keep
+  reverse = a boolean, indicating if reversal is required
+  split   = list of splitting characters (".", "-", "+", ",", "/", "_", and/or "=")
+  ```
 
-    """)
-  )
-
+  """
   @spec expand() :: t
   def expand() do
     choice([
