@@ -1,29 +1,52 @@
 defmodule Spf.Tokens do
   @moduledoc """
-  Functions to turn an SPF string or an explain string into tokens.
+  Combinators and functions to tokenize an SPF string or an explain string.
 
-  A token is represented by a `{type, value, range}`-tuple.
+  Tokens are represented by `{type, value, range}`-tuples. The token types
+  include:
 
-  Token `type`'s include:
-  - [`:whitespace`](`Spf.Tokens.whitespace/0`)
-  - [`:all`](`Spf.Tokens.all/0`)
-  - [`:include`](`Spf.Tokens.include/0`)
-  - `{dual_cidr, [len4, len6], range}`, where len4/6 are prefix lengths
-  - `{:version, [num], range}`, where num should be 1
-  - `{:qualifier, [q], range}`, where is one of `?+, ?-, ?~, ??`
+  - [`:version`](`version/0`)
+  - [`:whitespace`](`whitespace/0`)
+  - [`:nonspaces`](`nonspaces/0`)
+  - [`:a`](`a/0`)
+  - [`:mx`](`mx/0`)
+  - [`:include`](`include/0`)
+  - [`:exists`](`exists/0`)
+  - [`:ip4`](`ip4/0`)
+  - [`:ip6`](`ip6/0`)
+  - [`:ptr`](`ptr/0`)
+  - [`redirect`](`redirect/0`)
+  - [`:all`](`all/0`)
+  - [`:exp`](`exp/0`)
+  - [`:unknown`](`unknown/0`)
 
+  and sub-tokens that may appear in token values:
+
+  - [`:dual_cidr`](`dual_cidr/0`)
+  - [`:domain_spec`](`domain_spec/0`)
+  - [`:literal`](`literal/0`)
+  - [`:expand`](`expand/0`)
+
+  and intermediary tokens that are consumed while composing other tokens:
+
+  - [`:qualifier`](`qualifier/0`)
 
   """
 
   import NimbleParsec
 
-  @type t :: NimbleParsec.t()
+  @typedoc """
+  qualifier = ?+ / ?- / ?~ / ??
+  """
+  @type q :: ?+ | ?- | ?~ | ??
 
   @typedoc """
   The range (`start..stop//step)` of a token in the input string.
 
   """
   @type range :: Range.t()
+
+  @type t :: NimbleParsec.t()
 
   @typedoc """
   A token represented as a tuple: {type, value, range}.
@@ -33,18 +56,13 @@ defmodule Spf.Tokens do
   """
   @type token :: {atom, list(), range}
 
-  @typedoc """
-  qualifier = ?+ / ?- / ?~ / ??
-  """
-  @type q :: ?+ | ?- | ?~ | ??
-
   @m __MODULE__
 
   # Helpers
 
   @spec anycase(binary) :: t
   defp anycase(string) do
-    # Combinator that matches given `string`, case-insensitive.
+    # combinator that matches given `string`, case-insensitive.
     string
     |> String.to_charlist()
     |> Enum.map(&bothcases/1)
@@ -81,10 +99,11 @@ defmodule Spf.Tokens do
   defp range(context, offset),
     do: Range.new(Map.get(context, :start, 0), offset - 1)
 
-  # TOKENS
+  # Post_traversals
 
   @doc """
-  Creates a [`token`](`t:token/0`) out of a combinator result.
+  Post_traverse helper function that Creates a [`token`](`t:token/0`) out of a
+  combinator result.
 
   """
   def token(rest, args, context, line, offset, atom)
@@ -117,7 +136,7 @@ defmodule Spf.Tokens do
     {[{:qualifier, tokval, range(context, offset)}], context}
   end
 
-  # Include, Exists
+  # Include/Exists
   def token(_rest, args, context, _line, offset, atom) when atom in [:include, :exists] do
     [{:qualifier, q, _offset}, domain_spec] = Enum.reverse(args)
     {[{atom, [q, domain_spec], range(context, offset)}], context}
@@ -129,14 +148,14 @@ defmodule Spf.Tokens do
     {[{:all, [q], range(context, offset)}], context}
   end
 
-  # IP4, IP6
+  # IP4/IP6
   def token(_rest, args, context, _line, offset, atom) when atom in [:ip4, :ip6] do
     [{:unknown, addr, _}, {:qualifier, q, _}] = args
     addr = List.to_string(addr)
     {[{atom, [q, addr], range(context, offset)}], context}
   end
 
-  # A, MX, PTR
+  # A/MX/PTR
   def token(_rest, args, context, _line, offset, atom) when atom in [:a, :mx, :ptr] do
     tokval =
       case Enum.reverse(args) do
@@ -159,7 +178,9 @@ defmodule Spf.Tokens do
       case args do
         [] -> [0, false]
         [?r] -> [0, true]
+        [?R] -> [0, true]
         [?r | tail] -> [Enum.reverse(tail) |> List.to_integer(), true]
+        [?R | tail] -> [Enum.reverse(tail) |> List.to_integer(), true]
         num -> [Enum.reverse(num) |> List.to_integer(), false]
       end
 
@@ -190,6 +211,8 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, atom),
     do: {[{atom, Enum.reverse(args), range(context, offset)}], context}
 
+  # TOKENIZE
+
   @doc """
   Combinator that creates a token for the next SPF term in the remaining input string.
   """
@@ -218,44 +241,32 @@ defmodule Spf.Tokens do
   def tokenize(),
     do: term() |> repeat()
 
-  # Helper Tokens
-
   @doc """
-  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
+  Tokenizer for an explain-string.
 
-  Where `string = 1*(SP / TAB)`.
+  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain name,
+  its TXT RR is retrieved.  This is called the explain-string.  This function
+  tokenizes this explain-string into a list of tokens:
+  [`domain_spec`](`domain_spec/`), [`whitespace`](`whitespace/0`), and/or
+  [`nonspaces`](`nonspaces/0`).
 
-  Used to detect repreated whitespace in an SPF string and/or detect use of
-  `TAB` characters which is actually not allowed.
+  The list of tokens can then be expanded into the final explanation.
 
   """
-  @spec whitespace() :: t
-  def whitespace() do
+  def exp_str() do
     start()
-    |> times(ascii_char([?\ , ?\t]), min: 1)
-    |> reduce({List, :to_string, []})
-    |> post_traverse({@m, :token, [:whitespace]})
+    |> choice([
+      domain_spec(),
+      whitespace(),
+      nonspaces()
+    ])
+    |> times(min: 1)
+    |> post_traverse({@m, :token, [:exp_str]})
   end
 
-  @doc """
-  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
+  # TOKENS
 
-  Used to catch unknown blobs for the parser to deal with.
-
-  """
-  @spec nonspaces() :: t
-  def nonspaces() do
-    start()
-    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
-    |> post_traverse({@m, :token, [:unknown]})
-  end
-
-  @doc """
-  Concatenate `nonspaces/0` to given `combinator`.
-  """
-  @spec nonspaces(t) :: t
-  def nonspaces(combinator),
-    do: concat(combinator, nonspaces())
+  # HELPERS
 
   @doc """
   Token `{:dual_cidr, [len4, len6], `[`range`](`t:range/0`)`}`.
@@ -289,6 +300,26 @@ defmodule Spf.Tokens do
   end
 
   @doc """
+  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
+
+  Used to catch unknown blobs for the parser to deal with.
+
+  """
+  @spec nonspaces() :: t
+  def nonspaces() do
+    start()
+    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
+    |> post_traverse({@m, :token, [:unknown]})
+  end
+
+  @doc """
+  Concatenate `nonspaces/0` to given `combinator`.
+  """
+  @spec nonspaces(t) :: t
+  def nonspaces(combinator),
+    do: concat(combinator, nonspaces())
+
+  @doc """
   Token `{:qualifier, [q], `[`range`](`t:range/0`)`}`.
 
   Where `q = ?+ / ?- / ?~ / ??`
@@ -305,25 +336,45 @@ defmodule Spf.Tokens do
   def qualifier(combinator),
     do: concat(combinator, qualifier())
 
-  # DIRECTIVES
-
-  # used to mark start in context for a token combinator
-
   defp start() do
+    # used to mark start in context for a token combinator
     empty()
     |> post_traverse({@m, :mark_start, []})
   end
 
   @doc """
-  Token `{:version, [v], `[`range`](`t:range/0`)`}`.
+  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
 
-  Where `v` is an integer and should `1`.
+  Where `string = 1*(SP / TAB)`.
+
+  Used to detect repreated whitespace in an SPF string and/or detect use of
+  `TAB` characters which is actually not allowed.
+
   """
-  def version() do
+  @spec whitespace() :: t
+  def whitespace() do
     start()
-    |> ignore(anycase("v=spf"))
-    |> integer(min: 1)
-    |> post_traverse({@m, :token, [:version]})
+    |> times(ascii_char([?\ , ?\t]), min: 1)
+    |> reduce({List, :to_string, []})
+    |> post_traverse({@m, :token, [:whitespace]})
+  end
+
+  # DIRECTIVES
+
+  @doc """
+  Token `{:a, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
+
+  Where `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
+  a [`dual_cidr`](`dual_cidr/0`) token or both.
+
+  """
+  def a() do
+    start()
+    |> qualifier()
+    |> ignore(anycase("a"))
+    |> optional(ignore(ascii_char([?:])) |> domain_spec())
+    |> optional(dual_cidr())
+    |> post_traverse({@m, :token, [:a]})
   end
 
   @doc """
@@ -335,6 +386,17 @@ defmodule Spf.Tokens do
     |> qualifier()
     |> ignore(anycase("all"))
     |> post_traverse({@m, :token, [:all]})
+  end
+
+  @doc """
+  Token `{:exists, [`[`q`](`t:q/0`)`, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
+  """
+  def exists() do
+    start()
+    |> qualifier()
+    |> ignore(anycase("exists:"))
+    |> domain_spec()
+    |> post_traverse({@m, :token, [:exists]})
   end
 
   @doc """
@@ -372,22 +434,6 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:a, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
-
-  Where `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
-  a [`dual_cidr`](`dual_cidr/0`) token or both.
-
-  """
-  def a() do
-    start()
-    |> qualifier()
-    |> ignore(anycase("a"))
-    |> optional(ignore(ascii_char([?:])) |> domain_spec())
-    |> optional(dual_cidr())
-    |> post_traverse({@m, :token, [:a]})
-  end
-
-  @doc """
   Token `{:mx, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
 
   Where `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
@@ -404,17 +450,6 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:exists, [`[`q`](`t:q/0`)`, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
-  """
-  def exists() do
-    start()
-    |> qualifier()
-    |> ignore(anycase("exists:"))
-    |> domain_spec()
-    |> post_traverse({@m, :token, [:exists]})
-  end
-
-  @doc """
   Token `{:ptr, [`[`q`](`t:q/0`)`, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
   """
   def ptr() do
@@ -425,17 +460,19 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ptr]})
   end
 
-  # MODIFIERS
-
   @doc """
-  Token `{:redirect, `[`domain_spec`](`domain_spec/0`)`, `[`range`](`t:range/0`)`}`.
+  Token `{:version, [v], `[`range`](`t:range/0`)`}`.
+
+  Where `v` is an integer and should `1`.
   """
-  def redirect() do
+  def version() do
     start()
-    |> ignore(anycase("redirect="))
-    |> domain_spec()
-    |> post_traverse({@m, :token, [:redirect]})
+    |> ignore(anycase("v=spf"))
+    |> integer(min: 1)
+    |> post_traverse({@m, :token, [:version]})
   end
+
+  # MODIFIERS
 
   @doc """
   Token `{:exp, `[`domain_spec`](`domain_spec/0`)`, `[`range`](`t:range/0`)`}`.
@@ -448,65 +485,39 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Tokenizer for an explain-string.
-
-  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain name,
-  its TXT RR is retrieved.  This is called the explain-string.  This function
-  tokenizes this explain-string into a list of tokens:
-  [`domain_spec`](`domain_spec/`), [`whitespace`](`whitespace/0`), and/or
-  [`nonspaces`](`nonspaces/0`).
-
-  The list of tokens can then be expanded into the final explanation.
-
+  Token `{:redirect, `[`domain_spec`](`domain_spec/0`)`, `[`range`](`t:range/0`)`}`.
   """
-  def exp_str() do
+  def redirect() do
     start()
-    |> choice([
-      domain_spec(),
-      whitespace(),
-      nonspaces()
-    ])
-    |> times(min: 1)
-    |> post_traverse({@m, :token, [:exp_str]})
+    |> ignore(anycase("redirect="))
+    |> domain_spec()
+    |> post_traverse({@m, :token, [:redirect]})
   end
 
   # DOMAIN-SPEC
 
-  defp m_delimiter(),
-    do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
-
-  defp m_letter(),
-    do:
-      ascii_char(
-        [?s, ?l, ?o, ?d, ?i, ?p, ?h, ?c, ?r, ?t, ?v] ++
-          [?S, ?L, ?O, ?D, ?I, ?P, ?H, ?C, ?R, ?T, ?V]
-      )
-
-  defp m_letter(combinator),
-    do: concat(combinator, m_letter())
-
-  defp literal(),
-    do: ascii_char([0x21..0x24, 0x26..0x7E])
-
   @doc """
-  Token `{:literal, [string], range}`.
+  Token `{:domain_spec, [`[`expand`](`expand/0`)` | `[`literal`](`literal/1`)`], `[`range`](`t:range/0`)`}`.
 
-  Where `string = 1*( %x21-24 / %x26-7E)  ; visible characters except "%"`
+  Where the list contains 1 or more tokens in any order.
   """
-  @spec literal(t) :: t
-  def literal(combinator),
-    do: concat(combinator, literal())
-
-  # a domain_spec-expand without a transform will have a :transform token with
-  # an empty list as token value
-  defp m_transform() do
-    times(digit(), min: 0)
-    |> optional(ascii_char([?r]))
-    |> post_traverse({@m, :token, [:transform]})
+  @spec domain_spec() :: t
+  def domain_spec() do
+    choice([
+      expand(),
+      m_literals()
+    ])
+    |> times(min: 1)
+    |> post_traverse({@m, :token, [:domain_spec]})
   end
 
-  defp m_transform(combinator),
-    do: concat(combinator, m_transform())
+  @doc """
+  Concatenates [`domain_spec`](`domain_spec/0`) onto given `combinator`.
+  """
+  @spec domain_spec(t) :: t
+  def domain_spec(combinator) do
+    concat(combinator, domain_spec())
+  end
 
   @doc """
   Token `{:expand, [letter keep, reverse, split], `[`range`](`t:range/0`)`}`.
@@ -545,6 +556,19 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:expand2]})
   end
 
+  defp m_delimiter(),
+    do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
+
+  defp m_letter(),
+    do:
+      ascii_char(
+        [?s, ?l, ?o, ?d, ?i, ?p, ?h, ?c, ?r, ?t, ?v] ++
+          [?S, ?L, ?O, ?D, ?I, ?P, ?H, ?C, ?R, ?T, ?V]
+      )
+
+  defp m_letter(combinator),
+    do: concat(combinator, m_letter())
+
   defp m_literals() do
     lookahead_not(dual_cidr())
     |> literal()
@@ -553,26 +577,26 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:literal]})
   end
 
-  @doc """
-  Token `{:domain_spec, [`[`expand`](`expand/0`)` | `[`literal`](`literal/1`)`], `[`range`](`t:range/0`)`}`.
-
-  Where the list contains 1 or more tokens in any order.
-  """
-  @spec domain_spec() :: t
-  def domain_spec() do
-    choice([
-      expand(),
-      m_literals()
-    ])
-    |> times(min: 1)
-    |> post_traverse({@m, :token, [:domain_spec]})
+  defp m_transform() do
+    # a domain_spec-expand without a transform will have a :transform token with
+    # an empty list as token value
+    times(digit(), min: 0)
+    |> optional(ascii_char([?r, ?R]))
+    |> post_traverse({@m, :token, [:transform]})
   end
 
+  defp m_transform(combinator),
+    do: concat(combinator, m_transform())
+
+  defp literal(),
+    do: ascii_char([0x21..0x24, 0x26..0x7E])
+
   @doc """
-  Concatenates [`domain_spec`](`domain_spec/0`) onto given `combinator`.
+  Token `{:literal, [string], range}`.
+
+  Where `string = 1*( %x21-24 / %x26-7E)  ; visible characters except "%"`
   """
-  @spec domain_spec(t) :: t
-  def domain_spec(combinator) do
-    concat(combinator, domain_spec())
-  end
+  @spec literal(t) :: t
+  def literal(combinator),
+    do: concat(combinator, literal())
 end
