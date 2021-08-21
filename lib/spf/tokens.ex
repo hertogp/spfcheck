@@ -247,8 +247,8 @@ defmodule Spf.Tokens do
   @doc """
   Token `{:dual_cidr, [len4, len6], `[`range`](`t:range/0`)`}`.
 
-  Where `len4` is the ipv4 cidr length and defaults to `32`. While `len6` is
-  the ipv6 cidr lengths and default to `128`.  This is an intermediate token
+  Where `len4` is the ipv4 cidr length (defaults to `32`), while `len6` is
+  the ipv6 cidr lengths (defaults to `128`).  This is an intermediate token
   used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`).
 
   """
@@ -275,6 +275,14 @@ defmodule Spf.Tokens do
   end
 
   # when used, this always produces a qualifier token; defaults to '+'
+  @doc """
+  Token `{:qualifier, [q], `[`range`](`t:range/0`)`}`.
+
+  Where `q = ?+ / ?- / ?~ / ??`
+
+  When used, this combinator always produces a token where `q` defaults to `?+`.
+
+  """
   def qualifier() do
     ascii_char([?+, ?-, ?~, ??])
     |> optional()
@@ -287,14 +295,17 @@ defmodule Spf.Tokens do
   # DIRECTIVES
 
   # used to mark start in context for a token combinator
-  def start() do
+
+  defp start() do
     empty()
     |> post_traverse({@m, :mark_start, []})
   end
 
-  def start(combinator),
-    do: concat(combinator, start())
+  @doc """
+  Token `{:version, [v], `[`range`](`t:range/0`)`}`.
 
+  Where `v` is an integer and should `1`.
+  """
   def version() do
     start()
     |> ignore(anycase("v=spf"))
@@ -327,6 +338,12 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:include]})
   end
 
+  @doc """
+  Token `{:ip4, [pfx4], `[`range`](`t:range/0`)`}`.
+
+  Where `pfx4` is a `t:Pfx.t/0` struct.
+
+  """
   def ip4() do
     start()
     |> qualifier()
@@ -335,6 +352,12 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ip4]})
   end
 
+  @doc """
+  Token `{:ip6, [pfx6], `[`range`](`t:range/0`)`}`.
+
+  Where `pfx6` is a `t:Pfx.t/0` struct.
+
+  """
   def ip6() do
     start()
     |> qualifier()
@@ -343,6 +366,15 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ip6]})
   end
 
+  @doc """
+  Token `{:a, [q, domain], `[`range`](`t:range/0`)`}`.
+
+  Where:
+  - `q = ?+ / ?- / ?~ / ??`
+  - `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
+  a [`dual_cidr`](`dual_cidr/0`) token or both.
+
+  """
   def a() do
     start()
     |> qualifier()
@@ -352,6 +384,15 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:a]})
   end
 
+  @doc """
+  Token `{:mx, [q, domain], `[`range`](`t:range/0`)`}`.
+
+  Where:
+  - `q = ?+ / ?- / ?~ / ??`
+  - `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
+  a [`dual_cidr`](`dual_cidr/0`) token or both.
+
+  """
   def mx() do
     start()
     |> qualifier()
@@ -361,6 +402,9 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:mx]})
   end
 
+  @doc """
+  Token `{:exists, [q, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
+  """
   def exists() do
     start()
     |> qualifier()
@@ -369,6 +413,9 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:exists]})
   end
 
+  @doc """
+  Token `{:ptr, [q, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
+  """
   def ptr() do
     start()
     |> qualifier()

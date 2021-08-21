@@ -6,7 +6,7 @@ defmodule Spf.TokenTest do
   # from https://elixirforum.com/t/trying-to-write-a-simple-nimble-parsec-parser/41344/4
 
   describe "macro combinator" do
-    defparsecp(:macro, Spf.Tokens.macro())
+    defparsecp(:domain_spec, Spf.Tokens.domain_spec())
 
     test "parses expands" do
       testcases = [
@@ -18,7 +18,7 @@ defmodule Spf.TokenTest do
         "%{d}.a%-b"
       ]
 
-      Enum.map(testcases, fn testcase -> IO.inspect(macro(testcase), label: testcase) end)
+      Enum.map(testcases, fn testcase -> IO.inspect(domain_spec(testcase), label: testcase) end)
       {:ok, _, "", _, _, _} = macro("%{i}")
     end
   end
