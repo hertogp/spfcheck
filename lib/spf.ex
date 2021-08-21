@@ -25,7 +25,7 @@ defmodule Spf do
     ctx
   end
 
-  defparsec(:tokenize, Spf.Tokens.terms())
+  defparsec(:tokenize, Spf.Tokens.tokenize())
   defparsec(:exp_tokens, Spf.Tokens.exp_str())
   defdelegate parse(context), to: Spf.Parser
 

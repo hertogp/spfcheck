@@ -19,7 +19,7 @@ defmodule Spf.TokenTest do
       ]
 
       Enum.map(testcases, fn testcase -> IO.inspect(domain_spec(testcase), label: testcase) end)
-      {:ok, _, "", _, _, _} = macro("%{i}")
+      {:ok, _, "", _, _, _} = domain_spec("%{i}")
     end
   end
 end

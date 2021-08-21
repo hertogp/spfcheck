@@ -33,6 +33,9 @@ defmodule Spf.Tokens do
   """
   @type token :: {atom, list(), range}
 
+  @typedoc """
+  qualifier = ?+ / ?- / ?~ / ??
+  """
   @type q :: ?+ | ?- | ?~ | ??
 
   @m __MODULE__
@@ -48,10 +51,6 @@ defmodule Spf.Tokens do
     |> Enum.reduce(empty(), fn elm, acc -> concat(acc, elm) end)
   end
 
-  # @spec anycase(t, binary) :: t
-  # def anycase(combinator, string),
-  #   do: concat(combinator, anycase(string))
-
   @spec bothcases(char) :: t
   defp bothcases(c) when ?a <= c and c <= ?z,
     do: ascii_char([c, c - 32])
@@ -65,15 +64,17 @@ defmodule Spf.Tokens do
   defp digit(),
     do: ascii_char([?0..?9])
 
-  # defp digit(combinator),
-  #   do: concat(combinator, digit())
-
   defp eoterm(),
     do: lookahead(choice([whitespace(), eos()]))
 
   defp eoterm(c),
     do: concat(c, eoterm())
 
+  @doc """
+  Helper (post_traverse) function that puts the current `offset` in `context`
+  under key `:start`.
+
+  """
   def mark_start(_rest, _args, context, _line, offset, args \\ []),
     do: {args, Map.put(context, :start, offset)}
 
@@ -82,12 +83,12 @@ defmodule Spf.Tokens do
 
   # TOKENS
 
-  # token = {atom, args, range}
-  # - atom is type of token
-  # - args is args for Parser.token handler function
-  # - range is {start, end} of token in spf string
+  @doc """
+  Creates a [`token`](`t:token/0`) out of a combinator result.
+
+  """
   def token(rest, args, context, line, offset, atom)
-  # line = {linenr, start_line (0-based offset from start of entire binary)
+  # line = {linenr, start_of_line (0-based offset from start of entire binary)
   # offset = token_end (0-based offset from start of entire binary)
 
   # Whitespace
@@ -189,7 +190,10 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, atom),
     do: {[{atom, Enum.reverse(args), range(context, offset)}], context}
 
-  # order matters: all before a
+  @doc """
+  Combinator that creates a token for the next SPF term in the remaining input string.
+  """
+  # order matters: all() before a(), and nonspaces() last.
   def term() do
     choice([
       whitespace(),
@@ -208,13 +212,16 @@ defmodule Spf.Tokens do
     ])
   end
 
-  def terms(),
+  @doc """
+  Combinator that creates a list of tokens for the SPF terms found in an input string.
+  """
+  def tokenize(),
     do: term() |> repeat()
 
   # Helper Tokens
 
   @doc """
-  Token `{:whitespace, [string], range}`.
+  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
 
   Where `string = 1*(SP / TAB)`.
 
@@ -238,10 +245,8 @@ defmodule Spf.Tokens do
   """
   @spec nonspaces() :: t
   def nonspaces() do
-    # start()
-    # |> ascii_char(not: ?\ , not: ?\t)
-    ascii_char(not: ?\ , not: ?\t)
-    |> times(min: 1)
+    start()
+    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
     |> post_traverse({@m, :token, [:unknown]})
   end
 
@@ -257,7 +262,8 @@ defmodule Spf.Tokens do
 
   Where `len4` is the ipv4 cidr length (defaults to `32`), while `len6` is
   the ipv6 cidr lengths (defaults to `128`).  This is an intermediate token
-  used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`).
+  used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`)
+  and others.
 
   """
   def dual_cidr() do
@@ -282,7 +288,6 @@ defmodule Spf.Tokens do
     ])
   end
 
-  # when used, this always produces a qualifier token; defaults to '+'
   @doc """
   Token `{:qualifier, [q], `[`range`](`t:range/0`)`}`.
 
@@ -322,7 +327,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:all, [[`q`](`t:q/0`)], [`range`](`t:range/0`)}`.
+  Token `{:all, [`[`q`](`t:q/0`)`], `[`range`](`t:range/0`)`}`.
   """
   @spec all() :: t
   def all() do
@@ -333,7 +338,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:include, [`[`domain_spec`](`Spf.Tokens.domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
+  Token `{:include, [`[`q`](`t:q/0`)`,`[`domain_spec`](`domain_spec/0`)`], `[`range`](`t:range/0`)`}`.
   """
   @spec include() :: t
   def include() do
@@ -345,10 +350,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:ip4, [pfx4], `[`range`](`t:range/0`)`}`.
-
-  Where `pfx4` is a `t:Pfx.t/0` struct.
-
+  Token `{:ip4, [`[`q`](`t:q/0`)`,`[`Pfx`](`t:Pfx.t/0`)`], `[`range`](`t:range/0`)`}`.
   """
   def ip4() do
     start()
@@ -359,10 +361,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:ip6, [pfx6], `[`range`](`t:range/0`)`}`.
-
-  Where `pfx6` is a `t:Pfx.t/0` struct.
-
+  Token `{:ip6, [`[`q`](`t:q/0`)`,`[`Pfx`](`t:Pfx.t/0`)`], `[`range`](`t:range/0`)`}`.
   """
   def ip6() do
     start()
@@ -373,11 +372,9 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:a, [q, domain], `[`range`](`t:range/0`)`}`.
+  Token `{:a, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
 
-  Where:
-  - `q = ?+ / ?- / ?~ / ??`
-  - `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
+  Where `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
   a [`dual_cidr`](`dual_cidr/0`) token or both.
 
   """
@@ -391,11 +388,9 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:mx, [q, domain], `[`range`](`t:range/0`)`}`.
+  Token `{:mx, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
 
-  Where:
-  - `q = ?+ / ?- / ?~ / ??`
-  - `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
+  Where `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
   a [`dual_cidr`](`dual_cidr/0`) token or both.
 
   """
@@ -409,7 +404,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:exists, [q, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
+  Token `{:exists, [`[`q`](`t:q/0`)`, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
   """
   def exists() do
     start()
@@ -420,7 +415,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:ptr, [q, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
+  Token `{:ptr, [`[`q`](`t:q/0`)`, `[`domain_spec`](`domain_spec/1`)`], `[`range`](`t:range/0`)`}`.
   """
   def ptr() do
     start()
@@ -433,7 +428,7 @@ defmodule Spf.Tokens do
   # MODIFIERS
 
   @doc """
-  Token `{:redirect, `[`domain_spec`](`domain_spec/1`)`, `[`range`](`t:range/0`)`}`.
+  Token `{:redirect, `[`domain_spec`](`domain_spec/0`)`, `[`range`](`t:range/0`)`}`.
   """
   def redirect() do
     start()
@@ -443,7 +438,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:exp, `[`domain_spec`](`domain_spec/1`)`, `[`range`](`t:range/0`)`}`.
+  Token `{:exp, `[`domain_spec`](`domain_spec/0`)`, `[`range`](`t:range/0`)`}`.
   """
   def exp() do
     start()
@@ -494,9 +489,9 @@ defmodule Spf.Tokens do
     do: ascii_char([0x21..0x24, 0x26..0x7E])
 
   @doc """
-  Token `{:literal, value, range}`.
+  Token `{:literal, [string], range}`.
 
-  Where `value = = 1*( %x21-24 / %x26-7E)  ; visible characters except "%"`
+  Where `string = 1*( %x21-24 / %x26-7E)  ; visible characters except "%"`
   """
   @spec literal(t) :: t
   def literal(combinator),
@@ -513,19 +508,22 @@ defmodule Spf.Tokens do
   defp m_transform(combinator),
     do: concat(combinator, m_transform())
 
-  @doc """
-  Token `{:expand, [l, N, reverse, split], `[`range`](`t:range/0`)`}`.
+  z.@(
+    doc("""
+    Token `{:expand, [l, N, reverse, split], `[`range`](`t:range/0`)`}`.
 
-  Where
-  ```
-  l = ?s / ?l / ?o / ?d / ?i / ?p / ?h / ?c / ?r / ?t / ?v /
-      ?S / ?L / ?O / ?D / ?I / ?P / ?H / ?C / ?R / ?T / ?V
-  N = number of parts to keep
-  reverse = a boolean, indicating if reversal is required
-  split = list of splitting characters (?. / ?- / ?+ / ?, / ?/ / ?_ / ?=)
-  ```
+    Where
+    ```
+    l = ?s / ?l / ?o / ?d / ?i / ?p / ?h / ?c / ?r / ?t / ?v /
+        ?S / ?L / ?O / ?D / ?I / ?P / ?H / ?C / ?R / ?T / ?V
+    N = number of parts to keep
+    reverse = a boolean, indicating if reversal is required
+    split = list of splitting characters (?. / ?- / ?+ / ?, / ?/ / ?_ / ?=)
+    ```
 
-  """
+    """)
+  )
+
   @spec expand() :: t
   def expand() do
     choice([
@@ -558,7 +556,13 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:literal]})
   end
 
-  defp domain_spec() do
+  @doc """
+  Token `{:domain_spec, [`[`expand`](`expand/0`)` | `[`literal`](`literal/1`)`], `[`range`](`t:range/0`)`}`.
+
+  Where the list contains 1 or more tokens in any order.
+  """
+  @spec domain_spec() :: t
+  def domain_spec() do
     choice([
       expand(),
       m_literals()
@@ -568,12 +572,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:domain_spec, value, range}`.
-
-  Where `value` is a list of one or more:
-  - [`expand`](`expand/0`)
-  - [`literal`](`literal/1`)
-  tokens in any order.
+  Concatenates [`domain_spec`](`domain_spec/0`) onto given `combinator`.
   """
   @spec domain_spec(t) :: t
   def domain_spec(combinator) do
