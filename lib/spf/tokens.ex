@@ -19,13 +19,21 @@ defmodule Spf.Tokens do
 
   @type t :: NimbleParsec.t()
 
-  @type token :: {atom, list(), Range.t()}
-
   @typedoc """
   The range (`start..stop//step)` of a token in the input string.
 
   """
   @type range :: Range.t()
+
+  @typedoc """
+  A token represented as a tuple: {type, value, range}.
+
+  The `value` is a list of either strings, number(s) or intermediary tokens.
+
+  """
+  @type token :: {atom, list(), range}
+
+  @type q :: ?+ | ?- | ?~ | ??
 
   @m __MODULE__
 
@@ -314,9 +322,7 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:all, [q], range}`.
-
-  Where `q = ?+ / ?- / ?~ / ??`
+  Token `{:all, [[`q`](`t:q/0`)], [`range`](`t:range/0`)}`.
   """
   @spec all() :: t
   def all() do
@@ -425,6 +431,10 @@ defmodule Spf.Tokens do
   end
 
   # MODIFIERS
+
+  @doc """
+  Token `{:redirect, `[`domain_spec`](`domain_spec/1`)`, `[`range`](`t:range/0`)`}`.
+  """
   def redirect() do
     start()
     |> ignore(anycase("redirect="))
@@ -432,6 +442,9 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:redirect]})
   end
 
+  @doc """
+  Token `{:exp, `[`domain_spec`](`domain_spec/1`)`, `[`range`](`t:range/0`)`}`.
+  """
   def exp() do
     start()
     |> ignore(anycase("exp="))
@@ -439,6 +452,18 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:exp]})
   end
 
+  @doc """
+  Tokenizer for an explain-string.
+
+  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain name,
+  its TXT RR is retrieved.  This is called the explain-string.  This function
+  tokenizes this explain-string into a list of tokens:
+  [`domain_spec`](`domain_spec/`), [`whitespace`](`whitespace/0`), and/or
+  [`nonspaces`](`nonspaces/0`).
+
+  The list of tokens can then be expanded into the final explanation.
+
+  """
   def exp_str() do
     start()
     |> choice([
@@ -450,7 +475,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:exp_str]})
   end
 
-  # domain_specS
+  # DOMAIN-SPEC
 
   defp m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
@@ -489,16 +514,15 @@ defmodule Spf.Tokens do
     do: concat(combinator, m_transform())
 
   @doc """
-  Token `{:expand, value, `[`range`](`t:range/0`)`}`.
+  Token `{:expand, [l, N, reverse, split], `[`range`](`t:range/0`)`}`.
 
   Where
   ```
-  value = ( "%{" macro-letter transformers 1*delimiter "}" ) / "%%" / "%_" / "%-"
-  macro-letter     = "s" / "l" / "o" / "d" / "i" / "p" / "h" / "c" / "r" / "t" / "v" /
-                     "S" / "L" / "O" / "D" / "I" / "P" / "H" / "C" / "R" / "T" / "V"
-  transformers     = *DIGIT [ "r" / "R" ]
-  delimiter        = "." / "-" / "+" / "," / "/" / "_" / "="
-  DIGIT            =  %x30-39 ; 0-9
+  l = ?s / ?l / ?o / ?d / ?i / ?p / ?h / ?c / ?r / ?t / ?v /
+      ?S / ?L / ?O / ?D / ?I / ?P / ?H / ?C / ?R / ?T / ?V
+  N = number of parts to keep
+  reverse = a boolean, indicating if reversal is required
+  split = list of splitting characters (?. / ?- / ?+ / ?, / ?/ / ?_ / ?=)
   ```
 
   """
@@ -546,7 +570,10 @@ defmodule Spf.Tokens do
   @doc """
   Token `{:domain_spec, value, range}`.
 
-  Where `value = 1*( `[`expand`](`Spf.Tokens.expand/0`)` / `[`literal`](`Spf.Tokens.literal/1`)`)`.
+  Where `value` is a list of one or more:
+  - [`expand`](`expand/0`)
+  - [`literal`](`literal/1`)
+  tokens in any order.
   """
   @spec domain_spec(t) :: t
   def domain_spec(combinator) do
