@@ -19,6 +19,8 @@ defmodule Spf.Tokens do
 
   @type t :: NimbleParsec.t()
 
+  @type token :: {atom, list(), Range.t()}
+
   @typedoc """
   The range (`start..stop//step)` of a token in the input string.
 
@@ -221,11 +223,12 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Combinator that produces a `:unknown` token: `{:unknown, [string], range}`.
+  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
 
   Used to catch unknown blobs for the parser to deal with.
 
   """
+  @spec nonspaces() :: t
   def nonspaces() do
     # start()
     # |> ascii_char(not: ?\ , not: ?\t)
@@ -234,9 +237,21 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:unknown]})
   end
 
+  @doc """
+  Concatenate `nonspaces/0` to given `combinator`.
+  """
+  @spec nonspaces(t) :: t
   def nonspaces(combinator),
     do: concat(combinator, nonspaces())
 
+  @doc """
+  Token `{:dual_cidr, [len4, len6], `[`range`](`t:range/0`)`}`.
+
+  Where `len4` is the ipv4 cidr length and defaults to `32`. While `len6` is
+  the ipv6 cidr lengths and default to `128`.  This is an intermediate token
+  used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`).
+
+  """
   def dual_cidr() do
     choice([
       start()
@@ -427,7 +442,7 @@ defmodule Spf.Tokens do
     do: concat(combinator, m_transform())
 
   @doc """
-  Token {:expand, value, range}.
+  Token `{:expand, value, `[`range`](`t:range/0`)`}`.
 
   Where
   ```

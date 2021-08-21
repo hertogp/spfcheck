@@ -21,6 +21,8 @@ defmodule Spf do
     IO.puts(
       "check(#{ctx.domain}, #{ctx.ip}, #{ctx.sender}) -> #{ctx.verdict} (#{ctx.explanation})"
     )
+
+    ctx
   end
 
   defparsec(:tokenize, Spf.Tokens.terms())
