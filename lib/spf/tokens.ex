@@ -88,9 +88,10 @@ defmodule Spf.Tokens do
     do: concat(c, eoterm())
 
   @doc """
-  Helper (post_traverse) function that puts the current `offset` in `context`
-  under key `:start`.
+  Helper function that puts the current `offset` in `context` under `label`.
 
+  Where `label` is one of :start, :start1 or :start2 to record the start of
+  (nested) tokens.
   """
   def mark_start(_rest, args, context, _line, offset, label),
     do: {args, Map.put(context, label, offset)}
@@ -271,57 +272,6 @@ defmodule Spf.Tokens do
   # HELPERS
 
   @doc """
-  Token `{:dual_cidr, [len4, len6], `[`range`](`t:range/0`)`}`.
-
-  Where `len4` is the ipv4 cidr length (defaults to `32`), while `len6` is
-  the ipv6 cidr lengths (defaults to `128`).  This is an intermediate token
-  used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`)
-  and others.
-
-  """
-  def dual_cidr() do
-    choice([
-      start1()
-      |> ignore(string("/"))
-      |> integer(min: 1)
-      |> ignore(string("//"))
-      |> integer(min: 1)
-      |> eoterm()
-      |> post_traverse({@m, :token, [:dual_cidr2]}),
-      start1()
-      |> ignore(string("/"))
-      |> integer(min: 1)
-      |> eoterm()
-      |> post_traverse({@m, :token, [:dual_cidr4]}),
-      start1()
-      |> ignore(string("//"))
-      |> integer(min: 1)
-      |> eoterm()
-      |> post_traverse({@m, :token, [:dual_cidr6]})
-    ])
-  end
-
-  @doc """
-  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
-
-  Used to catch unknown blobs for the parser to deal with.
-
-  """
-  @spec unknown() :: t
-  def unknown() do
-    start()
-    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
-    |> post_traverse({@m, :token, [:unknown]})
-  end
-
-  @doc """
-  Concatenate `unknown/0` to given `combinator`.
-  """
-  @spec unknown(t) :: t
-  def unknown(combinator),
-    do: concat(combinator, unknown())
-
-  @doc """
   Token `{:qualifier, [q], `[`range`](`t:range/0`)`}`.
 
   Where `q = ?+ / ?- / ?~ / ??`
@@ -335,45 +285,20 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:qualifier]})
   end
 
-  def qualifier(combinator),
+  defp qualifier(combinator),
     do: concat(combinator, qualifier())
 
-  defp start() do
-    # used to mark start in context for a token combinator
-    empty()
-    |> post_traverse({@m, :mark_start, [:start]})
-  end
+  # mark start of token, subtoken or subsubtoken
+  defp start(),
+    do: empty() |> post_traverse({@m, :mark_start, [:start]})
 
-  defp start1() do
-    # used to mark start in context for a token combinator
-    empty()
-    |> post_traverse({@m, :mark_start, [:start1]})
-  end
+  defp start1(),
+    do: empty() |> post_traverse({@m, :mark_start, [:start1]})
 
-  defp start2() do
-    # used to mark start in context for a token combinator
-    empty()
-    |> post_traverse({@m, :mark_start, [:start2]})
-  end
+  defp start2(),
+    do: empty() |> post_traverse({@m, :mark_start, [:start2]})
 
-  @doc """
-  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
-
-  Where `string = 1*(SP / TAB)`.
-
-  Used to detect repreated whitespace in an SPF string and/or detect use of
-  `TAB` characters which is actually not allowed.
-
-  """
-  @spec whitespace() :: t
-  def whitespace() do
-    start()
-    |> times(ascii_char([?\ , ?\t]), min: 1)
-    |> reduce({List, :to_string, []})
-    |> post_traverse({@m, :token, [:whitespace]})
-  end
-
-  # DIRECTIVES
+  # L0 TOKENS
 
   @doc """
   Token `{:a, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
@@ -486,8 +411,6 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:version]})
   end
 
-  # MODIFIERS
-
   @doc """
   Token `{:exp, `[`domain_spec`](`domain_spec/0`)`, `[`range`](`t:range/0`)`}`.
   """
@@ -508,7 +431,44 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:redirect]})
   end
 
-  # DOMAIN-SPEC
+  @doc """
+  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
+
+  Used to catch unknown blobs for the parser to deal with.
+
+  """
+  @spec unknown() :: t
+  def unknown() do
+    start()
+    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
+    |> post_traverse({@m, :token, [:unknown]})
+  end
+
+  @doc """
+  Concatenate `unknown/0` to given `combinator`.
+  """
+  @spec unknown(t) :: t
+  def unknown(combinator),
+    do: concat(combinator, unknown())
+
+  @doc """
+  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
+
+  Where `string = 1*(SP / TAB)`.
+
+  Used to detect repreated whitespace in an SPF string and/or detect use of
+  `TAB` characters which is actually not allowed.
+
+  """
+  @spec whitespace() :: t
+  def whitespace() do
+    start()
+    |> times(ascii_char([?\ , ?\t]), min: 1)
+    |> reduce({List, :to_string, []})
+    |> post_traverse({@m, :token, [:whitespace]})
+  end
+
+  # L1 TOKENS
 
   @doc """
   Token `{:domain_spec, [`[`expand`](`expand/0`)` | `[`literal`](`literal/1`)`], `[`range`](`t:range/0`)`}`.
@@ -529,6 +489,39 @@ defmodule Spf.Tokens do
   def domain_spec(combinator) do
     concat(combinator, domain_spec())
   end
+
+  @doc """
+  Token `{:dual_cidr, [len4, len6], `[`range`](`t:range/0`)`}`.
+
+  Where `len4` is the ipv4 cidr length (defaults to `32`), while `len6` is
+  the ipv6 cidr lengths (defaults to `128`).  This is an intermediate token
+  used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`)
+  and others.
+
+  """
+  def dual_cidr() do
+    choice([
+      start1()
+      |> ignore(string("/"))
+      |> integer(min: 1)
+      |> ignore(string("//"))
+      |> integer(min: 1)
+      |> eoterm()
+      |> post_traverse({@m, :token, [:dual_cidr2]}),
+      start1()
+      |> ignore(string("/"))
+      |> integer(min: 1)
+      |> eoterm()
+      |> post_traverse({@m, :token, [:dual_cidr4]}),
+      start1()
+      |> ignore(string("//"))
+      |> integer(min: 1)
+      |> eoterm()
+      |> post_traverse({@m, :token, [:dual_cidr6]})
+    ])
+  end
+
+  # L2 TOKENS
 
   @doc """
   Token `{:expand, [letter keep, reverse, split], `[`range`](`t:range/0`)`}`.
@@ -569,19 +562,6 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:expand2]})
   end
 
-  defp m_delimiter(),
-    do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
-
-  defp m_letter(),
-    do:
-      ascii_char(
-        [?s, ?l, ?o, ?d, ?i, ?p, ?h, ?c, ?r, ?t, ?v] ++
-          [?S, ?L, ?O, ?D, ?I, ?P, ?H, ?C, ?R, ?T, ?V]
-      )
-
-  defp m_letter(combinator),
-    do: concat(combinator, m_letter())
-
   @doc """
   Token `{:literal, [string], range}`.
 
@@ -595,6 +575,19 @@ defmodule Spf.Tokens do
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:literal]})
   end
+
+  defp m_delimiter(),
+    do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
+
+  defp m_letter(),
+    do:
+      ascii_char(
+        [?s, ?l, ?o, ?d, ?i, ?p, ?h, ?c, ?r, ?t, ?v] ++
+          [?S, ?L, ?O, ?D, ?I, ?P, ?H, ?C, ?R, ?T, ?V]
+      )
+
+  defp m_letter(combinator),
+    do: concat(combinator, m_letter())
 
   defp m_transform() do
     # a domain_spec-expand without a transform will have a :transform token with
