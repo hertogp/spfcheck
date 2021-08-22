@@ -140,7 +140,7 @@ defmodule Spf.TokenTest do
                 [
                   {:expand, [?d, 2, true, [".", "-"]], 0..7},
                   {:expand, '-', 8..9},
-                  {:literal, "com", 10..12}
+                  {:literal, ["com"], 10..12}
                 ], 0..12}
     end
 
@@ -148,8 +148,8 @@ defmodule Spf.TokenTest do
       {:ok, [token], rest, _, _, _} = domain_spec("%{d}.com/24")
 
       assert token ==
-               {:domain_spec, [{:expand, [?d, 0, false, ["."]], 0..3}, {:literal, ".com", 4..7}],
-                0..7}
+               {:domain_spec,
+                [{:expand, [?d, 0, false, ["."]], 0..3}, {:literal, [".com"], 4..7}], 0..7}
 
       assert rest == "/24"
 
@@ -332,7 +332,7 @@ defmodule Spf.TokenTest do
                   {:domain_spec,
                    [
                      {:expand, [?d, 1, true, ["-"]], 7..13},
-                     {:literal, ".com", 14..17}
+                     {:literal, [".com"], 14..17}
                    ], 7..17}
                 ], 0..17}
     end
@@ -350,7 +350,7 @@ defmodule Spf.TokenTest do
                   ?+,
                   {:domain_spec,
                    [
-                     {:literal, "spf.example.com", 8..22}
+                     {:literal, ["spf.example.com"], 8..22}
                    ], 8..22}
                 ], 0..22}
     end
@@ -431,7 +431,7 @@ defmodule Spf.TokenTest do
                     {:domain_spec,
                      [
                        {:expand, [?d, 0, false, ["."]], 3..6},
-                       {:literal, ".com", 7..10}
+                       {:literal, [".com"], 7..10}
                      ], 3..10}
                   ]
                 ], 0..10}
@@ -448,7 +448,7 @@ defmodule Spf.TokenTest do
                     {:domain_spec,
                      [
                        {:expand, [?d, 0, false, ["."]], 3..6},
-                       {:literal, ".com", 7..10}
+                       {:literal, [".com"], 7..10}
                      ], 3..10},
                     {:dual_cidr, [24, 64], 11..17}
                   ]
@@ -471,7 +471,7 @@ defmodule Spf.TokenTest do
       {:ok, [token], _, _, _, _} = ptr("ptr:spf.example.com")
 
       assert token ==
-               {:ptr, [?+, [{:domain_spec, [{:literal, "spf.example.com", 4..18}], 4..18}]],
+               {:ptr, [?+, [{:domain_spec, [{:literal, ["spf.example.com"], 4..18}], 4..18}]],
                 0..18}
     end
   end
@@ -488,7 +488,7 @@ defmodule Spf.TokenTest do
                   {:domain_spec,
                    [
                      {:expand, [?d, 0, false, ["."]], 4..7},
-                     {:literal, ".com", 8..11}
+                     {:literal, [".com"], 8..11}
                    ], 4..11}
                 ], 0..11}
     end
@@ -506,9 +506,9 @@ defmodule Spf.TokenTest do
                   [
                     {:domain_spec, [{:expand, [105, 0, false, ["."]], 0..3}], 0..3},
                     {:whitespace, [" "], 4..4},
-                    {:domain_spec, [{:literal, "is", 5..6}], 5..6},
+                    {:domain_spec, [{:literal, ["is"], 5..6}], 5..6},
                     {:whitespace, [" "], 7..7},
-                    {:domain_spec, [{:literal, "bad", 8..10}], 8..10}
+                    {:domain_spec, [{:literal, ["bad"], 8..10}], 8..10}
                   ], 0..10}
                ]
     end
@@ -526,7 +526,7 @@ defmodule Spf.TokenTest do
                   {:domain_spec,
                    [
                      {:expand, [?d, 0, false, ["."]], 9..12},
-                     {:literal, ".com", 13..16}
+                     {:literal, [".com"], 13..16}
                    ], 9..16}
                 ], 0..16}
     end
@@ -581,17 +581,17 @@ defmodule Spf.TokenTest do
     test "anything visible, except %" do
       {:ok, [token], rest, _, _, _} = literal("tillhere%see?")
       assert rest == "%see?"
-      assert token == {:literal, "tillhere", 0..7}
+      assert token == {:literal, ["tillhere"], 0..7}
     end
 
     test "anything visible, so stops at whitespace" do
       {:ok, [token], rest, _, _, _} = literal("tillhere see?")
       assert rest == " see?"
-      assert token == {:literal, "tillhere", 0..7}
+      assert token == {:literal, ["tillhere"], 0..7}
 
       {:ok, [token], rest, _, _, _} = literal("tillhere\tsee?")
       assert rest == "\tsee?"
-      assert token == {:literal, "tillhere", 0..7}
+      assert token == {:literal, ["tillhere"], 0..7}
     end
   end
 end

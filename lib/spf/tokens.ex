@@ -167,8 +167,8 @@ defmodule Spf.Tokens do
 
   # Literal
   def token(_rest, args, context, _line, offset, :literal) do
-    [tokval] = args
-    {[{:literal, tokval, range(context, :start2, offset)}], context}
+    # [tokval] = args
+    {[{:literal, args, range(context, :start2, offset)}], context}
   end
 
   # Transform

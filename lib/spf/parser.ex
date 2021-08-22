@@ -52,7 +52,7 @@ defmodule Spf.Parser do
     |> Enum.join(".")
   end
 
-  defp expand(_ctx, :literal, str),
+  defp expand(_ctx, :literal, [str]),
     do: str
 
   defp taketok(args, token) do
