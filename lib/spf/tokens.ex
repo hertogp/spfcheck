@@ -26,10 +26,6 @@ defmodule Spf.Tokens do
       - [`:expand`](`expand/0`)
       - [`:literal`](`literal/0`)
 
-  and intermediary tokens that are consumed while composing other tokens:
-
-  - [`:qualifier`](`qualifier/0`)
-
   """
 
   import NimbleParsec
@@ -271,15 +267,16 @@ defmodule Spf.Tokens do
 
   # HELPERS
 
-  @doc """
-  Token `{:qualifier, [q], `[`range`](`t:range/0`)`}`.
+  # @doc """
+  # Token `{:qualifier, [q], `[`range`](`t:range/0`)`}`.
 
-  Where `q = ?+ / ?- / ?~ / ??`
+  # Where `q = ?+ / ?- / ?~ / ??`
 
-  When used, this combinator always produces a token where `q` defaults to `?+`.
+  # When used, this combinator always produces a token where `q` defaults to `?+`.
 
-  """
-  def qualifier() do
+  # """
+  @spec qualifier() :: t
+  defp qualifier() do
     ascii_char([?+, ?-, ?~, ??])
     |> optional()
     |> post_traverse({@m, :token, [:qualifier]})
@@ -570,11 +567,13 @@ defmodule Spf.Tokens do
   @spec literal() :: t
   def literal() do
     start2()
-    |> lookahead_not(dual_cidr())
     |> times(m_literal(), min: 1)
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:literal]})
   end
+
+  def literals(),
+    do: concat(start2(), literal())
 
   defp m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
@@ -601,5 +600,5 @@ defmodule Spf.Tokens do
     do: concat(combinator, m_transform())
 
   defp m_literal(),
-    do: ascii_char([0x21..0x24, 0x26..0x7E])
+    do: concat(lookahead_not(dual_cidr()), ascii_char([0x21..0x24, 0x26..0x7E]))
 end
