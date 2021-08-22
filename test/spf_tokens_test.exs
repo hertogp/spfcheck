@@ -13,8 +13,6 @@ defmodule Spf.TokenTest do
   describe "domain_spec() parses" do
     defparsecp(:domain_spec, Spf.Tokens.domain_spec())
 
-    # a domain spec is a subtoken
-
     test "simple macros" do
       check = fn l, str ->
         assert domain_spec(str) ==
@@ -193,22 +191,22 @@ defmodule Spf.TokenTest do
 
     test "1 space" do
       assert wspace(" ") ==
-               {:ok, [{:whitespace, [" "], 0..0}], "", %{start: 0}, {1, 0}, 1}
+               {:ok, [{:whitespace, [" "], 0..0}], "", %{start1: 0}, {1, 0}, 1}
     end
 
     test "1+ spaces" do
       assert wspace("   ") ==
-               {:ok, [{:whitespace, ["   "], 0..2}], "", %{start: 0}, {1, 0}, 3}
+               {:ok, [{:whitespace, ["   "], 0..2}], "", %{start1: 0}, {1, 0}, 3}
     end
 
     test "1+ tabs" do
       assert wspace("\t\t") ==
-               {:ok, [{:whitespace, ["\t\t"], 0..1}], "", %{start: 0}, {1, 0}, 2}
+               {:ok, [{:whitespace, ["\t\t"], 0..1}], "", %{start1: 0}, {1, 0}, 2}
     end
 
     test "1+ (SP / TAB)" do
       assert wspace(" \t ") ==
-               {:ok, [{:whitespace, [" \t "], 0..2}], "", %{start: 0}, {1, 0}, 3}
+               {:ok, [{:whitespace, [" \t "], 0..2}], "", %{start1: 0}, {1, 0}, 3}
     end
   end
 
@@ -496,6 +494,44 @@ defmodule Spf.TokenTest do
     end
   end
 
+  describe "explain() lexes" do
+    defparsec(:explain, Spf.Tokens.exp_str())
+
+    test "an explain-string" do
+      {:ok, tokens, _, _, _, _} = explain("%{i} is bad")
+
+      assert tokens ==
+               [
+                 {:exp_str,
+                  [
+                    {:domain_spec, [{:expand, [105, 0, false, ["."]], 0..3}], 0..3},
+                    {:whitespace, [" "], 4..4},
+                    {:domain_spec, [{:literal, "is", 5..6}], 5..6},
+                    {:whitespace, [" "], 7..7},
+                    {:domain_spec, [{:literal, "bad", 8..10}], 8..10}
+                  ], 0..10}
+               ]
+    end
+  end
+
+  describe "redirect() lexes" do
+    defparsec(:redirect, Spf.Tokens.redirect())
+
+    test "its domain-spec" do
+      {:ok, [token], _, _, _, _} = redirect("redirect=%{d}.com")
+
+      assert token ==
+               {:redirect,
+                [
+                  {:domain_spec,
+                   [
+                     {:expand, [?d, 0, false, ["."]], 9..12},
+                     {:literal, ".com", 13..16}
+                   ], 9..16}
+                ], 0..16}
+    end
+  end
+
   describe "version() lexes" do
     defparsec(:version, Spf.Tokens.version())
 
@@ -510,6 +546,52 @@ defmodule Spf.TokenTest do
     test "case-insensitive" do
       {:ok, [token], _, _, _, _} = version("V=SpF11")
       assert token == {:version, [11], 0..6}
+    end
+  end
+
+  describe "expand() lexes" do
+    defparsec(:expand, Spf.Tokens.expand())
+
+    test "specials" do
+      {:ok, [token], _, _, _, _} = expand("%%")
+      assert token == {:expand, '%', 0..1}
+
+      {:ok, [token], _, _, _, _} = expand("%-")
+      assert token == {:expand, '-', 0..1}
+
+      {:ok, [token], _, _, _, _} = expand("%_")
+      assert token == {:expand, '_', 0..1}
+    end
+
+    test "simple macros (both cases)" do
+      check = fn l, str ->
+        assert expand(str) ==
+                 {:ok, [{:expand, [charcode(l), 0, false, ["."]], 0..3}], "", %{start2: 0},
+                  {1, 0}, 4}
+      end
+
+      testcases = for l <- @mletters, do: {l, "%{#{l}}"}
+      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
+    end
+  end
+
+  describe "literal() lexes" do
+    defparsec(:literal, Spf.Tokens.literal())
+
+    test "anything visible, except %" do
+      {:ok, [token], rest, _, _, _} = literal("tillhere%see?")
+      assert rest == "%see?"
+      assert token == {:literal, "tillhere", 0..7}
+    end
+
+    test "anything visible, so stops at whitespace" do
+      {:ok, [token], rest, _, _, _} = literal("tillhere see?")
+      assert rest == " see?"
+      assert token == {:literal, "tillhere", 0..7}
+
+      {:ok, [token], rest, _, _, _} = literal("tillhere\tsee?")
+      assert rest == "\tsee?"
+      assert token == {:literal, "tillhere", 0..7}
     end
   end
 end

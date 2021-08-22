@@ -111,7 +111,7 @@ defmodule Spf.Tokens do
 
   # Whitespace
   def token(_rest, args, context, _line, offset, :whitespace) do
-    {[{:whitespace, args, range(context, offset)}], context}
+    {[{:whitespace, args, range(context, :start1, offset)}], context}
   end
 
   # DualCidr
@@ -210,6 +210,10 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, :unknown),
     do: {[{:unknown, Enum.reverse(args), range(context, :start1, offset)}], context}
 
+  # Exp_str
+  def token(_rest, args, context, _line, offset, :exp_str),
+    do: {[{:exp_str, Enum.reverse(args), range(context, offset)}], context}
+
   # CatchAll
   def token(_rest, args, context, _line, offset, atom),
     do: {[{atom, Enum.reverse(args), range(context, offset)}], context}
@@ -258,12 +262,7 @@ defmodule Spf.Tokens do
   """
   def exp_str() do
     start()
-    |> choice([
-      domain_spec(),
-      whitespace(),
-      unknown()
-    ])
-    |> times(min: 1)
+    |> times(choice([domain_spec(), whitespace(), unknown()]), min: 1)
     |> post_traverse({@m, :token, [:exp_str]})
   end
 
@@ -432,45 +431,6 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:redirect]})
   end
 
-  @doc """
-  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
-
-  Used to catch unknown blobs for the parser to deal with.
-
-  """
-  @spec unknown() :: t
-  def unknown() do
-    # for unknown use start1, since it is also used in ip4, ip6 which are based
-    # on start()
-    start1()
-    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
-    |> post_traverse({@m, :token, [:unknown]})
-  end
-
-  @doc """
-  Concatenate `unknown/0` to given `combinator`.
-  """
-  @spec unknown(t) :: t
-  def unknown(combinator),
-    do: concat(combinator, unknown())
-
-  @doc """
-  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
-
-  Where `string = 1*(SP / TAB)`.
-
-  Used to detect repreated whitespace in an SPF string and/or detect use of
-  `TAB` characters which is actually not allowed.
-
-  """
-  @spec whitespace() :: t
-  def whitespace() do
-    start()
-    |> times(ascii_char([?\ , ?\t]), min: 1)
-    |> reduce({List, :to_string, []})
-    |> post_traverse({@m, :token, [:whitespace]})
-  end
-
   # L1 TOKENS
 
   @doc """
@@ -522,6 +482,46 @@ defmodule Spf.Tokens do
       |> eoterm()
       |> post_traverse({@m, :token, [:dual_cidr6]})
     ])
+  end
+
+  @doc """
+  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
+
+  Used to catch unknown blobs for the parser to deal with.
+
+  """
+  @spec unknown() :: t
+  def unknown() do
+    # for unknown use start1, since it is also used in ip4, ip6 which are based
+    # on start()
+    start1()
+    |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
+    |> post_traverse({@m, :token, [:unknown]})
+  end
+
+  @doc """
+  Concatenate `unknown/0` to given `combinator`.
+  """
+  @spec unknown(t) :: t
+  def unknown(combinator),
+    do: concat(combinator, unknown())
+
+  @doc """
+  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
+
+  Where `string = 1*(SP / TAB)`.
+
+  Used to detect repreated whitespace in an SPF string and/or detect use of
+  `TAB` characters which is actually not allowed.
+
+  """
+  @spec whitespace() :: t
+  def whitespace() do
+    # whitespace is both a token and a subtoken for exp_str, so use start1()
+    start1()
+    |> times(ascii_char([?\ , ?\t]), min: 1)
+    |> reduce({List, :to_string, []})
+    |> post_traverse({@m, :token, [:whitespace]})
   end
 
   # L2 TOKENS
