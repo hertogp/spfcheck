@@ -594,4 +594,24 @@ defmodule Spf.TokenTest do
       assert token == {:literal, ["tillhere"], 0..7}
     end
   end
+
+  describe "unknown() lexes" do
+    defparsec(:unknown, Spf.Tokens.unknown())
+
+    test "anything visible, including %" do
+      {:ok, [token], rest, _, _, _} = unknown("tillhere%see?")
+      assert rest == ""
+      assert token == {:unknown, 'tillhere%see?', 0..12}
+    end
+
+    test "anything visible, so stops at whitespace" do
+      {:ok, [token], rest, _, _, _} = unknown("tillhere see?")
+      assert rest == " see?"
+      assert token == {:unknown, 'tillhere', 0..7}
+
+      {:ok, [token], rest, _, _, _} = unknown("tillhere\tsee?")
+      assert rest == "\tsee?"
+      assert token == {:unknown, 'tillhere', 0..7}
+    end
+  end
 end
