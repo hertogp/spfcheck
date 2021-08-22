@@ -82,6 +82,17 @@ defmodule Spf.TokenTest do
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
+    test "macro specials" do
+      {:ok, [token], _, _, _, _} = domain_spec("%%")
+      assert token == {:domain_spec, [{:expand, '%', 0..1}], 0..1}
+
+      {:ok, [token], _, _, _, _} = domain_spec("%-")
+      assert token == {:domain_spec, [{:expand, '-', 0..1}], 0..1}
+
+      {:ok, [token], _, _, _, _} = domain_spec("%_")
+      assert token == {:domain_spec, [{:expand, '_', 0..1}], 0..1}
+    end
+
     test "macros with reverse and delimiters" do
       check = fn l, str ->
         assert domain_spec(str) ==
@@ -122,7 +133,20 @@ defmodule Spf.TokenTest do
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
-    test "domain_spec stops at dual_cidr" do
+    test "macros with keep, reverse, delims, literals and specials" do
+      assert {:ok, [token], rest, _, _, _} = domain_spec("%{d2R.-}%-com/24")
+      assert rest == "/24"
+
+      assert token ==
+               {:domain_spec,
+                [
+                  {:expand, [?d, 2, true, [".", "-"]], 0..7},
+                  {:expand, '-', 8..9},
+                  {:literal, "com", 10..12}
+                ], 0..12}
+    end
+
+    test "macros but not a following dual_cidr" do
       {:ok, [token], rest, _, _, _} = domain_spec("%{d}.com/24")
 
       assert token ==
@@ -130,6 +154,15 @@ defmodule Spf.TokenTest do
                 0..7}
 
       assert rest == "/24"
+
+      {:ok, [_token], rest, _, _, _} = domain_spec("%{d}.com//128")
+      assert rest == "//128"
+
+      {:ok, [_token], rest, _, _, _} = domain_spec("%{d}.com/32//128")
+      assert rest == "/32//128"
+
+      {:ok, [_token], rest, _, _, _} = domain_spec("%{d}.c%-o%_m%%/32//128")
+      assert rest == "/32//128"
     end
   end
 
@@ -269,6 +302,104 @@ defmodule Spf.TokenTest do
     end
   end
 
+  describe "all() lexes" do
+    defparsec(:all, Spf.Tokens.all())
+
+    test "all with implicit  qualifier" do
+      {:ok, [token], _, _, _, _} = all("all")
+      assert token == {:all, [?+], 0..2}
+    end
+
+    test "all with qualifier" do
+      testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}all"}
+
+      check = fn q, str ->
+        assert all(str) == {:ok, [{:all, [q], 0..3}], "", %{start: 0}, {1, 0}, 4}
+      end
+
+      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
+    end
+  end
+
+  describe "exists() lexes" do
+    defparsec(:exists, Spf.Tokens.exists())
+
+    test "its domain_spec" do
+      {:ok, [token], _, _, _, _} = exists("exists:%{d1R-}.com")
+
+      assert token ==
+               {:exists,
+                [
+                  ?+,
+                  {:domain_spec,
+                   [
+                     {:expand, [?d, 1, true, ["-"]], 7..13},
+                     {:literal, ".com", 14..17}
+                   ], 7..17}
+                ], 0..17}
+    end
+  end
+
+  describe "include() lexes" do
+    defparsec(:include, Spf.Tokens.include())
+
+    test "its domain_spec" do
+      {:ok, [token], _, _, _, _} = include("include:spf.example.com")
+
+      assert token ==
+               {:include,
+                [
+                  ?+,
+                  {:domain_spec,
+                   [
+                     {:literal, "spf.example.com", 8..22}
+                   ], 8..22}
+                ], 0..22}
+    end
+  end
+
+  describe "ip4() lexes" do
+    defparsec(:ip4, Spf.Tokens.ip4())
+
+    test "an address" do
+      {:ok, [token], _, _, _, _} = ip4("ip4:1.2.3.4")
+      assert token == {:ip4, [?+, "1.2.3.4"], 0..10}
+    end
+
+    test "a prefix" do
+      {:ok, [token], _, _, _, _} = ip4("ip4:1.2.3.4/32")
+      assert token == {:ip4, [?+, "1.2.3.4/32"], 0..13}
+    end
+
+    test "anything really" do
+      # Note: ip4 cheats and lexes any non-spaces since ip4 parsing is done
+      # later on by the Parser.
+      {:ok, [token], _, _, _, _} = ip4("ip4:a.b.c.d/xy")
+      assert token == {:ip4, [?+, "a.b.c.d/xy"], 0..13}
+    end
+  end
+
+  describe "ip6() lexes" do
+    defparsec(:ip6, Spf.Tokens.ip6())
+
+    test "an address" do
+      {:ok, [token], _, _, _, _} = ip6("ip6:2001::4")
+      assert token == {:ip6, [?+, "2001::4"], 0..10}
+    end
+
+    test "a prefix" do
+      {:ok, [token], _, _, _, _} = ip6("ip6:2001::/32")
+      assert token == {:ip6, [?+, "2001::/32"], 0..12}
+    end
+
+    test "anything really" do
+      # Note: ip6 cheats and lexes any non-spaces since ip6 parsing is done
+      # later on by the Parser.
+      {:ok, [token], _, _, _, _} = ip6("ip6:a.b.c.d/xy")
+      assert token == {:ip6, [?+, "a.b.c.d/xy"], 0..13}
+    end
+  end
+
   describe "mx() lexes" do
     defparsec(:mx, Spf.Tokens.mx())
 
@@ -324,6 +455,38 @@ defmodule Spf.TokenTest do
                     {:dual_cidr, [24, 64], 11..17}
                   ]
                 ], 0..17}
+    end
+  end
+
+  describe "ptr() lexes" do
+    defparsec(:ptr, Spf.Tokens.ptr())
+
+    test "all qualifiers" do
+      assert ptr("ptr") == {:ok, [{:ptr, [?+, []], 0..2}], "", %{start: 0}, {1, 0}, 3}
+      assert ptr("+ptr") == {:ok, [{:ptr, [?+, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
+      assert ptr("-ptr") == {:ok, [{:ptr, [?-, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
+      assert ptr("~ptr") == {:ok, [{:ptr, [?~, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
+      assert ptr("?ptr") == {:ok, [{:ptr, [??, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
+    end
+
+    test "its domain_spec" do
+      {:ok, [token], _, _, _, _} = ptr("ptr:spf.example.com")
+
+      assert token ==
+               {:ptr, [?+, [{:domain_spec, [{:literal, "spf.example.com", 4..18}], 4..18}]],
+                0..18}
+    end
+  end
+
+  describe "version() lexes" do
+    defparsec(:version, Spf.Tokens.version())
+
+    test "any number actually" do
+      {:ok, [token], _, _, _, _} = version("v=spf1")
+      assert token == {:version, [1], 0..5}
+
+      {:ok, [token], _, _, _, _} = version("v=spf11")
+      assert token == {:version, [11], 0..6}
     end
   end
 end

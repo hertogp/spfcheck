@@ -206,6 +206,10 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, :redirect),
     do: {[{:redirect, Enum.reverse(args), range(context, offset)}], context}
 
+  # Unknown
+  def token(_rest, args, context, _line, offset, :unknown),
+    do: {[{:unknown, Enum.reverse(args), range(context, :start1, offset)}], context}
+
   # CatchAll
   def token(_rest, args, context, _line, offset, atom),
     do: {[{atom, Enum.reverse(args), range(context, offset)}], context}
@@ -436,7 +440,9 @@ defmodule Spf.Tokens do
   """
   @spec unknown() :: t
   def unknown() do
-    start()
+    # for unknown use start1, since it is also used in ip4, ip6 which are based
+    # on start()
+    start1()
     |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
     |> post_traverse({@m, :token, [:unknown]})
   end
@@ -571,9 +577,6 @@ defmodule Spf.Tokens do
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:literal]})
   end
-
-  def literals(),
-    do: concat(start2(), literal())
 
   defp m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
