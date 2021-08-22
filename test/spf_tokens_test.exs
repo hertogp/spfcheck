@@ -478,6 +478,24 @@ defmodule Spf.TokenTest do
     end
   end
 
+  describe "exp() lexes" do
+    defparsec(:exp, Spf.Tokens.exp())
+
+    test "its domain-spec" do
+      {:ok, [token], _, _, _, _} = exp("exp=%{d}.com")
+
+      assert token ==
+               {:exp,
+                [
+                  {:domain_spec,
+                   [
+                     {:expand, [?d, 0, false, ["."]], 4..7},
+                     {:literal, ".com", 8..11}
+                   ], 4..11}
+                ], 0..11}
+    end
+  end
+
   describe "version() lexes" do
     defparsec(:version, Spf.Tokens.version())
 
@@ -486,6 +504,11 @@ defmodule Spf.TokenTest do
       assert token == {:version, [1], 0..5}
 
       {:ok, [token], _, _, _, _} = version("v=spf11")
+      assert token == {:version, [11], 0..6}
+    end
+
+    test "case-insensitive" do
+      {:ok, [token], _, _, _, _} = version("V=SpF11")
       assert token == {:version, [11], 0..6}
     end
   end
