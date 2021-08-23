@@ -1,11 +1,14 @@
 defmodule Spf.Parser do
   @moduledoc """
   Functions to parse a list of tokens, given a context of ip, sender and domain
+
+
   """
   import Spf.Utils
 
   # Helpers
 
+  @spec pfxparse(binary) :: {:ok, Pfx.t()} | {:error, binary}
   defp pfxparse(pfx) do
     {:ok, Pfx.new(pfx)}
   rescue
@@ -137,7 +140,7 @@ defmodule Spf.Parser do
   end
 
   def parse(ctx = %{spf: spf}) do
-    log(ctx, :error, "#{length(spf)} spf records found")
+    log(ctx, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
     |> Map.put(:spf, "")
     |> Map.put(:verdict, "permerror")
   end
@@ -206,11 +209,12 @@ defmodule Spf.Parser do
   end
 
   # Ptr
-  defp check({:ptr, [qual, args], range}, ctx) do
+  defp check({:ptr, [qual, args], range} = token, ctx) do
     {spec, _} = taketok(args, :domain_spec)
 
     ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
     |> tick(:num_dnsm)
+    |> log(:warn, token, "ptr usage is not recommended")
   end
 
   # Include, Exists

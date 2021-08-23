@@ -599,9 +599,9 @@ defmodule Spf.TokenTest do
     defparsec(:unknown, Spf.Tokens.unknown())
 
     test "anything visible, including %" do
-      {:ok, [token], rest, _, _, _} = unknown("tillhere%see?")
+      {:ok, [token], rest, _, _, _} = unknown("pasthere%see?")
       assert rest == ""
-      assert token == {:unknown, 'tillhere%see?', 0..12}
+      assert token == {:unknown, 'pasthere%see?', 0..12}
     end
 
     test "anything visible, so stops at whitespace" do

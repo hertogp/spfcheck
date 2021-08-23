@@ -172,9 +172,6 @@ defmodule Spf.Utils do
   end
 
   def log(ctx, type, str) do
-    # nth = String.pad_leading("#{ctx.nth}", 2)
-    # type = String.pad_leading("#{type}", 5)
-    # depth = String.duplicate("| ", ctx.depth)
     lead = loglead(ctx.nth, type, ctx.depth)
     IO.puts(:stderr, "#{lead}> #{str}")
     Map.update(ctx, :msg, [{ctx.nth, type, str}], fn msgs -> [{ctx.nth, type, str} | msgs] end)
@@ -191,8 +188,10 @@ defmodule Spf.Utils do
   end
 
   @doc """
-  Adds log message if test is true
+  Adds `label`ed log `msg` to given `ctx`, if `test` is true
   """
+  def test(ctx, label, term, test, msg)
+
   def test(ctx, label, term, true, msg),
     do: log(ctx, label, term, msg)
 

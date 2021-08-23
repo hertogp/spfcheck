@@ -53,7 +53,8 @@ defmodule Spf.Eval do
       nth: ctx.nth,
       macro: ctx.macro,
       ast: ctx.ast,
-      spf: ctx.spf
+      spf: ctx.spf,
+      explain: ctx.explain
     }
 
     nth = ctx.cnt
@@ -70,6 +71,7 @@ defmodule Spf.Eval do
     |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
+    |> Map.put(:explain, nil)
   end
 
   # restore ctx state from stack, after returning from an unmatched include
