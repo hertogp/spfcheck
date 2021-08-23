@@ -3,7 +3,7 @@ defmodule Spf.DNS do
   DNS helper functions
   """
 
-  import Spf.Utils
+  import Spf.Context
 
   # https://www.rfc-editor.org/rfc/rfc6895.html
   # Decimal RCODE-name Description                     Reference

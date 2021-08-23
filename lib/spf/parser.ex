@@ -4,7 +4,7 @@ defmodule Spf.Parser do
 
 
   """
-  import Spf.Utils
+  import Spf.Context
 
   # Helpers
 

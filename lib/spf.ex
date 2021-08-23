@@ -5,8 +5,24 @@ defmodule Spf do
   import NimbleParsec
 
   alias Spf.DNS
-  import Spf.Utils
-  import Spf.Eval
+  alias Spf.Context
+  alias Spf.Eval
+  alias Spf.Parser
+
+  # Helpers
+  # check if string contains v=spf, even if malformed
+  @spec spf?(binary) :: boolean
+  defp spf?(str) when is_binary(str) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
+    # - we're a bit more relaxed
+    str
+    |> String.downcase()
+    |> String.replace([" ", "\t", "\n", "\r"], "")
+    |> String.contains?("v=spf1")
+  end
+
+  defp spf?(_),
+    do: false
 
   def grep(ctx) when is_map(ctx) do
     {ctx, result} = DNS.resolve(ctx, ctx[:domain], :txt)
@@ -36,10 +52,10 @@ defmodule Spf do
   defdelegate parse(context), to: Spf.Parser
 
   def check(domain, opts \\ []) do
-    context(domain, opts)
+    Context.new(domain, opts)
     |> grep()
-    |> parse()
-    |> eval()
+    |> Parser.parse()
+    |> Eval.eval()
     |> report()
   end
 end

@@ -4,7 +4,7 @@ defmodule Spf.Eval do
   """
 
   alias Spf.DNS
-  import Spf.Utils
+  import Spf.Context
 
   # Helpers
 
@@ -40,50 +40,6 @@ defmodule Spf.Eval do
     {{qualifier, _nth}, _} = List.keytake(qlist, nth, 1) || {{:error, nth}, qlist}
 
     verdict(qualifier)
-  end
-
-  # push ctx state to stack and init state: recursive include coming up
-  defp push(ctx, domain) do
-    state = %{
-      depth: ctx.depth,
-      domain: ctx.domain,
-      f_include: ctx.f_include,
-      f_redirect: ctx.f_redirect,
-      f_all: ctx.f_all,
-      nth: ctx.nth,
-      macro: ctx.macro,
-      ast: ctx.ast,
-      spf: ctx.spf,
-      explain: ctx.explain
-    }
-
-    nth = ctx.cnt
-
-    tick(ctx, :cnt)
-    |> tick(:depth)
-    |> Map.put(:stack, [state | ctx.stack])
-    |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
-    |> Map.put(:domain, domain)
-    |> Map.put(:f_include, true)
-    |> Map.put(:f_redirect, false)
-    |> Map.put(:f_all, false)
-    |> Map.put(:nth, nth)
-    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
-    |> Map.put(:ast, [])
-    |> Map.put(:spf, "")
-    |> Map.put(:explain, nil)
-  end
-
-  # restore ctx state from stack, after returning from an unmatched include
-  defp pop(ctx) do
-    case ctx.stack do
-      [] ->
-        log(ctx, :error, "attempted to pop from empty stack")
-
-      [state | tail] ->
-        Map.put(ctx, :stack, tail)
-        |> Map.merge(state)
-    end
   end
 
   # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
