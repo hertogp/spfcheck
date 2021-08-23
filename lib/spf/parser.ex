@@ -103,7 +103,7 @@ defmodule Spf.Parser do
 
   # Parser
 
-  def parse(%{error: reason} = ctx) do
+  def parse(%{error: reason} = ctx) when reason != nil do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
     # - timeout or RCODE other than [0 success, 3 nxdomain] -> temperror
     # - RCODE 3: nxdomain -> none
