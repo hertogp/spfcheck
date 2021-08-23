@@ -188,14 +188,14 @@ defmodule Spf.Parser do
   end
 
   # Whitespace
-  defp check({:whitespace, [wspace], _range} = token, ctx) do
+  defp check({:whitespace, [wspace], range} = token, ctx) do
     ctx =
       if String.length(wspace) > 1,
-        do: log(ctx, :warn, token, "repeated whitespace"),
+        do: log(ctx, :warn, token, "repeated whitespace: #{inspect(range)}"),
         else: ctx
 
     if String.contains?(wspace, "\t"),
-      do: log(ctx, :warn, token, "whitespace contains tab"),
+      do: log(ctx, :warn, token, "tab as whitespace: #{inspect(range)}"),
       else: ctx
   end
 
