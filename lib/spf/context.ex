@@ -281,6 +281,21 @@ defmodule Spf.Context do
   end
 
   @doc """
+  Get spf for nth domain.
+
+  """
+  @spec nth_spf(map, integer) :: binary
+  def nth_spf(ctx, nth) do
+    if nth >= ctx.cnt do
+      nil
+    else
+      domain = ctx.map[nth]
+      rrs = ctx.dns[{domain, :txt}]
+      Enum.find(rrs, nil, &Spf.spf?/1)
+    end
+  end
+
+  @doc """
   Adds `label`ed log `msg` to given `ctx`, if `test` is true
   """
   def test(ctx, label, term, test, msg)

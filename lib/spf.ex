@@ -11,8 +11,13 @@ defmodule Spf do
 
   # Helpers
   # check if string contains v=spf, even if malformed
+
+  @doc """
+  Returns true if `str` looks like an SPF record, false otherwise.
+
+  """
   @spec spf?(binary) :: boolean
-  defp spf?(str) when is_binary(str) do
+  def spf?(str) when is_binary(str) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
     # - we're a bit more relaxed
     str
@@ -21,15 +26,18 @@ defmodule Spf do
     |> String.contains?("v=spf1")
   end
 
-  defp spf?(_),
+  def spf?(_),
     do: false
 
   def grep(ctx) when is_map(ctx) do
-    {ctx, result} = DNS.resolve(ctx, ctx[:domain], :txt)
+    {ctx, result} = DNS.resolve(ctx, ctx.domain, :txt)
 
     case DNS.grep(result, &spf?/1) do
-      {:ok, spf} -> Map.put(ctx, :spf, spf)
-      {:error, reason} -> Map.put(ctx, :error, reason) |> Map.put(:spf, [])
+      {:ok, spf} ->
+        Map.put(ctx, :spf, spf)
+
+      {:error, reason} ->
+        Map.put(ctx, :error, reason) |> Map.put(:spf, [])
     end
   end
 
