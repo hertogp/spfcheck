@@ -73,6 +73,28 @@ defmodule Spf.Context do
     end
   end
 
+  @doc """
+  Returns the SPF string for `nth` domain if available, nil otherwise.
+
+  """
+  @spec get_spf(map, integer | binary) :: binary
+  def get_spf(ctx, nth) when is_integer(nth) do
+    with domain when is_binary(domain) <- ctx.map[nth] do
+      get_spf(ctx, domain)
+    else
+      _ -> nil
+    end
+  end
+
+  def get_spf(ctx, domain) when is_binary(domain) do
+    with rrs when is_list(rrs) <- ctx.dns[{domain, :txt}] do
+      Enum.find(rrs, nil, &Spf.spf?/1)
+    else
+      _ -> nil
+    end
+  end
+
+  @spec log(map, atom, binary) :: map
   def log(ctx, type, str) do
     lead = loglead(ctx.nth, type, ctx.depth)
     IO.puts(:stderr, "#{lead}> #{str}")
@@ -278,21 +300,6 @@ defmodule Spf.Context do
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
-  end
-
-  @doc """
-  Get spf for nth domain.
-
-  """
-  @spec nth_spf(map, integer) :: binary
-  def nth_spf(ctx, nth) do
-    if nth >= ctx.cnt do
-      nil
-    else
-      domain = ctx.map[nth]
-      rrs = ctx.dns[{domain, :txt}]
-      Enum.find(rrs, nil, &Spf.spf?/1)
-    end
   end
 
   @doc """
