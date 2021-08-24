@@ -54,16 +54,16 @@ defmodule Spf.DNS do
         {:error, :nxdomain} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
-          |> log(:error, "DNS #{name} #{type}: void (nxdomain)")
+          |> log(:error, "DNS nxdomain: #{name} #{type}")
 
         {:error, :timeout} ->
           tick(ctx, :num_dnsq)
-          |> log(:error, "DNS #{name} #{type}: timeout")
+          |> log(:error, "DNS timeout: #{name} #{type}")
 
         {:ok, []} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
-          |> log(:error, "DNS #{name} #{type}: void (zero answers)")
+          |> log(:error, "DNS zero answers: #{name} #{type}")
 
         {:ok, rrs} ->
           tick(ctx, :num_dnsq)
@@ -74,12 +74,20 @@ defmodule Spf.DNS do
   rescue
     CaseClauseError ->
       error = {:error, :qtype}
-      ctx = Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+
+      ctx =
+        Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+        |> log(:error, "DNS type error: #{name} #{type}")
+
       {ctx, error}
 
     FunctionClauseError ->
       error = {:error, :illegal_name}
-      ctx = Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+
+      ctx =
+        Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+        |> log(:error, "DNS illegal name: #{name}")
+
       {ctx, error}
   end
 
