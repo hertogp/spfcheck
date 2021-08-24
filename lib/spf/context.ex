@@ -179,7 +179,7 @@ defmodule Spf.Context do
       # <sender> that is using <ip> to send mail
       sender: sender,
       # default verdict is ?all, ie neutral
-      verdict: "neutral",
+      verdict: :neutral,
       # dns cache, taken from opts if available so user can try out new SPF records
       dns: Keyword.get(opts, :dns, %{}),
       # default :inet_res timeout in msec

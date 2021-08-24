@@ -28,11 +28,11 @@ defmodule Spf.Eval do
   defp verdict(qualifier) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     case qualifier do
-      ?+ -> "pass"
-      ?- -> "fail"
-      ?~ -> "softfail"
-      ?? -> "neutral"
-      q -> "error, unknown qualifier #{inspect(q)}"
+      ?+ -> :pass
+      ?- -> :fail
+      ?~ -> :softfail
+      ?? -> :neutral
+      _ -> :qualifier_error
     end
   end
 
@@ -183,7 +183,7 @@ defmodule Spf.Eval do
         |> eval()
 
       case ctx.verdict do
-        v when v in ["neutral", "fail", "softfail"] ->
+        v when v in [:neutral, :fail, :softfail] ->
           pop(ctx)
           |> log(:info, term, "no match")
           |> evalp(tail)
@@ -193,10 +193,10 @@ defmodule Spf.Eval do
           |> pop()
           |> log(:info, term, "match")
 
-        v when v in ["none", "permerror"] ->
-          Map.put(ctx, :verdict, "permerror") |> log(:info, term, "permerror")
+        v when v in [:none, :permerror] ->
+          Map.put(ctx, :verdict, :permerror) |> log(:info, term, :permerror)
 
-        "temperror" ->
+        :temperror ->
           ctx
       end
     end

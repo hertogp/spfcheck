@@ -109,10 +109,10 @@ defmodule Spf.Parser do
     # - RCODE 3: nxdomain -> none
     verdict =
       case reason do
-        :nxdomain -> "none"
-        :illegal_name -> "permerror"
-        :timeout -> "temperror"
-        _ -> "temperror"
+        :nxdomain -> :none
+        :illegal_name -> :permerror
+        :timeout -> :temperror
+        _ -> :temperror
       end
 
     Map.put(ctx, :verdict, verdict)
@@ -121,7 +121,7 @@ defmodule Spf.Parser do
   def parse(%{spf: []} = ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
     log(ctx, :note, "no spf records found")
-    |> Map.put(:verdict, "none")
+    |> Map.put(:verdict, :none)
   end
 
   def parse(%{spf: [spf]} = ctx) do
@@ -142,7 +142,7 @@ defmodule Spf.Parser do
   def parse(ctx = %{spf: spf}) do
     log(ctx, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
     |> Map.put(:spf, "")
-    |> Map.put(:verdict, "permerror")
+    |> Map.put(:verdict, :permerror)
   end
 
   # Checks
