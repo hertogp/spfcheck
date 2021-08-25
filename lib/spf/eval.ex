@@ -8,80 +8,6 @@ defmodule Spf.Eval do
 
   # Helpers
 
-  defp match(ctx, term, tail) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
-    # see if ctx's current state is a match (i.e. <ip> is a match now)
-    # TODO: add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
-    {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
-
-    if qlist do
-      log(ctx, :note, term, "matches #{ctx.ip}")
-      |> tick(:num_checks)
-      |> Map.put(:verdict, verdict(qlist, ctx.nth))
-    else
-      log(ctx, :info, term, "no match")
-      |> tick(:num_checks)
-      |> evalp(tail)
-    end
-  end
-
-  defp verdict(qualifier) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
-    case qualifier do
-      ?+ -> :pass
-      ?- -> :fail
-      ?~ -> :softfail
-      ?? -> :neutral
-      _ -> :qualifier_error
-    end
-  end
-
-  defp verdict(qlist, nth) do
-    {{qualifier, _nth}, _} = List.keytake(qlist, nth, 1) || {{:error, nth}, qlist}
-
-    verdict(qualifier)
-  end
-
-  # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
-  # ptr - mechanism
-  # 1. resolve PTR RR for <ip> -> names
-  # 2. resolve names -> their ip's
-  # 3. keep names that have <ip> among their ip's
-  # 4. add <ip> if such a (validated) name is (sub)domain of <domain>
-  defp validated(ctx, {:ptr, [_, domain], _} = term, {:error, reason}),
-    do: log(ctx, :error, term, "DNS error for #{domain}: #{inspect(reason)}")
-
-  defp validated(ctx, term, {:ok, rrs}),
-    do: Enum.reduce(rrs, ctx, fn name, acc -> validate(name, acc, term) end)
-
-  defp validate(name, ctx, {:ptr, [q, domain], _} = term) do
-    {ctx, dns} = DNS.resolve(ctx, name, ctx.atype)
-
-    case validate?(dns, ctx.ip, name, domain) do
-      true ->
-        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth})
-        |> log(:info, term, "validated #{name}, #{ctx.ip} for #{domain}")
-
-      false ->
-        ctx
-    end
-  end
-
-  # validate name has an ip == <ip> and is (sub)domain of domain
-  defp validate?({:error, _}, _ip, _name, _domain),
-    do: false
-
-  defp validate?({:ok, rrs}, ip, name, domain) do
-    pfx = Pfx.new(ip)
-
-    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
-      String.downcase(name)
-      |> String.ends_with?(String.downcase(domain))
-    else
-      false
-    end
-  end
-
   defp explain(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.2
     if ctx.explain do
@@ -128,6 +54,80 @@ defmodule Spf.Eval do
       expand(ctx, token)
     end
     |> Enum.join()
+  end
+
+  defp match(ctx, term, tail) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
+    # see if ctx's current state is a match (i.e. <ip> is a match now)
+    # TODO: add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
+    {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
+
+    if qlist do
+      log(ctx, :note, term, "matches #{ctx.ip}")
+      |> tick(:num_checks)
+      |> Map.put(:verdict, verdict(qlist, ctx.nth))
+    else
+      log(ctx, :info, term, "no match")
+      |> tick(:num_checks)
+      |> evalp(tail)
+    end
+  end
+
+  # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
+  # ptr - mechanism
+  # 1. resolve PTR RR for <ip> -> names
+  # 2. resolve names -> their ip's
+  # 3. keep names that have <ip> among their ip's
+  # 4. add <ip> if such a (validated) name is (sub)domain of <domain>
+  defp validated(ctx, {:ptr, [_, domain], _} = term, {:error, reason}),
+    do: log(ctx, :error, term, "DNS error for #{domain}: #{inspect(reason)}")
+
+  defp validated(ctx, term, {:ok, rrs}),
+    do: Enum.reduce(rrs, ctx, fn name, acc -> validate(name, acc, term) end)
+
+  defp validate(name, ctx, {:ptr, [q, domain], _} = term) do
+    {ctx, dns} = DNS.resolve(ctx, name, ctx.atype)
+
+    case validate?(dns, ctx.ip, name, domain) do
+      true ->
+        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth})
+        |> log(:info, term, "validated #{name}, #{ctx.ip} for #{domain}")
+
+      false ->
+        ctx
+    end
+  end
+
+  # validate name has an ip == <ip> and is (sub)domain of domain
+  defp validate?({:error, _}, _ip, _name, _domain),
+    do: false
+
+  defp validate?({:ok, rrs}, ip, name, domain) do
+    pfx = Pfx.new(ip)
+
+    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
+      String.downcase(name)
+      |> String.ends_with?(String.downcase(domain))
+    else
+      false
+    end
+  end
+
+  defp verdict(qualifier) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
+    case qualifier do
+      ?+ -> :pass
+      ?- -> :fail
+      ?~ -> :softfail
+      ?? -> :neutral
+      _ -> :qualifier_error
+    end
+  end
+
+  defp verdict(qlist, nth) do
+    {{qualifier, _nth}, _} = List.keytake(qlist, nth, 1) || {{:error, nth}, qlist}
+
+    verdict(qualifier)
   end
 
   # API
