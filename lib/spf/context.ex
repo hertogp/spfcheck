@@ -1,9 +1,7 @@
 defmodule Spf.Context do
   @moduledoc """
-  Functions to create & manipulate an SPF evaluation context.
+  Functions to create, access and update an SPF evaluation context.
   """
-
-  alias Spf.DNS
 
   # Helpers
 
@@ -43,18 +41,6 @@ defmodule Spf.Context do
   def addip(ctx, ips, dual, value) when is_list(ips) do
     kvs = Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
     Enum.reduce(kvs, ctx, &ipt_update/2)
-  end
-
-  @doc """
-  Resolve a domain name and add it's ip to `ctx.ipt`
-  """
-  def addname(ctx, domain, dual, value) do
-    {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
-
-    case dns do
-      {:ok, rrs} -> addip(ctx, rrs, dual, value)
-      {:error, reason} -> log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
-    end
   end
 
   @doc """

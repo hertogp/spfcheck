@@ -8,10 +8,7 @@ defmodule Spf.Eval do
 
   # Helpers
 
-  @doc """
-  Resolve MX names and add ip's to `ctx.ipt`
-  """
-  def evalmx(ctx, domain, dual, value) do
+  defp evalmx(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, :mx)
 
     case dns do
@@ -20,7 +17,16 @@ defmodule Spf.Eval do
 
       {:ok, rrs} ->
         Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
-        |> Enum.reduce(ctx, fn name, acc -> addname(acc, name, dual, value) end)
+        |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
+    end
+  end
+
+  defp evalname(ctx, domain, dual, value) do
+    {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
+
+    case dns do
+      {:ok, rrs} -> addip(ctx, rrs, dual, value)
+      {:error, reason} -> log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
     end
   end
 
@@ -107,10 +113,10 @@ defmodule Spf.Eval do
     case validate?(dns, ctx.ip, name, domain) do
       true ->
         addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth})
-        |> log(:info, term, "validated #{name}, #{ctx.ip} for #{domain}")
+        |> log(:info, term, "validated: #{name}, #{ctx.ip} for #{domain}")
 
       false ->
-        ctx
+        log(ctx, :info, term, "not validated: #{name}, #{ctx.ip} for #{domain}")
     end
   end
 
@@ -154,7 +160,7 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
-    addname(ctx, domain, dual, {q, ctx.nth})
+    evalname(ctx, domain, dual, {q, ctx.nth})
     |> match(term, tail)
   end
 
