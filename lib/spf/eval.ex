@@ -8,6 +8,22 @@ defmodule Spf.Eval do
 
   # Helpers
 
+  @doc """
+  Resolve MX names and add ip's to `ctx.ipt`
+  """
+  def evalmx(ctx, domain, dual, value) do
+    {ctx, dns} = DNS.resolve(ctx, domain, :mx)
+
+    case dns do
+      {:error, reason} ->
+        log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+
+      {:ok, rrs} ->
+        Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
+        |> Enum.reduce(ctx, fn name, acc -> addname(acc, name, dual, value) end)
+    end
+  end
+
   defp explain(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.2
     if ctx.explain do
@@ -153,7 +169,7 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
-    addmx(ctx, domain, dual, {q, ctx.nth})
+    evalmx(ctx, domain, dual, {q, ctx.nth})
     |> match(term, tail)
   end
 

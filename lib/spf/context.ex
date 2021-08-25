@@ -46,22 +46,6 @@ defmodule Spf.Context do
   end
 
   @doc """
-  Resolve MX names and add ip's to `ctx.ipt`
-  """
-  def addmx(ctx, domain, dual, value) do
-    {ctx, dns} = DNS.resolve(ctx, domain, :mx)
-
-    case dns do
-      {:error, reason} ->
-        log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
-
-      {:ok, rrs} ->
-        Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
-        |> Enum.reduce(ctx, fn name, acc -> addname(acc, name, dual, value) end)
-    end
-  end
-
-  @doc """
   Resolve a domain name and add it's ip to `ctx.ipt`
   """
   def addname(ctx, domain, dual, value) do
