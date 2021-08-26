@@ -32,7 +32,7 @@ defmodule Spf.Eval do
 
   defp explain(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.2
-    if ctx.explain do
+    if ctx.verdict == :fail and ctx.explain do
       {_token, [domain], _range} = ctx.explain
       {ctx, dns} = DNS.resolve(ctx, domain, :txt)
 
@@ -213,7 +213,7 @@ defmodule Spf.Eval do
           |> log(:info, term, "no match")
           |> evalp(tail)
 
-        "pass" ->
+        :pass ->
           Map.put(ctx, :verdict, verdict(q))
           |> pop()
           |> log(:info, term, "match")
