@@ -81,13 +81,16 @@ defmodule Spf.Eval do
   defp match(ctx, term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     # see if ctx's current state is a match (i.e. <ip> is a match now)
-    # TODO: add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
+    # TODO:
+    # - add prechecks, such as ctx.num_dnsq <= ctx.max_dnsq etc..
+    # - store matching term in ctx as :matched_term {term, ctx.nth}
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
       log(ctx, :note, term, "matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
+      |> Map.put(:match, {term, ctx.nth})
     else
       log(ctx, :info, term, "no match")
       |> tick(:num_checks)

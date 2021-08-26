@@ -148,6 +148,8 @@ defmodule Spf.Context do
       atype: atype,
       # <sender> that is using <ip> to send mail
       sender: sender,
+      # {term, nth} that matched, nil otherwise
+      match: nil,
       # default verdict is ?all, ie neutral
       verdict: :neutral,
       # dns cache, taken from opts if available so user can try out new SPF records
