@@ -184,7 +184,9 @@ defmodule Spf.Context do
       # how long the evaluation took
       duration: 0,
       # ip -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
-      ipt: Iptrie.new()
+      ipt: Iptrie.new(),
+      # report back
+      report: :short
     }
   end
 

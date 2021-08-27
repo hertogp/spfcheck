@@ -73,6 +73,7 @@ defmodule Spf.Parser do
       if ctx.explain do
         log(ctx, :info, token, "ignored: multiple explains")
       else
+        # TODO: add warning if explain won't be used because a :fail is impossible
         Map.put(ctx, :explain, token)
       end
     end

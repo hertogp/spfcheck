@@ -158,7 +158,8 @@ defmodule Spf.Eval do
   # API
 
   def eval(ctx) do
-    evalp(ctx, ctx.ast)
+    log(ctx, :note, ctx.spf)
+    |> evalp(ctx.ast)
     |> explain()
   end
 

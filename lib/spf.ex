@@ -48,11 +48,10 @@ defmodule Spf do
   end
 
   def report(ctx) do
-    IO.puts(
-      "check(#{ctx.domain}, #{ctx.ip}, #{ctx.sender}) -> #{ctx.verdict} (#{ctx.explanation})"
-    )
-
-    ctx
+    case ctx.report do
+      :short -> {ctx.verdict, ctx.explanation, ctx.match}
+      :context -> ctx
+    end
   end
 
   defparsec(:tokenize, Spf.Tokens.tokenize())
