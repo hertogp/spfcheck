@@ -68,6 +68,7 @@ defmodule Spf do
 
   def debug(domain, opts \\ []) do
     ctx = check(domain, Keyword.put(opts, :report, :ctx))
+    IO.inspect(ctx)
     IO.puts("SPF record  : #{ctx.spf}")
     IO.puts("num DNS mech: #{ctx.num_dnsm} / #{ctx.max_dnsm}")
     IO.puts("DNS requests: #{ctx.num_dnsq} / #{ctx.max_dnsq}")

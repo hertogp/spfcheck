@@ -186,7 +186,7 @@ defmodule Spf.Context do
       # ip -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
       ipt: Iptrie.new(),
       # report back
-      report: :short
+      report: Keyword.get(opts, :report, :short)
     }
   end
 
