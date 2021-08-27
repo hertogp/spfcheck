@@ -5,11 +5,23 @@ defmodule Spfcheck do
              |> Enum.fetch!(1)
   alias Spf
 
+  @options [
+    ip: :string,
+    sender: :string,
+    verbosity: :integer,
+    dns: :string,
+    input: :string,
+    csv: :boolean,
+    help: :boolean
+  ]
+
   @doc """
   Check spf for given ip, sender and domain.
   """
-  def main(args) do
-    IO.inspect(args)
-    # Spf.check(args)
+  def main(argv) do
+    {parsed, args, invalid} = OptionParser.parse(argv, strict: @options)
+    IO.inspect(parsed, label: :parsed)
+    IO.inspect(args, label: :args)
+    IO.inspect(invalid, label: :invalid)
   end
 end
