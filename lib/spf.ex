@@ -50,7 +50,7 @@ defmodule Spf do
   def report(ctx) do
     case ctx.report do
       :short -> {ctx.verdict, ctx.explanation, ctx.match}
-      :context -> ctx
+      _ -> ctx
     end
   end
 
@@ -64,5 +64,15 @@ defmodule Spf do
     |> Parser.parse()
     |> Eval.eval()
     |> report()
+  end
+
+  def debug(domain, opts \\ []) do
+    ctx = check(domain, Keyword.put(opts, :report, :ctx))
+    IO.puts("SPF record  : #{ctx.spf}")
+    IO.puts("num DNS mech: #{ctx.num_dnsm} / #{ctx.max_dnsm}")
+    IO.puts("DNS requests: #{ctx.num_dnsq} / #{ctx.max_dnsq}")
+    IO.puts("DNS void req: #{ctx.num_dnsv} / #{ctx.max_dnsv}")
+    IO.puts("#checks made: #{ctx.num_checks}")
+    IO.puts("verdict     : #{ctx.verdict} (#{ctx.explanation})")
   end
 end
