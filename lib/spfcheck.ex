@@ -8,6 +8,8 @@ defmodule Spfcheck do
   @doc """
   Check spf for given ip, sender and domain.
   """
-  def host(domain),
-    do: Spf.check(domain)
+  def main(args) do
+    IO.inspect(args)
+    # Spf.check(args)
+  end
 end

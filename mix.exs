@@ -22,7 +22,10 @@ defmodule Spfcheck.MixProject do
       deps: deps(),
       docs: docs(),
       package: package(),
-      aliases: aliases()
+      aliases: aliases(),
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
+      escript: [main_module: Spfcheck]
     ]
   end
 
