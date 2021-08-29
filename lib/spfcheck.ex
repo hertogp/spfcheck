@@ -4,6 +4,7 @@ defmodule Spfcheck do
              |> String.split("<!-- @MODULEDOC -->")
              |> Enum.fetch!(1)
   alias Spf
+  alias IO.ANSI
 
   @options [
     ip: :string,
@@ -26,9 +27,24 @@ defmodule Spfcheck do
 
   # Helpers
 
+  defp color(type, width) do
+    padded = String.pad_leading("#{type}", width)
+
+    iodata =
+      case type do
+        :error -> ANSI.format([:red_background, :white, padded])
+        :warn -> ANSI.format([:yellow_background, :black, padded])
+        :note -> ANSI.format([:green, padded])
+        :debug -> ANSI.format([:red, padded])
+        _ -> padded
+      end
+
+    IO.iodata_to_binary(iodata)
+  end
+
   defp loglead(nth, type, depth) do
     nth = String.pad_leading("#{nth}", 2)
-    type = String.pad_leading("#{type}", 5)
+    type = color(type, 5)
     depth = String.duplicate("| ", depth)
     "[spf #{nth}][#{type}] #{depth}"
   end
@@ -50,11 +66,8 @@ defmodule Spfcheck do
   Check spf for given ip, sender and domain.
   """
   def main(argv) do
-    {parsed, [domain], invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
-    IO.inspect(parsed, label: :parsed)
-    IO.inspect(domain, label: :domain)
-    IO.inspect(invalid, label: :invalid)
-
+    Application.put_env(:elixir, :ansi_enabled, true)
+    {parsed, [domain], _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
     parsed = [log: &log/2] ++ parsed
     {verdict, explain, term} = Spf.check(domain, parsed)
 
