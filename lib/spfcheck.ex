@@ -7,14 +7,22 @@ defmodule Spfcheck do
   alias IO.ANSI
 
   @options [
+    # <ip> which defaults to 127.0.0.1
     ip: :string,
+    # <sender> which defaults to me@host.local
     sender: :string,
+    # 0 error, 1 warn, 2 note, 3 info, 4 debug
     verbosity: :integer,
+    # local dns RRs -> <name> SP <type> SP <value>
     dns: :string,
+    # read args from input file, 1 invocation per line
     input: :string,
-    csv: :boolean,
+    # use csv output -> uses predefined columns:
+    # domain, ip, sender, verdict, reason, explanantion, term, spf
+    # csv: :boolean,
     help: :boolean,
-    local: :string
+    # use color, defaults to true
+    nocolor: :boolean
   ]
 
   @aliases [
@@ -22,7 +30,8 @@ defmodule Spfcheck do
     s: :sender,
     v: :verbosity,
     h: :help,
-    l: :local
+    d: :dns,
+    n: :nocolor
   ]
 
   # Helpers
@@ -66,13 +75,19 @@ defmodule Spfcheck do
   Check spf for given ip, sender and domain.
   """
   def main(argv) do
-    Application.put_env(:elixir, :ansi_enabled, true)
-    {parsed, [domain], _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
-    parsed = [log: &log/2] ++ parsed
-    {verdict, explain, term} = Spf.check(domain, parsed)
+    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
 
-    exp = if explain != "", do: " (#{explain})", else: ""
-    term = if term, do: ", match by #{inspect(term)}", else: ", nothing matched"
-    IO.puts("#{verdict}#{exp}#{term}")
+    unless Keyword.get(parsed, :nocolor, false),
+      do: Application.put_env(:elixir, :ansi_enabled, true)
+
+    for domain <- domains do
+      IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")
+      parsed = [log: &log/2] ++ parsed
+      {verdict, explain, term} = Spf.check(domain, parsed)
+
+      exp = if explain != "", do: " (#{explain})", else: ""
+      term = if term, do: ", match by #{inspect(term)}", else: ", nothing matched"
+      IO.puts("#{verdict}#{exp}#{term}")
+    end
   end
 end
