@@ -25,13 +25,6 @@ defmodule Spf.Context do
     end
   end
 
-  defp loglead(nth, type, depth) do
-    nth = String.pad_leading("#{nth}", 2)
-    type = String.pad_leading("#{type}", 5)
-    depth = String.duplicate("| ", depth)
-    "[spf #{nth}][#{type}] #{depth}"
-  end
-
   # CONTEXT
 
   @doc """
@@ -65,24 +58,14 @@ defmodule Spf.Context do
   end
 
   @spec log(map, atom, binary) :: map
-  def log(ctx, type, str) do
-    lead = loglead(ctx.nth, type, ctx.depth)
-    IO.puts(:stderr, "#{lead}> #{str}")
-    Map.update(ctx, :msg, [{ctx.nth, type, str}], fn msgs -> [{ctx.nth, type, str} | msgs] end)
+  def log(ctx, type, msg) do
+    if ctx[:log], do: ctx.log.(ctx, {type, msg})
+    Map.update(ctx, :msg, [{ctx.nth, type, msg}], fn msgs -> [{ctx.nth, type, msg} | msgs] end)
   end
 
-  def loglocal(ctx, type, {_token, _tokval, range} = token, msg) do
-    tokstr = String.slice(ctx[:spf], range)
-    lead = loglead(ctx.nth, type, ctx.depth)
-    IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
-
-    Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
-      [{ctx.nth, type, token, msg} | msgs]
-    end)
-  end
-
+  @spec log(map, atom, tuple, binary) :: map
   def log(ctx, type, {_token, _tokval, _range} = token, msg) do
-    ctx.log.(ctx, type, token, msg)
+    if ctx[:log], do: ctx.log.(ctx, {type, token, msg})
 
     Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
       [{ctx.nth, type, token, msg} | msgs]
@@ -157,7 +140,7 @@ defmodule Spf.Context do
       # <sender> that is using <ip> to send mail
       sender: sender,
       # user log function, or local one.
-      log: Keyword.get(opts, :log, &loglocal/4),
+      log: Keyword.get(opts, :log, nil),
       # {term, nth} that matched, nil otherwise
       match: nil,
       # default verdict is ?all, ie neutral

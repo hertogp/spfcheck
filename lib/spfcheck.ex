@@ -29,11 +29,16 @@ defmodule Spfcheck do
   defp loglead(nth, type, depth) do
     nth = String.pad_leading("#{nth}", 2)
     type = String.pad_leading("#{type}", 5)
-    depth = String.duplicate(": ", depth)
+    depth = String.duplicate("| ", depth)
     "[spf #{nth}][#{type}] #{depth}"
   end
 
-  def log(ctx, type, {_token, _tokval, range} = token, msg) do
+  def log(ctx, {type, msg}) do
+    lead = loglead(ctx.nth, type, ctx.depth)
+    IO.puts(:stderr, "#{lead} #{msg}")
+  end
+
+  def log(ctx, {type, {_token, _tokval, range}, msg}) do
     tokstr = String.slice(ctx[:spf], range)
     lead = loglead(ctx.nth, type, ctx.depth)
     IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
@@ -50,7 +55,7 @@ defmodule Spfcheck do
     IO.inspect(domain, label: :domain)
     IO.inspect(invalid, label: :invalid)
 
-    parsed = [log: &log/4] ++ parsed
+    parsed = [log: &log/2] ++ parsed
     {verdict, explain, term} = Spf.check(domain, parsed)
 
     exp = if explain != "", do: " (#{explain})", else: ""
