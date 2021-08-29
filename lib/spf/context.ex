@@ -71,10 +71,18 @@ defmodule Spf.Context do
     Map.update(ctx, :msg, [{ctx.nth, type, str}], fn msgs -> [{ctx.nth, type, str} | msgs] end)
   end
 
-  def log(ctx, type, {_token, _tokval, range} = token, msg) do
+  def loglocal(ctx, type, {_token, _tokval, range} = token, msg) do
     tokstr = String.slice(ctx[:spf], range)
     lead = loglead(ctx.nth, type, ctx.depth)
     IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
+
+    Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
+      [{ctx.nth, type, token, msg} | msgs]
+    end)
+  end
+
+  def log(ctx, type, {_token, _tokval, _range} = token, msg) do
+    ctx.log.(ctx, type, token, msg)
 
     Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
       [{ctx.nth, type, token, msg} | msgs]
@@ -148,6 +156,8 @@ defmodule Spf.Context do
       atype: atype,
       # <sender> that is using <ip> to send mail
       sender: sender,
+      # user log function, or local one.
+      log: Keyword.get(opts, :log, &loglocal/4),
       # {term, nth} that matched, nil otherwise
       match: nil,
       # default verdict is ?all, ie neutral

@@ -24,6 +24,23 @@ defmodule Spfcheck do
     l: :local
   ]
 
+  # Helpers
+
+  defp loglead(nth, type, depth) do
+    nth = String.pad_leading("#{nth}", 2)
+    type = String.pad_leading("#{type}", 5)
+    depth = String.duplicate(": ", depth)
+    "[spf #{nth}][#{type}] #{depth}"
+  end
+
+  def log(ctx, type, {_token, _tokval, range} = token, msg) do
+    tokstr = String.slice(ctx[:spf], range)
+    lead = loglead(ctx.nth, type, ctx.depth)
+    IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
+  end
+
+  # MAIN
+
   @doc """
   Check spf for given ip, sender and domain.
   """
@@ -33,6 +50,7 @@ defmodule Spfcheck do
     IO.inspect(domain, label: :domain)
     IO.inspect(invalid, label: :invalid)
 
+    parsed = [log: &log/4] ++ parsed
     {verdict, explain, term} = Spf.check(domain, parsed)
 
     exp = if explain != "", do: " (#{explain})", else: ""
