@@ -48,9 +48,19 @@ defmodule Spf do
   end
 
   def report(ctx) do
+    tstamp = DateTime.utc_now() |> DateTime.to_unix()
+    ctx = Map.put(ctx, :duration, tstamp - ctx.macro[?t])
+
     case ctx.report do
-      :short -> {ctx.verdict, ctx.explanation, ctx.match}
-      _ -> ctx
+      :short ->
+        {ctx.verdict, ctx.explanation, ctx.match}
+
+      :medium ->
+        {ctx.verdict, ctx.explanation, ctx.match, ctx.duration, ctx.num_checks, ctx.num_dnsq,
+         ctx.num_dnsv, ctx.dnsm}
+
+      _ ->
+        ctx
     end
   end
 

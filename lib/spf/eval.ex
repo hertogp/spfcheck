@@ -163,11 +163,35 @@ defmodule Spf.Eval do
     |> explain()
   end
 
+  # A
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
     evalname(ctx, domain, dual, {q, ctx.nth})
     |> match(term, tail)
   end
 
+  # EXISTS
+  # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
+  defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
+    if ctx.map[domain] do
+      log(ctx, :error, term, "domain seen before")
+    else
+      {ctx, dns} = DNS.resolve(ctx, domain, :a)
+
+      ctx =
+        case dns do
+          {:ok, rrs} ->
+            IO.inspect(rrs)
+            addip(ctx, ctx.ip, [32, 128], {q, ctx.nth})
+
+          {:error, reason} ->
+            log(ctx, :info, term, "DNS error #{reason}")
+        end
+
+      match(ctx, term, tail)
+    end
+  end
+
+  # All
   defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
     if ctx.f_include do
       evalp(ctx, tail)
@@ -178,16 +202,19 @@ defmodule Spf.Eval do
     end
   end
 
+  # MX
   defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
     evalmx(ctx, domain, dual, {q, ctx.nth})
     |> match(term, tail)
   end
 
+  # IP4/6
   defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
     addip(ctx, [pfx], [32, 128], {q, ctx.nth})
     |> match(term, tail)
   end
 
+  # PTR
   defp evalp(ctx, [{:ptr, _value, _range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     # - see also Errata, 
@@ -197,6 +224,7 @@ defmodule Spf.Eval do
     |> match(term, tail)
   end
 
+  # INCLUDE
   defp evalp(ctx, [{:include, [q, domain], _range} = term | tail]) do
     if ctx.map[domain] do
       log(ctx, :error, term, "ignored: seen before")
@@ -228,6 +256,7 @@ defmodule Spf.Eval do
     end
   end
 
+  # REDIRECT
   defp evalp(ctx, [{:redirect, [domain], _range} = term | tail]) do
     if ctx.map[domain] do
       log(ctx, :error, term, "domain seen before")
@@ -252,6 +281,7 @@ defmodule Spf.Eval do
     end
   end
 
+  # TERM?
   defp evalp(ctx, [term | tail]) do
     log(ctx, :error, term, "eval is missing a handler")
     |> evalp(tail)

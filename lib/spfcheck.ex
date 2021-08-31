@@ -22,7 +22,9 @@ defmodule Spfcheck do
     # csv: :boolean,
     help: :boolean,
     # use color, defaults to true
-    nocolor: :boolean
+    nocolor: :boolean,
+    # 0 short, 1 medium or 2 long
+    report: :integer
   ]
 
   @aliases [
@@ -31,8 +33,23 @@ defmodule Spfcheck do
     v: :verbosity,
     h: :help,
     d: :dns,
-    n: :nocolor
+    n: :nocolor,
+    r: :report
   ]
+
+  @verbosity %{
+    :error => 0,
+    :warn => 1,
+    :note => 2,
+    :info => 3,
+    :debug => 4
+  }
+
+  @report %{
+    0 => :short,
+    1 => :medium,
+    2 => :long
+  }
 
   # Helpers
 
@@ -42,9 +59,9 @@ defmodule Spfcheck do
     iodata =
       case type do
         :error -> ANSI.format([:red_background, :white, padded])
-        :warn -> ANSI.format([:yellow_background, :black, padded])
+        :warn -> ANSI.format([:yellow, padded])
         :note -> ANSI.format([:green, padded])
-        :debug -> ANSI.format([:red, padded])
+        :debug -> ANSI.format([:white_background, :red, padded])
         _ -> padded
       end
 
@@ -59,14 +76,18 @@ defmodule Spfcheck do
   end
 
   def log(ctx, {type, msg}) do
-    lead = loglead(ctx.nth, type, ctx.depth)
-    IO.puts(:stderr, "#{lead} #{msg}")
+    if @verbosity[type] <= ctx.verbosity do
+      lead = loglead(ctx.nth, type, ctx.depth)
+      IO.puts(:stderr, "#{lead} #{msg}")
+    end
   end
 
   def log(ctx, {type, {_token, _tokval, range}, msg}) do
-    tokstr = String.slice(ctx[:spf], range)
-    lead = loglead(ctx.nth, type, ctx.depth)
-    IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
+    if @verbosity[type] <= ctx.verbosity do
+      tokstr = String.slice(ctx[:spf], range)
+      lead = loglead(ctx.nth, type, ctx.depth)
+      IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
+    end
   end
 
   # MAIN
