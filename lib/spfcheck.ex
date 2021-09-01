@@ -16,7 +16,7 @@ defmodule Spfcheck do
     # local dns RRs -> <name> SP <type> SP <value>
     dns: :string,
     # read args from input file, 1 invocation per line
-    input: :string,
+    batch: :string,
     # use csv output -> uses predefined columns:
     # domain, ip, sender, verdict, reason, explanantion, term, spf
     # csv: :boolean,
@@ -34,7 +34,8 @@ defmodule Spfcheck do
     h: :help,
     d: :dns,
     n: :nocolor,
-    r: :report
+    r: :report,
+    b: :batch
   ]
 
   @verbosity %{
@@ -75,6 +76,25 @@ defmodule Spfcheck do
     "[spf #{nth}][#{type}] #{depth}"
   end
 
+  def usage() do
+    """
+    spfcheck [options] domain
+
+    options:
+    -i, --ip=string      specify sender's <ip> to check (default 127.0.0.1)
+    -s, --sender=string  specify sender from address (default me@host.local)
+    -d, --dns            file with DNS records to preload the DNS cache
+    -v, --verbosity=int  noise level 0..4 (default 2)
+    -b, --batch=string   file with list of domains to check
+    -h, --help           prints this message and exits
+    -n, --nocolor        suppress colors in terminal output
+    -r, --report=int     reporting level 0..2 (default 1)
+
+    """
+  end
+
+  # Log callback
+
   def log(ctx, {type, msg}) do
     if @verbosity[type] <= ctx.verbosity do
       lead = loglead(ctx.nth, type, ctx.depth)
@@ -100,6 +120,8 @@ defmodule Spfcheck do
 
     unless Keyword.get(parsed, :nocolor, false),
       do: Application.put_env(:elixir, :ansi_enabled, true)
+
+    IO.inspect({parsed, domains}, label: :cli)
 
     for domain <- domains do
       IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")

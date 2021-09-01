@@ -34,7 +34,7 @@ defmodule Spf.DNS do
     if result do
       ctx =
         tick(ctx, :num_dnsq)
-        |> log(:warn, "DNS cached answer for #{name}, #{type}")
+        |> log(:info, "DNS cached answer for #{name}, #{type}")
 
       {ctx, {:ok, result}}
     else
