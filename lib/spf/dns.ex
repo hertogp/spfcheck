@@ -54,16 +54,19 @@ defmodule Spf.DNS do
         {:error, :nxdomain} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
-          |> log(:error, "DNS nxdomain: #{name} #{type}")
+          |> log(:debug, "DNS nxdomain: #{name} #{type}")
+          |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
 
         {:error, :timeout} ->
           tick(ctx, :num_dnsq)
           |> log(:error, "DNS timeout: #{name} #{type}")
+          |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
 
         {:ok, []} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
-          |> log(:error, "DNS zero answers: #{name} #{type}")
+          |> log(:debug, "DNS zero answers: #{name} #{type}")
+          |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
 
         {:ok, rrs} ->
           tick(ctx, :num_dnsq)

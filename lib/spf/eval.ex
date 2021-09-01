@@ -180,8 +180,8 @@ defmodule Spf.Eval do
       ctx =
         case dns do
           {:ok, rrs} ->
-            IO.inspect(rrs)
-            addip(ctx, ctx.ip, [32, 128], {q, ctx.nth})
+            log(ctx, :info, term, "DNS #{inspect(rrs)}")
+            |> addip(ctx.ip, [32, 128], {q, ctx.nth})
 
           {:error, reason} ->
             log(ctx, :info, term, "DNS error #{reason}")

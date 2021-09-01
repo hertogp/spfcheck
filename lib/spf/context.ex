@@ -36,6 +36,10 @@ defmodule Spf.Context do
     Enum.reduce(kvs, ctx, &ipt_update/2)
   end
 
+  def addip(ctx, ip, dual, value) when is_binary(ip) do
+    ipt_update({prefix(ip, dual), value}, ctx)
+  end
+
   @doc """
   Returns the SPF string for `nth` domain if available, nil otherwise.
 
