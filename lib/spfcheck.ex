@@ -78,17 +78,47 @@ defmodule Spfcheck do
 
   def usage() do
     """
-    spfcheck [options] domain
 
-    options:
-    -i, --ip=string      specify sender's <ip> to check (default 127.0.0.1)
-    -s, --sender=string  specify sender from address (default me@host.local)
-    -d, --dns            file with DNS records to preload the DNS cache
-    -v, --verbosity=int  noise level 0..4 (default 2)
-    -b, --batch=string   file with list of domains to check
-    -h, --help           prints this message and exits
-    -n, --nocolor        suppress colors in terminal output
-    -r, --report=int     reporting level 0..2 (default 1)
+    Usage: spfcheck [options] domain
+
+    Options:
+     -b, --batch=string   file with list of domains to check
+     -d, --dns            file with DNS records to preload the DNS cache
+     -h, --help           prints this message and exits
+     -i, --ip=string      specify sender's <ip> to check (default 127.0.0.1)
+     -n, --nocolor        suppress colors in terminal output
+     -r, --report=int     reporting level 0..2 (default 1)
+     -s, --sender=string  specify sender from address (default me@host.local)
+     -v, --verbosity=int  noise level 0..4 (default 2)
+
+    Batch processing
+
+      spfcheck can take the domains to test from a text file that contains
+      one domain test per line.  Options can be specified as well.  E.g.
+
+      Example domains.txt:
+        example.com -i 1.1.1.1
+        example.com -i 2.2.2.2 -s me@example.com
+        ...
+
+    DNS preload
+
+      DNS queries are cached and the cache can be preloaded to override the
+      live DNS with specific records.  Useful to try out SPF records before
+      publishing them in DNS.  The -d options should point to a text file
+      that contains 1 record per line specifying the key, type and value
+      all on 1 line.
+
+      Example dns.txt
+        example.com  txt  v=spf1 a mx ~all
+
+
+    Examples:
+
+      spfcheck example.com
+      spfcheck -i 1.1.1.1 -s someone@example.com example.com
+      spfcheck --ip=1.1.1.1 --sender=someone@example.com example.com
+      spfcheck -b ./domains.txt
 
     """
   end
@@ -122,6 +152,11 @@ defmodule Spfcheck do
       do: Application.put_env(:elixir, :ansi_enabled, true)
 
     IO.inspect({parsed, domains}, label: :cli)
+
+    if Keyword.get(parsed, :help, false) do
+      IO.puts(usage())
+      exit({:shutdown, 1})
+    end
 
     for domain <- domains do
       IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")

@@ -62,6 +62,11 @@ defmodule Spf.DNS do
           |> log(:error, "DNS timeout: #{name} #{type}")
           |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
 
+        {:error, {:servfail, _}} ->
+          tick(ctx, :num_dnsq)
+          |> log(:error, "DNS SERVFAIL: #{name} #{type}")
+          |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+
         {:ok, []} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
@@ -75,8 +80,8 @@ defmodule Spf.DNS do
 
     {ctx, result}
   rescue
-    CaseClauseError ->
-      error = {:error, :qtype}
+    x in CaseClauseError ->
+      error = {:error, Exception.message(x)}
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))

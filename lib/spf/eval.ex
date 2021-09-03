@@ -198,7 +198,9 @@ defmodule Spf.Eval do
     else
       log(ctx, :info, term, "SPF match by #{List.to_string([q])}all")
       |> tick(:num_checks)
-      |> Map.put(:verdict, verdict(q))
+      |> addip(ctx.ip, [32, 128], {q, ctx.nth})
+      # |> Map.put(:verdict, verdict(q))
+      |> match(term, tail)
     end
   end
 
