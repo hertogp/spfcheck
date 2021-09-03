@@ -145,6 +145,8 @@ defmodule Spf.DNS do
   def load_file(ctx, fpath) when is_binary(fpath) do
     cache =
       File.stream!(fpath)
+      |> Enum.map(fn x -> String.trim(x) end)
+      |> Enum.filter(fn x -> not String.starts_with?(x, "#") end)
       |> Enum.reduce(%{}, &read_rr/2)
 
     ctx
@@ -155,7 +157,8 @@ defmodule Spf.DNS do
   end
 
   defp read_rr(str, acc) do
-    rr = String.trim(str) |> String.split(~r/ +/, parts: 3)
+    # assumes str has been trimmed already
+    rr = String.split(str, ~r/ +/, parts: 3)
 
     case rr do
       [key, type, value] ->
