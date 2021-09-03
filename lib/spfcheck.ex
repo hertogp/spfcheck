@@ -14,7 +14,7 @@ defmodule Spfcheck do
     # 0 error, 1 warn, 2 note, 3 info, 4 debug
     verbosity: :integer,
     # local dns RRs -> <name> SP <type> SP <value>
-    dns: :string,
+    rrs: :string,
     # read args from input file, 1 invocation per line
     batch: :string,
     # use csv output -> uses predefined columns:
@@ -22,9 +22,7 @@ defmodule Spfcheck do
     # csv: :boolean,
     help: :boolean,
     # use color, defaults to true
-    nocolor: :boolean,
-    # 0 short, 1 medium or 2 long
-    report: :integer
+    nocolor: :boolean
   ]
 
   @aliases [
@@ -32,9 +30,8 @@ defmodule Spfcheck do
     s: :sender,
     v: :verbosity,
     h: :help,
-    d: :dns,
+    r: :rrs,
     n: :nocolor,
-    r: :report,
     b: :batch
   ]
 
@@ -44,12 +41,6 @@ defmodule Spfcheck do
     :note => 2,
     :info => 3,
     :debug => 4
-  }
-
-  @report %{
-    0 => :short,
-    1 => :medium,
-    2 => :long
   }
 
   # Helpers
@@ -83,34 +74,36 @@ defmodule Spfcheck do
 
     Options:
      -b, --batch=string   file with list of domains to check
-     -d, --dns            file with DNS records to preload the DNS cache
      -h, --help           prints this message and exits
      -i, --ip=string      specify sender's <ip> to check (default 127.0.0.1)
      -n, --nocolor        suppress colors in terminal output
-     -r, --report=int     reporting level 0..2 (default 1)
+     -r, --rrs            file with DNS RR records to override live DNS
      -s, --sender=string  specify sender from address (default me@host.local)
-     -v, --verbosity=int  noise level 0..4 (default 2)
+     -v, --verbosity      increase noise level (max 4 times)
 
     Batch processing
 
       spfcheck can take the domains to test from a text file that contains
-      one domain test per line.  Options can be specified as well.  E.g.
+      one domain test per line.  Options can be specified as well.  If used,
+      any domains on the command line are ignored.
 
       Example domains.txt:
         example.com -i 1.1.1.1
         example.com -i 2.2.2.2 -s me@example.com
         ...
 
-    DNS preload
+    DNS RR override
 
       DNS queries are cached and the cache can be preloaded to override the
       live DNS with specific records.  Useful to try out SPF records before
-      publishing them in DNS.  The -d options should point to a text file
-      that contains 1 record per line specifying the key, type and value
-      all on 1 line.
+      publishing them in DNS.  The `-r` option should point to a text file
+      that contains 1 RR record per line specifying the key, type and value
+      all on 1 line.  Note that the file is not in BIND format and all RR's
+      must be written in full and keys are taken relative to root (.)
 
       Example dns.txt
-        example.com  txt  v=spf1 a mx ~all
+        example.com  TXT  v=spf1 a mx exists:%{i}.example.net ~all
+        127.0.0.1.example.net A  127.0.0.1
 
 
     Examples:
@@ -157,6 +150,13 @@ defmodule Spfcheck do
       IO.puts(usage())
       exit({:shutdown, 1})
     end
+
+    rrs = Keyword.get(parsed, :rrs, nil)
+
+    parsed =
+      if rrs,
+        do: Keyword.put(parsed, :dns, Spf.DNS.load_file(rrs)),
+        else: parsed
 
     for domain <- domains do
       IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")

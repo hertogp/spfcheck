@@ -139,4 +139,41 @@ defmodule Spf.DNS do
 
   def grep(rrdatas, fun) when is_function(fun, 1),
     do: {:ok, Enum.filter(rrdatas, fn rrdata -> fun.(rrdata) end)}
+
+  def load_file(nil), do: %{}
+
+  def load_file(fpath) when is_binary(fpath) do
+    File.stream!(fpath)
+    |> Enum.reduce(%{}, &read_rr/2)
+  end
+
+  defp read_rr(str, acc) do
+    rr = String.trim(str) |> String.split(" ", parts: 3)
+
+    case rr do
+      [key, type, value] ->
+        current = Map.get(acc, {key, atomize(type)}, [])
+        Map.put(acc, {key, atomize(type)}, [sanitize(value) | current])
+
+      _ ->
+        IO.puts("ignoring malformed RR: #{inspect(str)}")
+        acc
+    end
+  end
+
+  defp atomize(type) do
+    case String.downcase(type) do
+      "txt" -> :txt
+      "a" -> :a
+      "aaaa" -> :aaaa
+      "ptr" -> :ptr
+      "spf" -> :spf
+      "mx" -> :mx
+      _ -> type
+    end
+  end
+
+  defp sanitize(value) do
+    String.replace(value, ~r/\"(.*)\"$/, "\\1")
+  end
 end
