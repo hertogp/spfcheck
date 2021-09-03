@@ -149,10 +149,10 @@ defmodule Spf.Context do
       match: nil,
       # default verdict is ?all, ie neutral
       verdict: :neutral,
-      # dns cache, taken from opts if available so user can try out new SPF records
-      dns: Keyword.get(opts, :dns, %{}),
       # default :inet_res timeout in msec
       dns_timeout: 2000,
+      # dns cache {key, type} => [value]
+      dns: %{},
       # no dns error seen (yet)
       error: nil,
       # how macro letters expand for current domain
@@ -185,6 +185,7 @@ defmodule Spf.Context do
       # report back
       report: Keyword.get(opts, :report, :short)
     }
+    |> Spf.DNS.load_file(Keyword.get(opts, :rrs, nil))
   end
 
   @doc """

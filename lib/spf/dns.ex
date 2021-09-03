@@ -140,15 +140,22 @@ defmodule Spf.DNS do
   def grep(rrdatas, fun) when is_function(fun, 1),
     do: {:ok, Enum.filter(rrdatas, fn rrdata -> fun.(rrdata) end)}
 
-  def load_file(nil), do: %{}
+  def load_file(ctx, nil), do: ctx
 
-  def load_file(fpath) when is_binary(fpath) do
-    File.stream!(fpath)
-    |> Enum.reduce(%{}, &read_rr/2)
+  def load_file(ctx, fpath) when is_binary(fpath) do
+    cache =
+      File.stream!(fpath)
+      |> Enum.reduce(%{}, &read_rr/2)
+
+    ctx
+    |> log(:note, "cache has #{map_size(cache)} entries from #{fpath}")
+    |> Map.put(:dns, cache)
+  rescue
+    err -> log(ctx, :error, "#{Exception.message(err)}")
   end
 
   defp read_rr(str, acc) do
-    rr = String.trim(str) |> String.split(" ", parts: 3)
+    rr = String.trim(str) |> String.split(~r/ +/, parts: 3)
 
     case rr do
       [key, type, value] ->
@@ -174,6 +181,10 @@ defmodule Spf.DNS do
   end
 
   defp sanitize(value) do
-    String.replace(value, ~r/\"(.*)\"$/, "\\1")
+    value
+    |> String.replace(~r/^\"/, "")
+    |> String.replace(~r/\"$/, "")
+
+    # String.replace(value, ~r/\"(.*)\"$/, "\\1")
   end
 end

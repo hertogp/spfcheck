@@ -121,7 +121,7 @@ defmodule Spfcheck do
   def log(ctx, {type, msg}) do
     if @verbosity[type] <= ctx.verbosity do
       lead = loglead(ctx.nth, type, ctx.depth)
-      IO.puts(:stderr, "#{lead} #{msg}")
+      IO.puts(:stderr, "#{lead}#{msg}")
     end
   end
 
@@ -151,12 +151,8 @@ defmodule Spfcheck do
       exit({:shutdown, 1})
     end
 
-    rrs = Keyword.get(parsed, :rrs, nil)
-
-    parsed =
-      if rrs,
-        do: Keyword.put(parsed, :dns, Spf.DNS.load_file(rrs)),
-        else: parsed
+    # rrs = Keyword.get(parsed, :rrs, nil)
+    # parsed = Keyword.put(parsed, :dns, Spf.DNS.load_file(rrs))
 
     for domain <- domains do
       IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")
