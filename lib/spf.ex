@@ -78,12 +78,13 @@ defmodule Spf do
 
   def debug(domain, opts \\ []) do
     ctx = check(domain, Keyword.put(opts, :report, :ctx))
-    IO.inspect(ctx)
-    IO.puts("SPF record  : #{ctx.spf}")
-    IO.puts("num DNS mech: #{ctx.num_dnsm} / #{ctx.max_dnsm}")
-    IO.puts("DNS requests: #{ctx.num_dnsq} / #{ctx.max_dnsq}")
-    IO.puts("DNS void req: #{ctx.num_dnsv} / #{ctx.max_dnsv}")
-    IO.puts("#checks made: #{ctx.num_checks}")
-    IO.puts("verdict     : #{ctx.verdict} (#{ctx.explanation})")
+    # IO.inspect(ctx)
+    # IO.puts("SPF record  : #{ctx.spf}")
+    # IO.puts("num DNS mech: #{ctx.num_dnsm} / #{ctx.max_dnsm}")
+    # IO.puts("DNS requests: #{ctx.num_dnsq} / #{ctx.max_dnsq}")
+    # IO.puts("DNS void req: #{ctx.num_dnsv} / #{ctx.max_dnsv}")
+    # IO.puts("#checks made: #{ctx.num_checks}")
+    # IO.puts("verdict     : #{ctx.verdict} (#{ctx.explanation})")
+    ctx
   end
 end

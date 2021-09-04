@@ -79,7 +79,7 @@ defmodule Spfcheck do
     Examples:
 
       spfcheck example.com
-      spfcheck -i 1.1.1.1 -s someone@example.com example.com
+      spfcheck  -i 1.1.1.1   -s someone@example.com example.com
       spfcheck --ip=1.1.1.1 --sender=someone@example.com example.com -r ./dns.txt
 
     DNS RR override
@@ -93,18 +93,32 @@ defmodule Spfcheck do
 
       Example dns.txt
         example.com  TXT  v=spf1 a mx exists:%{i}.example.net ~all
+        example.com  TXT  verification=asdfi234098sf
         127.0.0.1.example.net A  127.0.0.1
 
+      Note that each line contains a single `key type value` combination, so
+      for multiple TXT records (e.g.) specify each on its own line, like in
+      the example above.  Lines that begin with '#' or *SP'#'
 
-    Read from stdin
+
+    Batch mode reads from stdin
 
       If no domains were listen on the commandline, the domains to check are
       read from stdin, including possible flags that will override the ones
       given on the cli itself.  Note that in this case, csv output is produced
       on stdout (other logging still goes to stderr, use -v 0 to silence that)
 
+      Examples
+
+       % cat domains.txt | spfcheck -v 0 -i 1.1.1.1
+       % cat domains.tst
+         example.com -s postmaster@example.com -i 127.0.0.1
+         example.net -v 5
 
     """
+    |> IO.puts()
+
+    exit({:shutdown, 1})
   end
 
   # Log callback
@@ -132,28 +146,55 @@ defmodule Spfcheck do
   def main(argv) do
     {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
 
-    unless Keyword.get(parsed, :nocolor, false),
-      do: Application.put_env(:elixir, :ansi_enabled, true)
+    if Keyword.get(parsed, :help, false), do: usage()
 
+    if Keyword.get(parsed, :color, true),
+      do: Application.put_env(:elixir, :ansi_enabled, true),
+      else: Application.put_env(:elixir, :ansi_enabled, false)
+
+    parsed = Keyword.put(parsed, :log, &log/2)
     IO.inspect(argv, label: :argv)
     IO.inspect({parsed, domains}, label: :cli)
 
-    if Keyword.get(parsed, :help, false) do
-      IO.puts(usage())
-      exit({:shutdown, 1})
-    end
-
-    # -b -> do batch mode handling (output is csv)
     # domains = [] -> read stdin (output is csv)
 
-    for domain <- domains do
-      IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")
-      parsed = [log: &log/2] ++ parsed
-      {verdict, explain, term} = Spf.check(domain, parsed)
+    if [] == domains do
+      do_stdin(parsed)
+    else
+      for domain <- domains do
+        IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")
+        {verdict, explain, term} = Spf.check(domain, parsed)
+        exp = if explain != "", do: " (#{explain})", else: ""
+        term = if term, do: ", match by #{inspect(term)}", else: ", nothing matched"
+        IO.puts("#{verdict}#{exp}#{term}")
+      end
+    end
+  end
 
-      exp = if explain != "", do: " (#{explain})", else: ""
-      term = if term, do: ", match by #{inspect(term)}", else: ", nothing matched"
-      IO.puts("#{verdict}#{exp}#{term}")
+  defp do_stdin(parsed) do
+    IO.inspect(parsed)
+
+    IO.stream()
+    |> Enum.each(&do_stdin(parsed, String.trim(&1)))
+  end
+
+  # skip comments
+  defp do_stdin(_parsed, "#" <> _comment),
+    do: nil
+
+  # skip empty lines
+  defp do_stdin(_parsed, ""),
+    do: nil
+
+  defp do_stdin(opts, line) do
+    argv = String.split(line, ~r/\s+/, trim: true)
+    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+    opts2 = Keyword.merge(opts, parsed)
+    IO.inspect({opts, opts2, domains}, label: :batched)
+
+    for domain <- domains do
+      ctx = Spf.debug(domain, opts2)
+      IO.puts("#{ctx.verdict} -> #{inspect(ctx.explain)}")
     end
   end
 end
