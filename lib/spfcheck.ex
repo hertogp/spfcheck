@@ -7,22 +7,18 @@ defmodule Spfcheck do
   alias IO.ANSI
 
   @options [
-    # <ip> which defaults to 127.0.0.1
+    # <ip>, defaults to 127.0.0.1
     ip: :string,
-    # <sender> which defaults to me@host.local
+    # <sender>, defaults to me@host.local
     sender: :string,
-    # 0 error, 1 warn, 2 note, 3 info, 4 debug
+    # 0 error, 1 warn, 2 note, 3 info, 4 debug, default 2
     verbosity: :integer,
     # local dns RRs -> <name> SP <type> SP <value>
     rrs: :string,
-    # read args from input file, 1 invocation per line
-    batch: :string,
-    # use csv output -> uses predefined columns:
-    # domain, ip, sender, verdict, reason, explanantion, term, spf
-    # csv: :boolean,
+    # display help and quit
     help: :boolean,
-    # use color, defaults to true
-    nocolor: :boolean
+    # use color, default true
+    color: :boolean
   ]
 
   @aliases [
@@ -31,16 +27,16 @@ defmodule Spfcheck do
     v: :verbosity,
     h: :help,
     r: :rrs,
-    n: :nocolor,
-    b: :batch
+    c: :color
   ]
 
   @verbosity %{
-    :error => 0,
-    :warn => 1,
-    :note => 2,
-    :info => 3,
-    :debug => 4
+    :quiet => 0,
+    :error => 1,
+    :warn => 2,
+    :note => 3,
+    :info => 4,
+    :debug => 5
   }
 
   # Helpers
@@ -73,24 +69,18 @@ defmodule Spfcheck do
     Usage: spfcheck [options] domain
 
     Options:
-     -b, --batch=string   file with list of domains to check
+     -c, --color          use colored output (--no-color to set this to false)
      -h, --help           prints this message and exits
      -i, --ip=string      specify sender's <ip> to check (default 127.0.0.1)
-     -n, --nocolor        suppress colors in terminal output
-     -r, --rrs            file with DNS RR records to override live DNS
+     -r, --rrs=filepath   file with DNS RR records to override live DNS
      -s, --sender=string  specify sender from address (default me@host.local)
-     -v, --verbosity      increase noise level (max 4 times)
+     -v, --verbosity      set logging noise level (0..5)
 
-    Batch processing
+    Examples:
 
-      spfcheck can take the domains to test from a text file that contains
-      one domain test per line.  Options can be specified as well.  If used,
-      any domains on the command line are ignored.
-
-      Example domains.txt:
-        example.com -i 1.1.1.1
-        example.com -i 2.2.2.2 -s me@example.com
-        ...
+      spfcheck example.com
+      spfcheck -i 1.1.1.1 -s someone@example.com example.com
+      spfcheck --ip=1.1.1.1 --sender=someone@example.com example.com -r ./dns.txt
 
     DNS RR override
 
@@ -106,12 +96,13 @@ defmodule Spfcheck do
         127.0.0.1.example.net A  127.0.0.1
 
 
-    Examples:
+    Read from stdin
 
-      spfcheck example.com
-      spfcheck -i 1.1.1.1 -s someone@example.com example.com
-      spfcheck --ip=1.1.1.1 --sender=someone@example.com example.com
-      spfcheck -b ./domains.txt
+      If no domains were listen on the commandline, the domains to check are
+      read from stdin, including possible flags that will override the ones
+      given on the cli itself.  Note that in this case, csv output is produced
+      on stdout (other logging still goes to stderr, use -v 0 to silence that)
+
 
     """
   end
@@ -144,6 +135,7 @@ defmodule Spfcheck do
     unless Keyword.get(parsed, :nocolor, false),
       do: Application.put_env(:elixir, :ansi_enabled, true)
 
+    IO.inspect(argv, label: :argv)
     IO.inspect({parsed, domains}, label: :cli)
 
     if Keyword.get(parsed, :help, false) do
@@ -151,8 +143,8 @@ defmodule Spfcheck do
       exit({:shutdown, 1})
     end
 
-    # rrs = Keyword.get(parsed, :rrs, nil)
-    # parsed = Keyword.put(parsed, :dns, Spf.DNS.load_file(rrs))
+    # -b -> do batch mode handling (output is csv)
+    # domains = [] -> read stdin (output is csv)
 
     for domain <- domains do
       IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")

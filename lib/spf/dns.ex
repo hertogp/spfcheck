@@ -34,7 +34,7 @@ defmodule Spf.DNS do
     if result do
       ctx =
         tick(ctx, :num_dnsq)
-        |> log(:info, "DNS cached answer for #{name}, #{type}")
+        |> log(:debug, "DNS cache: #{name} #{type} #{inspect(result)}")
 
       {ctx, {:ok, result}}
     else
@@ -76,6 +76,7 @@ defmodule Spf.DNS do
         {:ok, rrs} ->
           tick(ctx, :num_dnsq)
           |> Map.put(:dns, Map.put(ctx.dns, {name, type}, rrs))
+          |> log(:debug, "DNS: #{name} #{type} #{inspect(rrs)}")
       end
 
     {ctx, result}
@@ -150,7 +151,7 @@ defmodule Spf.DNS do
       |> Enum.reduce(%{}, &read_rr/2)
 
     ctx
-    |> log(:note, "cache has #{map_size(cache)} entries from #{fpath}")
+    |> log(:debug, "DNS cache: #{fpath} yielded #{map_size(cache)} entries")
     |> Map.put(:dns, cache)
   rescue
     err -> log(ctx, :error, "#{Exception.message(err)}")
