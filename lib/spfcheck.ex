@@ -103,7 +103,7 @@ defmodule Spfcheck do
       DNS queries are cached and the cache can be preloaded to override the
       live DNS with specific records.  Useful to try out SPF records before
       publishing them in DNS.  The `-r` option should point to a text file
-      that contains 1 RR record per line specifying the key, type and value
+      that contains 1 RR record per line specifying the name type and rdata
       all on 1 line.  Note that the file is not in BIND format and all RR's
       must be written in full and keys are taken relative to root (.)
 
@@ -112,9 +112,9 @@ defmodule Spfcheck do
         example.com  TXT  verification=asdfi234098sf
         127.0.0.1.example.net A  127.0.0.1
 
-      Note that each line contains a single `key type value` combination, so
+      Note that each line contains a single `name type rdata` combination, so
       for multiple TXT records (e.g.) specify each on its own line, like in
-      the example above.  Lines that begin with '#' or *SP'#'
+      the example above.  Lines that begin with '#' or *SP'#' are ignored
 
 
     Batch mode reads from stdin

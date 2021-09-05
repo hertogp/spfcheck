@@ -16,6 +16,8 @@ defmodule Spf.Eval do
         log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
 
       {:ok, rrs} ->
+        IO.inspect(rrs, label: :rrs_cname)
+
         Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
         |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
     end
@@ -256,7 +258,7 @@ defmodule Spf.Eval do
         v when v in [:none, :permerror] ->
           Map.put(ctx, :verdict, :permerror)
           |> pop()
-          |> log(:info, term, :permerror)
+          |> log(:error, term, :permerror)
 
         :temperror ->
           ctx

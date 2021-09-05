@@ -28,7 +28,16 @@ defmodule Spf.DNS do
   def resolve(ctx, name, type \\ :a) when is_map(ctx) and is_binary(name),
     do: cached(ctx, name, type) || resolved(ctx, name, type)
 
+  defp cname(ctx, name) do
+    # return canonical name if present (TODO: tick num_dnsq counter?)
+    case ctx.dns[{name, :cname}] do
+      nil -> {ctx, name}
+      [realname] -> {log(ctx, :note, "DNS CNAME: #{name} -> #{realname}"), realname}
+    end
+  end
+
   defp cached(ctx, name, type) do
+    {ctx, name} = cname(ctx, name)
     result = ctx.dns[{name, type}]
 
     if result do
@@ -54,11 +63,11 @@ defmodule Spf.DNS do
         {:error, :nxdomain} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
-          |> log(:debug, "DNS nxdomain: #{name} #{type}")
+          |> log(:debug, "DNS NXDOMAIN: #{name} #{type}")
 
         {:error, :timeout} ->
           tick(ctx, :num_dnsq)
-          |> log(:error, "DNS timeout: #{name} #{type}")
+          |> log(:error, "DNS TIMEOUT: #{name} #{type}")
 
         {:error, {:servfail, _}} ->
           tick(ctx, :num_dnsq)
@@ -67,12 +76,14 @@ defmodule Spf.DNS do
         {:ok, []} ->
           tick(ctx, :num_dnsq)
           |> tick(:num_dnsv)
-          |> log(:debug, "DNS zero answers: #{name} #{type}")
+          |> log(:debug, "DNS ZERO answers: #{name} #{type}")
 
         {:ok, rrs} ->
           tick(ctx, :num_dnsq)
-          |> log(:debug, "DNS: #{name} #{type} #{inspect(rrs)}")
+          |> log(:debug, "DNS QUERY: #{name} #{type} #{inspect(rrs)}")
       end
+
+    IO.inspect(ctx.dns, label: :resolved)
 
     ctx = Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, result))
 
@@ -83,7 +94,7 @@ defmodule Spf.DNS do
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:error, "DNS type error: #{name} #{type}")
+        |> log(:error, "DNS RR type error: #{name} #{type}")
 
       {ctx, error}
 
@@ -92,7 +103,7 @@ defmodule Spf.DNS do
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:error, "DNS illegal name: #{name}")
+        |> log(:error, "DNS ILLEGAL name: #{name}")
 
       {ctx, error}
   end
@@ -145,13 +156,14 @@ defmodule Spf.DNS do
       File.stream!(fpath)
       |> Enum.map(fn x -> String.trim(x) end)
       |> Enum.filter(fn x -> not String.starts_with?(x, "#") end)
+      |> Enum.filter(fn x -> String.length(x) > 0 end)
       |> Enum.reduce(%{}, &read_rr/2)
 
     ctx
     |> log(:debug, "DNS cache: #{fpath} yielded #{map_size(cache)} entries")
     |> Map.put(:dns, cache)
   rescue
-    err -> log(ctx, :error, "#{Exception.message(err)}")
+    err -> log(ctx, :error, "Spf.DNS.load_file: #{Exception.message(err)}")
   end
 
   defp read_rr(str, acc) do
@@ -160,11 +172,12 @@ defmodule Spf.DNS do
 
     case rr do
       [key, type, value] ->
-        current = Map.get(acc, {key, atomize(type)}, [])
-        Map.put(acc, {key, atomize(type)}, [sanitize(value) | current])
+        type = atomize(type)
+        current = Map.get(acc, {key, type}, [])
+        Map.put(acc, {key, type}, [{:ok, mimic_dns(type, value)} | current])
 
       _ ->
-        IO.puts("ignoring malformed RR: #{inspect(str)}")
+        # ignore malformed, TODO: log this as error/warning
         acc
     end
   end
@@ -177,15 +190,28 @@ defmodule Spf.DNS do
       "ptr" -> :ptr
       "spf" -> :spf
       "mx" -> :mx
+      "cname" -> :cname
       _ -> type
     end
   end
 
-  defp sanitize(value) do
-    value
+  defp no_quotes(str) do
+    str
     |> String.replace(~r/^\"/, "")
     |> String.replace(~r/\"$/, "")
+  end
 
-    # String.replace(value, ~r/\"(.*)\"$/, "\\1")
+  defp mimic_dns(:mx, value) do
+    {pref, name} =
+      value
+      |> no_quotes()
+      |> String.split(~r/\s+/, parts: 2)
+      |> List.to_tuple()
+
+    {pref, String.to_charlist(name)}
+  end
+
+  defp mimic_dns(_, value) do
+    no_quotes(value)
   end
 end
