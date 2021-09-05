@@ -115,7 +115,7 @@ defmodule Spf.Eval do
 
     case validate?(dns, ctx.ip, name, domain) do
       true ->
-        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth})
+        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, term})
         |> log(:info, term, "validated: #{name}, #{ctx.ip} for #{domain}")
 
       false ->
@@ -150,7 +150,7 @@ defmodule Spf.Eval do
   end
 
   defp verdict(qlist, nth) do
-    {{qualifier, _nth}, _} = List.keytake(qlist, nth, 1) || {{:error, nth}, qlist}
+    {{qualifier, _nth, _term}, _} = List.keytake(qlist, nth, 1) || {{:error, nth, nil}, qlist}
 
     verdict(qualifier)
   end
@@ -158,15 +158,16 @@ defmodule Spf.Eval do
   # API
 
   def eval(ctx) do
-    log(ctx, :note, ctx.spf)
+    log(ctx, :note, "SPF: #{inspect(ctx.spf)}")
     |> evalp(ctx.ast)
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
   end
 
   # A
+  # TODO: check if we've seen {domain, dual} before
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
-    evalname(ctx, domain, dual, {q, ctx.nth})
+    evalname(ctx, domain, dual, {q, ctx.nth, term})
     |> match(term, tail)
   end
 
@@ -182,7 +183,7 @@ defmodule Spf.Eval do
         case dns do
           {:ok, rrs} ->
             log(ctx, :info, term, "DNS #{inspect(rrs)}")
-            |> addip(ctx.ip, [32, 128], {q, ctx.nth})
+            |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
 
           {:error, reason} ->
             log(ctx, :info, term, "DNS error #{reason}")
@@ -199,32 +200,31 @@ defmodule Spf.Eval do
     else
       log(ctx, :info, term, "SPF match by #{List.to_string([q])}all")
       |> tick(:num_checks)
-      |> addip(ctx.ip, [32, 128], {q, ctx.nth})
+      |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
       # |> Map.put(:verdict, verdict(q))
       |> match(term, tail)
     end
   end
 
   # MX
+  # TODO: check if we've seen {domain, dual} before
   defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
-    evalmx(ctx, domain, dual, {q, ctx.nth})
+    evalmx(ctx, domain, dual, {q, ctx.nth, term})
     |> match(term, tail)
   end
 
   # IP4/6
   defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
-    addip(ctx, [pfx], [32, 128], {q, ctx.nth})
+    addip(ctx, [pfx], [32, 128], {q, ctx.nth, term})
     |> match(term, tail)
   end
 
   # PTR
-  defp evalp(ctx, [{:ptr, _value, _range} = term | tail]) do
+  # TODO: check is we've seen domain before
+  defp evalp(ctx, [{:ptr, [_q, _domain], _range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     # - see also Errata, 
     {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), :ptr)
-
-    IO.inspect(Pfx.dns_ptr(ctx.ip), label: :ptr)
-    IO.inspect(dns, label: :ptr)
 
     validated(ctx, term, dns)
     |> match(term, tail)
@@ -254,7 +254,9 @@ defmodule Spf.Eval do
           |> log(:info, term, "match")
 
         v when v in [:none, :permerror] ->
-          Map.put(ctx, :verdict, :permerror) |> log(:info, term, :permerror)
+          Map.put(ctx, :verdict, :permerror)
+          |> pop()
+          |> log(:info, term, :permerror)
 
         :temperror ->
           ctx
@@ -293,6 +295,7 @@ defmodule Spf.Eval do
     |> evalp(tail)
   end
 
+  # NO AST due to no SPF
   defp evalp(ctx, []),
     do: ctx
 end

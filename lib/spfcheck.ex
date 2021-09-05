@@ -49,6 +49,8 @@ defmodule Spfcheck do
     :num_dnsq,
     :num_dnsv,
     :num_checks,
+    :num_warn,
+    :num_error,
     :duration,
     :explanation
   ]
@@ -63,7 +65,7 @@ defmodule Spfcheck do
         :error -> ANSI.format([:red_background, :white, padded])
         :warn -> ANSI.format([:yellow, padded])
         :note -> ANSI.format([:green, padded])
-        :debug -> ANSI.format([:white_background, :red, padded])
+        :debug -> ANSI.format([:red, padded])
         _ -> padded
       end
 

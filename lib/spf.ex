@@ -39,6 +39,7 @@ defmodule Spf do
       {:error, reason} ->
         Map.put(ctx, :error, reason) |> Map.put(:spf, [])
     end
+    |> Context.log(:note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
   end
 
   def grep(domain) when is_binary(domain) do

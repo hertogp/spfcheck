@@ -23,6 +23,10 @@ defmodule Spf.Context do
       32 -> Pfx.keep(pfx, len4)
       _ -> Pfx.keep(pfx, len6)
     end
+  rescue
+    # ip might be a CNAME due to the resolving works
+    # or simply illegal
+    _ -> :error
   end
 
   # CONTEXT
@@ -32,7 +36,10 @@ defmodule Spf.Context do
 
   """
   def addip(ctx, ips, dual, value) when is_list(ips) do
-    kvs = Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
+    kvs =
+      Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
+      |> Enum.filter(fn {k, _v} -> k != :error end)
+
     Enum.reduce(kvs, ctx, &ipt_update/2)
   end
 
@@ -63,8 +70,17 @@ defmodule Spf.Context do
 
   @spec log(map, atom, binary) :: map
   def log(ctx, type, msg) do
-    if ctx[:log], do: ctx.log.(ctx, {type, msg})
-    Map.update(ctx, :msg, [{ctx.nth, type, msg}], fn msgs -> [{ctx.nth, type, msg} | msgs] end)
+    if ctx[:log],
+      do: ctx.log.(ctx, {type, msg})
+
+    ctx =
+      Map.update(ctx, :msg, [{ctx.nth, type, msg}], fn msgs -> [{ctx.nth, type, msg} | msgs] end)
+
+    case type do
+      :warn -> tick(ctx, :num_warn)
+      :error -> tick(ctx, :num_error)
+      _ -> ctx
+    end
   end
 
   @spec log(map, atom, tuple, binary) :: map
@@ -176,6 +192,8 @@ defmodule Spf.Context do
       max_dnsv: 2,
       max_dnsm: 10,
       num_checks: 0,
+      num_warn: 0,
+      num_error: 0,
       # list of terms to be evaluated to arrive at a verdict
       ast: [],
       # how long the evaluation took
