@@ -161,6 +161,7 @@ defmodule Spf.Eval do
     log(ctx, :note, ctx.spf)
     |> evalp(ctx.ast)
     |> explain()
+    |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
   end
 
   # A

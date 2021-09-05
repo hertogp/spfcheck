@@ -1,2 +1,0 @@
-example.com           TXT    "v=spf1 exists:%{i}.example.net -all"
-# 127.0.0.1.example.net   A    1.1.1.1

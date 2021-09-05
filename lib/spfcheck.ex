@@ -39,6 +39,20 @@ defmodule Spfcheck do
     :debug => 5
   }
 
+  @csv_fields [
+    :domain,
+    :ip,
+    :sender,
+    :verdict,
+    :cnt,
+    :num_dnsm,
+    :num_dnsq,
+    :num_dnsv,
+    :num_checks,
+    :duration,
+    :explanation
+  ]
+
   # Helpers
 
   defp color(type, width) do
@@ -153,48 +167,47 @@ defmodule Spfcheck do
       else: Application.put_env(:elixir, :ansi_enabled, false)
 
     parsed = Keyword.put(parsed, :log, &log/2)
-    IO.inspect(argv, label: :argv)
-    IO.inspect({parsed, domains}, label: :cli)
 
-    # domains = [] -> read stdin (output is csv)
+    if [] == domains,
+      do: do_stdin(parsed)
 
-    if [] == domains do
-      do_stdin(parsed)
-    else
-      for domain <- domains do
-        IO.puts("\nspfcheck on #{domain}, opts #{inspect(parsed)}")
-        {verdict, explain, term} = Spf.check(domain, parsed)
-        exp = if explain != "", do: " (#{explain})", else: ""
-        term = if term, do: ", match by #{inspect(term)}", else: ", nothing matched"
-        IO.puts("#{verdict}#{exp}#{term}")
-      end
+    for domain <- domains do
+      Spf.check(domain, parsed)
+      |> cli_result()
     end
   end
 
+  defp cli_result(ctx) do
+    Enum.map(@csv_fields, fn field -> {field, "#{ctx[field]}"} end)
+    |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 10, " "), v} end)
+    |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
+  end
+
   defp do_stdin(parsed) do
-    IO.inspect(parsed)
+    IO.puts(Enum.join(@csv_fields, ","))
 
     IO.stream()
     |> Enum.each(&do_stdin(parsed, String.trim(&1)))
   end
 
-  # skip comments
-  defp do_stdin(_parsed, "#" <> _comment),
-    do: nil
-
-  # skip empty lines
-  defp do_stdin(_parsed, ""),
-    do: nil
+  # skip comments and empty lines
+  defp do_stdin(_parsed, "#" <> _comment), do: nil
+  defp do_stdin(_parsed, ""), do: nil
 
   defp do_stdin(opts, line) do
     argv = String.split(line, ~r/\s+/, trim: true)
     {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
-    opts2 = Keyword.merge(opts, parsed)
-    IO.inspect({opts, opts2, domains}, label: :batched)
+    opts = Keyword.merge(opts, parsed)
 
     for domain <- domains do
-      ctx = Spf.debug(domain, opts2)
-      IO.puts("#{ctx.verdict} -> #{inspect(ctx.explain)}")
+      Spf.check(domain, opts)
+      |> csv_result()
     end
+  end
+
+  defp csv_result(ctx) do
+    Enum.map(@csv_fields, fn field -> "#{inspect(ctx[field])}" end)
+    |> Enum.join(",")
+    |> IO.puts()
   end
 end

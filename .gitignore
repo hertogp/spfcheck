@@ -22,6 +22,9 @@ erl_crash.dump
 # Ignore package tarball (built via "mix hex.build").
 spfcheck-*.tar
 
+# Ignore cli app
+spfcheck
+
 # Temporary files, for example, from tests.
 /tmp/
 

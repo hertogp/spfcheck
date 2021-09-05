@@ -47,23 +47,6 @@ defmodule Spf do
     DNS.grep(result, &spf?/1)
   end
 
-  def report(ctx) do
-    tstamp = DateTime.utc_now() |> DateTime.to_unix()
-    ctx = Map.put(ctx, :duration, tstamp - ctx.macro[?t])
-
-    case ctx.report do
-      :short ->
-        {ctx.verdict, ctx.explanation, ctx.match}
-
-      :medium ->
-        {ctx.verdict, ctx.explanation, ctx.match, ctx.duration, ctx.num_checks, ctx.num_dnsq,
-         ctx.num_dnsv, ctx.dnsm}
-
-      _ ->
-        ctx
-    end
-  end
-
   defparsec(:tokenize, Spf.Tokens.tokenize())
   defparsec(:exp_tokens, Spf.Tokens.exp_str())
   defdelegate parse(context), to: Spf.Parser
@@ -73,18 +56,5 @@ defmodule Spf do
     |> grep()
     |> Parser.parse()
     |> Eval.eval()
-    |> report()
-  end
-
-  def debug(domain, opts \\ []) do
-    ctx = check(domain, Keyword.put(opts, :report, :ctx))
-    # IO.inspect(ctx)
-    # IO.puts("SPF record  : #{ctx.spf}")
-    # IO.puts("num DNS mech: #{ctx.num_dnsm} / #{ctx.max_dnsm}")
-    # IO.puts("DNS requests: #{ctx.num_dnsq} / #{ctx.max_dnsq}")
-    # IO.puts("DNS void req: #{ctx.num_dnsv} / #{ctx.max_dnsv}")
-    # IO.puts("#checks made: #{ctx.num_checks}")
-    # IO.puts("verdict     : #{ctx.verdict} (#{ctx.explanation})")
-    ctx
   end
 end
