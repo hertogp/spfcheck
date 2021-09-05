@@ -158,7 +158,7 @@ defmodule Spf.Context do
       # how macro letters expand for current domain
       macro: macros(domain, ip, sender),
       # output errors (1), warnings (2), notes (3), info (4) or debug (5) messages (quiet=0)
-      verbosity: Keyword.get(opts, :verbosity, 3),
+      verbosity: Keyword.get(opts, :verbosity, 4),
       # log of messages, whether outputted or not
       msg: [],
       # parser state flags

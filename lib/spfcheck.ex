@@ -178,8 +178,8 @@ defmodule Spfcheck do
   end
 
   defp cli_result(ctx) do
-    Enum.map(@csv_fields, fn field -> {field, "#{ctx[field]}"} end)
-    |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 10, " "), v} end)
+    Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
+    |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
     |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
   end
 
