@@ -223,6 +223,9 @@ defmodule Spf.Eval do
     # - see also Errata, 
     {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), :ptr)
 
+    IO.inspect(Pfx.dns_ptr(ctx.ip), label: :ptr)
+    IO.inspect(dns, label: :ptr)
+
     validated(ctx, term, dns)
     |> match(term, tail)
   end
