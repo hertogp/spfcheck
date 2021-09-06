@@ -52,49 +52,23 @@ defmodule Spf.DNS do
   end
 
   defp resolved(ctx, name, type) do
-    result =
+    # TODO: turn anlist into entries name type data
+    ctx =
       name
       |> String.to_charlist()
       |> :inet_res.resolve(:in, type, [{:timeout, ctx.dns_timeout}])
-      |> resultp()
+      |> results()
+      |> cache(ctx, name, type)
 
-    ctx =
-      case result do
-        {:error, :nxdomain} ->
-          tick(ctx, :num_dnsq)
-          |> tick(:num_dnsv)
-          |> log(:debug, "DNS NXDOMAIN: #{name} #{type}")
-
-        {:error, :timeout} ->
-          tick(ctx, :num_dnsq)
-          |> log(:error, "DNS TIMEOUT: #{name} #{type}")
-
-        {:error, {:servfail, _}} ->
-          tick(ctx, :num_dnsq)
-          |> log(:error, "DNS SERVFAIL: #{name} #{type}")
-
-        {:ok, []} ->
-          tick(ctx, :num_dnsq)
-          |> tick(:num_dnsv)
-          |> log(:debug, "DNS ZERO answers: #{name} #{type}")
-
-        {:ok, rrs} ->
-          tick(ctx, :num_dnsq)
-          |> log(:debug, "DNS QUERY: #{name} #{type} #{inspect(rrs)}")
-      end
-
-    IO.inspect(ctx.dns, label: :resolved)
-
-    ctx = Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, result))
-
-    {ctx, result}
+    {ctx, name} = cname(ctx, name)
+    {ctx, ctx.dns[{name, type}]}
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:error, "DNS RR type error: #{name} #{type}")
+        |> log(:error, "DNS error: #{name} #{type}: #{Exception.message(x)}")
 
       {ctx, error}
 
@@ -108,27 +82,72 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  defp resultp(msg) do
+  defp cache({:error, :nxdomain} = result, ctx, name, type) do
+    tick(ctx, :num_dnsq)
+    |> tick(:num_dnsv)
+    |> log(:debug, "DNS NXDOMAIN: #{name} #{type}")
+    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+  end
+
+  defp cache({:error, :timeout} = result, ctx, name, type) do
+    tick(ctx, :num_dnsq)
+    |> log(:error, "DNS TIMEOUT: #{name} #{type}")
+    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+  end
+
+  defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
+    tick(ctx, :num_dnsq)
+    |> log(:error, "DNS SERVFAIL: #{name} #{type}")
+    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+  end
+
+  defp cache({:ok, []} = result, ctx, name, type) do
+    tick(ctx, :num_dnsq)
+    |> tick(:num_dnsv)
+    |> log(:debug, "DNS ZERO answers: #{name} #{type}")
+    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+  end
+
+  defp cache({:ok, entries}, ctx, name, type) do
+    ctx =
+      tick(ctx, :num_dnsq)
+      |> log(:debug, "DNS QUERY: #{name} #{type} #{inspect(entries)}")
+
+    # update {name, type} -> [entries]
+    Enum.reduce(entries, ctx, fn {domain, type, data}, acc ->
+      Map.put(acc, :dns, Map.update(acc.dns, {domain, type}, [data], fn x -> [data | x] end))
+    end)
+  end
+
+  defp results(msg) do
     case msg do
       {:error, reason} -> {:error, reason}
       {:ok, record} -> {:ok, rrdata(record)}
     end
   end
 
-  # returns the RDATA of the RR's in `record` as a list
+  # turn dns record into list of entries: [{domain, type, data}]
   # See https://erlang.org/doc/man/inet_res.html#type-dns_data
   defp rrdata(record) do
     record
     |> :inet_dns.msg(:anlist)
-    |> Enum.map(fn answer -> :inet_dns.rr(answer, :data) end)
-    |> Enum.map(fn rrdata -> stringify(rrdata) end)
+    |> Enum.map(fn x -> rrentry(x) end)
   end
 
-  defp stringify(rrdata) when is_list(rrdata),
-    do: IO.iodata_to_binary(rrdata)
+  defp rrentry(answer) do
+    {:inet_dns.rr(answer, :domain) |> stringify(), :inet_dns.rr(answer, :type),
+     :inet_dns.rr(answer, :data) |> stringify()}
+  end
 
-  defp stringify(rrdata),
-    do: rrdata
+  defp stringify(rrdata) when is_list(rrdata) do
+    IO.iodata_to_binary(rrdata)
+  end
+
+  defp stringify(rrdata) do
+    # looks like this is not needed ..
+    IO.inspect(rrdata, label: :stringify2)
+    List.to_string(rrdata)
+  end
 
   @doc """
   Keep only the rrdata from `rrdatas` where `fun` returns truthy.
