@@ -45,14 +45,16 @@ defmodule Spf.DNS do
         tick(ctx, :num_dnsq)
         |> log(:debug, "DNS cache: #{name} #{type} #{inspect(result)}")
 
-      {ctx, result}
+      {ctx, {:ok, result}}
     else
+      # return nil if not cached
       result
     end
   end
 
   defp resolved(ctx, name, type) do
-    # TODO: turn anlist into entries name type data
+    {ctx, name} = cname(ctx, name)
+
     ctx =
       name
       |> String.to_charlist()
@@ -60,19 +62,20 @@ defmodule Spf.DNS do
       |> results()
       |> cache(ctx, name, type)
 
-    {ctx, name} = cname(ctx, name)
-    {ctx, ctx.dns[{name, type}]}
+    IO.inspect(ctx.dns, label: :resolved_cached)
+    {ctx, {:ok, ctx.dns[{name, type}]}}
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:error, "DNS error: #{name} #{type}: #{Exception.message(x)}")
+        |> log(:error, "DNS error: #{name} #{type}: #{inspect(error)}")
 
       {ctx, error}
 
-    FunctionClauseError ->
+    x in FunctionClauseError ->
+      IO.inspect(x, label: :illegal_name)
       error = {:error, :illegal_name}
 
       ctx =
@@ -101,11 +104,18 @@ defmodule Spf.DNS do
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
-  defp cache({:ok, []} = result, ctx, name, type) do
+  defp cache({:error, reason}, ctx, name, type) do
+    # catch all other :error reasons
+    tick(ctx, :num_dnsq)
+    |> log(:error, "DNS error: #{name} #{type} - #{inspect(reason)}")
+    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
+  end
+
+  defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
     |> log(:debug, "DNS ZERO answers: #{name} #{type}")
-    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, entries}, ctx, name, type) do
@@ -126,9 +136,9 @@ defmodule Spf.DNS do
     end
   end
 
-  # turn dns record into list of entries: [{domain, type, data}]
-  # See https://erlang.org/doc/man/inet_res.html#type-dns_data
   defp rrdata(record) do
+    # turn dns record into list of entries: [{domain, type, data}]
+    # see https://erlang.org/doc/man/inet_res.html#type-dns_data
     record
     |> :inet_dns.msg(:anlist)
     |> Enum.map(fn x -> rrentry(x) end)
