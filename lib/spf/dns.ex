@@ -75,8 +75,11 @@ defmodule Spf.DNS do
       |> cache(ctx, name, type)
 
     IO.inspect(ctx.dns, label: :resolved_cached)
-    {ctx, name} = cname(ctx, name)
-    {ctx, {:ok, ctx.dns[{name, type}] || []}}
+    # {ctx, name} = cname(ctx, name)
+    # at this point, we should use cached()!
+    # TODO: cached should not do tick in this case ?
+    cached(ctx, name, type)
+    # {ctx, {:ok, ctx.dns[{name, type}] || []}}
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
@@ -98,6 +101,7 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
+  # cache an entry, updating various housekeeping stats
   defp cache({:error, :nxdomain} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
@@ -131,6 +135,10 @@ defmodule Spf.DNS do
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
+  # TODO: if entries donot contain type, that basically means ZERO answers
+  # since there might be CNAME's: e.g. if a.b CNAME b.b, but b.b has no A 
+  # record, doing a.b A -> [a.b CNAME b.b], so essentially :NXDOMAIN or ZERO
+  # answers
   defp cache({:ok, entries}, ctx, name, type) do
     ctx =
       tick(ctx, :num_dnsq)
@@ -144,7 +152,6 @@ defmodule Spf.DNS do
 
   # Update cache with an entry
   # - type CNAME cannot have multiple entries! -> log error
-  # - 
   defp update(dns, key, data) do
     rdata = Map.get(dns, key) || []
 
@@ -175,11 +182,12 @@ defmodule Spf.DNS do
   end
 
   defp stringify(rrdata) when is_list(rrdata) do
-    IO.inspect(rrdata, label: :stringify)
+    # turn a charlist or list thereof into single string
     IO.iodata_to_binary(rrdata)
   end
 
   defp stringify(rrdata) do
+    # if not a list, keep it as it is (e.g. {a, b, c, d} for ipv4 address)
     rrdata
   end
 
