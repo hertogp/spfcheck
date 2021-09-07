@@ -21,18 +21,32 @@ defmodule Spf.DNS do
   @doc """
   Resolves a query and returns an `ok/error` tuple with the results.
 
-  Returns `{:ok, [rr's]}` in case of success, `{:error, :code}` otherwise.
+  Returns `{:ok, [rrs]}` in case of success, `{:error, :code}` otherwise.
 
   """
   @spec resolve(map, binary, atom) :: {map, any}
   def resolve(ctx, name, type \\ :a) when is_map(ctx) and is_binary(name),
     do: cached(ctx, name, type) || resolved(ctx, name, type)
 
-  defp cname(ctx, name) do
-    # return canonical name if present (TODO: tick num_dnsq counter?)
-    case ctx.dns[{name, :cname}] do
-      nil -> {ctx, name}
-      [realname] -> {log(ctx, :note, "DNS CNAME: #{name} -> #{realname}"), realname}
+  defp cname(ctx, name, seen \\ %{}) do
+    # return canonical name if present, name otherwise, must follow CNAME's
+    if seen[name] do
+      ctx =
+        log(ctx, :error, "circular CNAMEs: #{inspect(seen)}")
+        |> log(:info, "DNS CNAME: using #{name} to break circular reference")
+
+      {ctx, name}
+    else
+      case ctx.dns[{name, :cname}] do
+        nil ->
+          {ctx, name}
+
+        [realname] ->
+          seen = Map.put(seen, name, realname)
+
+          log(ctx, :note, "DNS CNAME: #{name} -> #{realname}")
+          |> cname(realname, seen)
+      end
     end
   end
 
@@ -53,17 +67,16 @@ defmodule Spf.DNS do
   end
 
   defp resolved(ctx, name, type) do
-    {ctx, name} = cname(ctx, name)
-
     ctx =
       name
       |> String.to_charlist()
       |> :inet_res.resolve(:in, type, [{:timeout, ctx.dns_timeout}])
-      |> results()
+      |> entries()
       |> cache(ctx, name, type)
 
     IO.inspect(ctx.dns, label: :resolved_cached)
-    {ctx, {:ok, ctx.dns[{name, type}]}}
+    {ctx, name} = cname(ctx, name)
+    {ctx, {:ok, ctx.dns[{name, type}] || []}}
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
@@ -125,11 +138,23 @@ defmodule Spf.DNS do
 
     # update {name, type} -> [entries]
     Enum.reduce(entries, ctx, fn {domain, type, data}, acc ->
-      Map.put(acc, :dns, Map.update(acc.dns, {domain, type}, [data], fn x -> [data | x] end))
+      Map.put(acc, :dns, update(acc.dns, {domain, type}, data))
     end)
   end
 
-  defp results(msg) do
+  # Update cache with an entry
+  # - type CNAME cannot have multiple entries! -> log error
+  # - 
+  defp update(dns, key, data) do
+    rdata = Map.get(dns, key) || []
+
+    case data in rdata do
+      true -> dns
+      false -> Map.put(dns, key, [data | rdata])
+    end
+  end
+
+  defp entries(msg) do
     case msg do
       {:error, reason} -> {:error, reason}
       {:ok, record} -> {:ok, rrdata(record)}
@@ -150,13 +175,12 @@ defmodule Spf.DNS do
   end
 
   defp stringify(rrdata) when is_list(rrdata) do
+    IO.inspect(rrdata, label: :stringify)
     IO.iodata_to_binary(rrdata)
   end
 
   defp stringify(rrdata) do
-    # looks like this is not needed ..
-    IO.inspect(rrdata, label: :stringify2)
-    List.to_string(rrdata)
+    rrdata
   end
 
   @doc """
@@ -203,7 +227,7 @@ defmodule Spf.DNS do
       [key, type, value] ->
         type = atomize(type)
         current = Map.get(acc, {key, type}, [])
-        Map.put(acc, {key, type}, [{:ok, mimic_dns(type, value)} | current])
+        Map.put(acc, {key, type}, [mimic_dns(type, value) | current])
 
       _ ->
         # ignore malformed, TODO: log this as error/warning
