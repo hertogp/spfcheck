@@ -43,6 +43,7 @@ defmodule Spf do
   end
 
   def grep(domain) when is_binary(domain) do
+    # TODO: remove this, is temp convencience for iex> grepping for a domain
     ctx = %{dns_timeout: 10000, dns: %{}, domain: domain}
     {_ctx, result} = DNS.resolve(ctx, domain, :txt)
     DNS.grep(result, &spf?/1)

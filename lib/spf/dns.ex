@@ -20,6 +20,8 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
+    name = String.trim(name) |> String.trim(".")
+
     if seen[name] do
       ctx =
         log(ctx, :error, "circular CNAMEs: #{inspect(seen)}")
@@ -130,6 +132,8 @@ defmodule Spf.DNS do
   end
 
   defp cache({:ok, entries}, ctx, name, type) do
+    name = String.trim(name) |> String.trim(".")
+
     ctx =
       tick(ctx, :num_dnsq)
       |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
@@ -218,8 +222,8 @@ defmodule Spf.DNS do
     cache =
       File.stream!(fpath)
       |> Enum.map(fn x -> String.trim(x) end)
-      |> Enum.filter(fn x -> not String.starts_with?(x, "#") end)
-      |> Enum.filter(fn x -> String.length(x) > 0 end)
+      # |> Enum.filter(fn x -> not String.starts_with?(x, "#") end)
+      # |> Enum.filter(fn x -> String.length(x) > 0 end)
       |> Enum.reduce(%{}, &read_rr/2)
 
     ctx
@@ -228,6 +232,12 @@ defmodule Spf.DNS do
   rescue
     err -> log(ctx, :error, "Spf.DNS.load_file: #{Exception.message(err)}")
   end
+
+  defp read_rr("#" <> _, ctx),
+    do: ctx
+
+  defp read_rr("", ctx),
+    do: ctx
 
   defp read_rr(str, acc) do
     # assumes str has been trimmed already
