@@ -57,5 +57,6 @@ defmodule Spf do
     |> grep()
     |> Parser.parse()
     |> Eval.eval()
+    |> Context.tick(:num_dnsq, -1)
   end
 end

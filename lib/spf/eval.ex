@@ -35,6 +35,8 @@ defmodule Spf.Eval do
     if ctx.verdict == :fail and ctx.explain do
       {_token, [domain], _range} = ctx.explain
       {ctx, dns} = DNS.resolve(ctx, domain, :txt)
+      # dns query for an explain string does not count
+      ctx = tick(ctx, :num_dnsq, -1)
 
       case dns do
         {:error, reason} ->
@@ -56,8 +58,6 @@ defmodule Spf.Eval do
   end
 
   defp explainp(ctx, explain) do
-    IO.inspect(explain, label: :explainp_explain)
-
     case Spf.exp_tokens(explain) do
       {:error, _, _, _, _, _} -> ""
       {:ok, [{:exp_str, tokens, _range}], _, _, _, _} -> expand(ctx, tokens)
@@ -165,6 +165,8 @@ defmodule Spf.Eval do
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
   end
+
+  # HELPERS
 
   # A
   # TODO: check if we've seen {domain, dual} before

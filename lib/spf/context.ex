@@ -304,12 +304,12 @@ defmodule Spf.Context do
     do: ctx
 
   @doc """
-  Increment `counter` by one, returns updated `context`.
+  Add `delta` to `counter`, returns updated `context`.
 
   If `counter` is not present in `context`, it will be created.
 
   """
-  @spec tick(map, atom) :: map
-  def tick(ctx, counter) when is_atom(counter),
-    do: Map.update(ctx, counter, 0, fn n -> n + 1 end)
+  @spec tick(map, atom, integer) :: map
+  def tick(ctx, counter, delta \\ 1) when is_atom(counter),
+    do: Map.update(ctx, counter, delta, fn n -> n + delta end)
 end

@@ -42,8 +42,15 @@ defmodule Spf.DNS do
   defp cached(ctx, name, type) do
     # either return nil or {ctx, res}, where res = [rrs] or {:error, reason}
     case from_cache(ctx, name, type) do
-      {:ok, []} -> nil
-      res -> {tick(ctx, :num_dnsq), res}
+      {:ok, []} ->
+        nil
+
+      res ->
+        {tick(ctx, :num_dnsq)
+         |> log(
+           :debug,
+           "DNS QUERY (#{ctx.num_dnsq}) - CACHED for #{name} #{type} -> #{inspect(res)}"
+         ), res}
     end
   end
 
@@ -92,40 +99,40 @@ defmodule Spf.DNS do
   defp cache({:error, :nxdomain} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:debug, "DNS NXDOMAIN: #{name} #{type}")
+    |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, :timeout} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:error, "DNS TIMEOUT: #{name} #{type}")
+    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:error, "DNS SERVFAIL: #{name} #{type}")
+    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, reason}, ctx, name, type) do
     # catch all other :error reasons
     tick(ctx, :num_dnsq)
-    |> log(:error, "DNS error: #{name} #{type} - #{inspect(reason)}")
+    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{name} #{type} - #{inspect(reason)}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:debug, "DNS ZERO answers: #{name} #{type}")
+    |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, entries}, ctx, name, type) do
     ctx =
       tick(ctx, :num_dnsq)
-      |> log(:debug, "DNS QUERY: #{name} #{type} -> #{inspect(entries)}")
+      |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
 
     ctx = Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
@@ -152,7 +159,7 @@ defmodule Spf.DNS do
 
       false ->
         Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | rdata]))
-        |> log(:debug, "DNS CACHED: #{domain} #{type} -> #{inspect([data | rdata])}")
+        |> log(:debug, "DNS CACHED: #{domain} #{type} -> #{inspect(data)}")
     end
   end
 
