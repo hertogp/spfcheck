@@ -8,7 +8,7 @@ defmodule Spf.Context do
   defp ipt_update({k, v}, ctx) do
     ctx =
       case Iptrie.lookup(ctx.ipt, k) do
-        {k2, v2} -> log(ctx, :warn, "#{k} covered by #{k2} with #{inspect(v2)}")
+        {k2, v2} -> log(ctx, :warn, "#{k} covered by #{k2} from #{inspect(v2)}")
         nil -> ctx
       end
 
