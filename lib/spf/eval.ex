@@ -16,8 +16,6 @@ defmodule Spf.Eval do
         log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
 
       {:ok, rrs} ->
-        IO.inspect(rrs, label: :evalmx_rrs)
-
         Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
         |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
     end
@@ -25,10 +23,11 @@ defmodule Spf.Eval do
 
   defp evalname(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
+    IO.inspect(dns, label: :evalname_dns)
 
     case dns do
-      {:ok, rrs} -> addip(ctx, rrs, dual, value)
       {:error, reason} -> log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+      {:ok, rrs} -> addip(ctx, rrs, dual, value)
     end
   end
 
@@ -46,7 +45,7 @@ defmodule Spf.Eval do
           log(ctx, :warn, ctx.explain, "DNS void lookup (0 answers)")
 
         {:ok, list} when length(list) > 1 ->
-          log(ctx, :warn, ctx.explain, "DNS too many txt records")
+          log(ctx, :error, ctx.explain, "too many explain txt records")
 
         {:ok, [explain]} ->
           log(ctx, :info, ctx.explain, "'#{explain}'")
@@ -58,6 +57,8 @@ defmodule Spf.Eval do
   end
 
   defp explainp(ctx, explain) do
+    IO.inspect(explain, label: :explainp_explain)
+
     case Spf.exp_tokens(explain) do
       {:error, _, _, _, _, _} -> ""
       {:ok, [{:exp_str, tokens, _range}], _, _, _, _} -> expand(ctx, tokens)
@@ -160,7 +161,7 @@ defmodule Spf.Eval do
   # API
 
   def eval(ctx) do
-    log(ctx, :note, "SPF: #{inspect(ctx.spf)}")
+    log(ctx, :note, "SPF, got: #{inspect(ctx.spf)}")
     |> evalp(ctx.ast)
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
@@ -183,12 +184,12 @@ defmodule Spf.Eval do
 
       ctx =
         case dns do
+          {:error, reason} ->
+            log(ctx, :info, term, "DNS error #{reason}")
+
           {:ok, rrs} ->
             log(ctx, :info, term, "DNS #{inspect(rrs)}")
             |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-
-          {:error, reason} ->
-            log(ctx, :info, term, "DNS error #{reason}")
         end
 
       match(ctx, term, tail)

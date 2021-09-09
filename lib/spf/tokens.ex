@@ -98,7 +98,8 @@ defmodule Spf.Tokens do
   defp range(context, label, offset),
     do: Range.new(Map.get(context, label, 0), offset - 1)
 
-  # Post_traversals
+  # SPF
+  # SPF Post_traversals
 
   @doc """
   Post_traverse helper function that Creates a [`token`](`t:token/0`) out of a
@@ -247,24 +248,6 @@ defmodule Spf.Tokens do
   """
   def tokenize(),
     do: term() |> repeat()
-
-  @doc """
-  Tokenizer for an explain-string.
-
-  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain name,
-  its TXT RR is retrieved.  This is called the explain-string.  This function
-  tokenizes this explain-string into a list of tokens:
-  [`domain_spec`](`domain_spec/`), [`whitespace`](`whitespace/0`), and/or
-  [`unknown`](`unknown/0`).
-
-  The list of tokens can then be expanded into the final explanation.
-
-  """
-  def exp_str() do
-    start()
-    |> times(choice([domain_spec(), whitespace(), unknown()]), min: 1)
-    |> post_traverse({@m, :token, [:exp_str]})
-  end
 
   # TOKENS
 
@@ -604,4 +587,23 @@ defmodule Spf.Tokens do
 
   defp m_literal(),
     do: concat(lookahead_not(dual_cidr()), ascii_char([0x21..0x24, 0x26..0x7E]))
+
+  # EXPLAIN
+  @doc """
+  Tokenizer for an explain-string.
+
+  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain name,
+  its TXT RR is retrieved.  This is called the explain-string.  This function
+  tokenizes this explain-string into a list of tokens:
+  [`domain_spec`](`domain_spec/`), [`whitespace`](`whitespace/0`), and/or
+  [`unknown`](`unknown/0`).
+
+  The list of tokens can then be expanded into the final explanation.
+
+  """
+  def exp_str() do
+    start()
+    |> times(choice([domain_spec(), whitespace(), unknown()]), min: 1)
+    |> post_traverse({@m, :token, [:exp_str]})
+  end
 end

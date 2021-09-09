@@ -6,17 +6,7 @@ defmodule Spf.DNS do
   import Spf.Context
 
   # https://www.rfc-editor.org/rfc/rfc6895.html
-  # Decimal RCODE-name Description                     Reference
-  #  0      NoError    No Error                        [RFC1035]
-  #  1      FormErr    Format Error                    [RFC1035]
-  #  2      ServFail   Server Failure                  [RFC1035]
-  #  3      NXDomain   Non-Existent Domain             [RFC1035]
-  #  4      NotImp     Not Implemented                 [RFC1035]
-  #  5      Refused    Query Refused                   [RFC1035]
-  #  6      YXDomain   Name Exists when it should not  [RFC2136]
-  #  etc..
-
-  # See https://erlang.org/doc/man/inet_res.html
+  # https://erlang.org/doc/man/inet_res.html
 
   @doc """
   Resolves a query and returns an `ok/error` tuple with the results.
@@ -38,35 +28,27 @@ defmodule Spf.DNS do
       {ctx, name}
     else
       case ctx.dns[{name, :cname}] do
-        nil ->
-          {ctx, name}
-
-        [realname] ->
-          seen = Map.put(seen, name, realname)
-
-          log(ctx, :note, "DNS CNAME: #{name} -> #{realname}")
-          |> cname(realname, seen)
+        nil -> {ctx, name}
+        [realname] -> cname(ctx, realname, Map.put(seen, name, realname))
       end
+
+      # seen = Map.put(seen, name, realname)
+
+      # log(ctx, :note, "DNS CNAME: #{name} -> #{realname}")
+      # |> cname(realname, seen)
     end
   end
 
   defp cached(ctx, name, type) do
-    {ctx, name} = cname(ctx, name)
-    result = ctx.dns[{name, type}]
-
-    if result do
-      ctx =
-        tick(ctx, :num_dnsq)
-        |> log(:debug, "DNS cache: #{name} #{type} #{inspect(result)}")
-
-      {ctx, {:ok, result}}
-    else
-      # return nil if not cached
-      result
+    # either return nil or {ctx, res}, where res = [rrs] or {:error, reason}
+    case from_cache(ctx, name, type) do
+      {:ok, []} -> nil
+      res -> {tick(ctx, :num_dnsq), res}
     end
   end
 
   defp resolved(ctx, name, type) do
+    # returns either {ctx, {:error, reason}} or {ctx, {:ok, []}} or {ctx, {:ok, [rrs]}}
     ctx =
       name
       |> String.to_charlist()
@@ -74,12 +56,7 @@ defmodule Spf.DNS do
       |> entries()
       |> cache(ctx, name, type)
 
-    IO.inspect(ctx.dns, label: :resolved_cached)
-    # {ctx, name} = cname(ctx, name)
-    # at this point, we should use cached()!
-    # TODO: cached should not do tick in this case ?
-    cached(ctx, name, type)
-    # {ctx, {:ok, ctx.dns[{name, type}] || []}}
+    {ctx, from_cache(ctx, name, type)}
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
@@ -90,8 +67,7 @@ defmodule Spf.DNS do
 
       {ctx, error}
 
-    x in FunctionClauseError ->
-      IO.inspect(x, label: :illegal_name)
+    _x in FunctionClauseError ->
       error = {:error, :illegal_name}
 
       ctx =
@@ -99,6 +75,17 @@ defmodule Spf.DNS do
         |> log(:error, "DNS ILLEGAL name: #{name}")
 
       {ctx, error}
+  end
+
+  defp from_cache(ctx, name, type) do
+    # returns either {:error, reason}, {:ok, []} or {:ok, [rrs]}
+    {ctx, name} = cname(ctx, name)
+
+    case ctx.dns[{name, type}] do
+      {:error, reason} -> {:error, reason}
+      nil -> {:ok, []}
+      res -> {:ok, res}
+    end
   end
 
   # cache an entry, updating various housekeeping stats
@@ -135,29 +122,37 @@ defmodule Spf.DNS do
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
-  # TODO: if entries donot contain type, that basically means ZERO answers
-  # since there might be CNAME's: e.g. if a.b CNAME b.b, but b.b has no A 
-  # record, doing a.b A -> [a.b CNAME b.b], so essentially :NXDOMAIN or ZERO
-  # answers
   defp cache({:ok, entries}, ctx, name, type) do
     ctx =
       tick(ctx, :num_dnsq)
-      |> log(:debug, "DNS QUERY: #{name} #{type} #{inspect(entries)}")
+      |> log(:debug, "DNS QUERY: #{name} #{type} -> #{inspect(entries)}")
 
-    # update {name, type} -> [entries]
-    Enum.reduce(entries, ctx, fn {domain, type, data}, acc ->
-      Map.put(acc, :dns, update(acc.dns, {domain, type}, data))
-    end)
+    ctx = Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
+
+    # The RR's in entries for {name, type}, might contain only CNAME's, so 
+    # ensure cache has either a result or [] for {name, type}
+    case from_cache(ctx, name, type) do
+      {:ok, []} ->
+        tick(ctx, :num_dnsv)
+        |> update({name, type, []})
+
+      _ ->
+        ctx
+    end
   end
 
-  # Update cache with an entry
-  # - type CNAME cannot have multiple entries! -> log error
-  defp update(dns, key, data) do
-    rdata = Map.get(dns, key) || []
+  defp update(ctx, {domain, type, data}) do
+    # return ctx after updating is ctx.dns if appropiate
+    domain = String.trim(domain) |> String.trim(".")
+    rdata = ctx.dns[{domain, type}] || []
 
     case data in rdata do
-      true -> dns
-      false -> Map.put(dns, key, [data | rdata])
+      true ->
+        ctx
+
+      false ->
+        Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | rdata]))
+        |> log(:debug, "DNS CACHED: #{domain} #{type} -> #{inspect([data | rdata])}")
     end
   end
 
