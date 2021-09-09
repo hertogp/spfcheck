@@ -23,7 +23,6 @@ defmodule Spf.Eval do
 
   defp evalname(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
-    IO.inspect(dns, label: :evalname_dns)
 
     case dns do
       {:error, reason} -> log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
