@@ -85,7 +85,8 @@ defmodule Spf.Context do
 
   @spec log(map, atom, tuple, binary) :: map
   def log(ctx, type, {_token, _tokval, _range} = token, msg) do
-    if ctx[:log], do: ctx.log.(ctx, {type, token, msg})
+    if ctx[:log],
+      do: ctx.log.(ctx, {type, token, msg})
 
     Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
       [{ctx.nth, type, token, msg} | msgs]

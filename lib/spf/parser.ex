@@ -207,6 +207,7 @@ defmodule Spf.Parser do
 
     ast(ctx, {atom, [qual, domain(ctx, spec), cidr(dual)], range})
     |> tick(:num_dnsm)
+    |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
   end
 
   # Ptr
@@ -215,12 +216,16 @@ defmodule Spf.Parser do
 
     ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
     |> tick(:num_dnsm)
+    |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
     |> log(:warn, token, "ptr usage is not recommended")
   end
 
   # Include, Exists
   defp check({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
-    do: ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range}) |> tick(:num_dnsm)
+    do:
+      ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range})
+      |> tick(:num_dnsm)
+      |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # All
   defp check({:all, [qual], range}, ctx),
@@ -236,7 +241,10 @@ defmodule Spf.Parser do
 
   # Redirect
   defp check({:redirect, [domain_spec], range}, ctx),
-    do: ast(ctx, {:redirect, [domain(ctx, domain_spec)], range}) |> tick(:num_dnsm)
+    do:
+      ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
+      |> tick(:num_dnsm)
+      |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # Exp - not included in count of dns mechanisms
   defp check({:exp, [domain_spec], range}, ctx),
