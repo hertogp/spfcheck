@@ -67,7 +67,8 @@ defmodule Spf.DNS do
       error = {:error, Exception.message(x)}
 
       ctx =
-        Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+        update(ctx, {name, type, error})
+        # Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
         |> log(:dns, :error, "DNS error: #{name} #{type}: #{inspect(error)}")
 
       {ctx, error}
@@ -76,7 +77,8 @@ defmodule Spf.DNS do
       error = {:error, :illegal_name}
 
       ctx =
-        Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
+        update(ctx, {name, type, error})
+        # Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
         |> log(:dns, :error, "DNS ILLEGAL name: #{name} #{Exception.message(x)}")
 
       {ctx, error}
@@ -169,7 +171,8 @@ defmodule Spf.DNS do
 
   defp update(ctx, {domain, type, data}) do
     # return ctx after updating ctx.dns if appropiate
-    domain = String.trim(domain) |> String.trim(".")
+    domain = stringify(domain) |> String.trim() |> String.trim(".")
+    # TODO: all cache access should be via from_cache
     rdata = ctx.dns[{domain, type}] || []
     data = rr_str_data(type, data)
 
@@ -195,6 +198,7 @@ defmodule Spf.DNS do
   defp rr_str_data(type, ip) when type in [:a, :aaaa] do
     "#{Pfx.new(ip)}"
   rescue
+    # in case ip is an {:error, reason}-tuple
     _ ->
       ip
   end
@@ -206,6 +210,11 @@ defmodule Spf.DNS do
     "#{pref} #{domain}"
   end
 
+  @doc """
+  Return a RR's data as a string
+
+  """
+  @spec rrdata_tostr(atom, any) :: String.t()
   def rrdata_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
     "#{Pfx.new(ip)}"
   rescue
@@ -214,7 +223,7 @@ defmodule Spf.DNS do
   end
 
   def rrdata_tostr(_type, data) do
-    data
+    "#{inspect(data)}"
   end
 
   defp entries(msg) do
