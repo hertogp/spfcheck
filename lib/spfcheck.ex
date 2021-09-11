@@ -73,27 +73,24 @@ defmodule Spfcheck do
     IO.iodata_to_binary(iodata)
   end
 
-  defp loglead(nth, type, depth) do
-    nth = String.pad_leading("#{nth}", 2)
-    type = color(type, 5)
-    depth = String.duplicate("| ", depth)
-    "[spf #{nth}][#{type}] #{depth}"
-  end
+  # defp loglead(nth, facility, severity, depth) do
+  #   nth = String.pad_leading("#{nth}", 2)
+  #   facility = String.pad_trailing("#{facility}", 5)
+  #   severity = color(severity, 5)
+  #   depth = String.duplicate("| ", depth)
+  #   "[spf #{nth}][#{facility}][#{severity}] #{depth}"
+  # end
 
   # Log callback
 
-  def log(ctx, {type, msg}) do
-    if @verbosity[type] <= ctx.verbosity do
-      lead = loglead(ctx.nth, type, ctx.depth)
-      IO.puts(:stderr, "#{lead}#{msg}")
-    end
-  end
-
-  def log(ctx, {type, {_token, _tokval, range}, msg}) do
-    if @verbosity[type] <= ctx.verbosity do
-      tokstr = String.slice(ctx[:spf], range)
-      lead = loglead(ctx.nth, type, ctx.depth)
-      IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
+  def log(ctx, facility, severity, msg) do
+    if @verbosity[severity] <= ctx.verbosity do
+      nth = String.pad_leading("#{ctx.nth}", 2)
+      facility = String.pad_trailing("#{facility}", 5)
+      severity = color(severity, 5)
+      depth = String.duplicate("| ", ctx.depth)
+      lead = "[spf #{nth}][#{facility}][#{severity}] #{depth}"
+      IO.puts(:stderr, "#{lead}> #{msg}")
     end
   end
 
@@ -111,7 +108,7 @@ defmodule Spfcheck do
       do: Application.put_env(:elixir, :ansi_enabled, true),
       else: Application.put_env(:elixir, :ansi_enabled, false)
 
-    parsed = Keyword.put(parsed, :log, &log/2)
+    parsed = Keyword.put(parsed, :log, &log/4)
 
     if [] == domains,
       do: do_stdin(parsed)

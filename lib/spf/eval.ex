@@ -41,16 +41,16 @@ defmodule Spf.Eval do
 
       case dns do
         {:error, reason} ->
-          log(ctx, :dns, :warn, ctx.explain, "DNS error #{reason}")
+          log(ctx, :dns, :warn, "#{domain}: DNS error #{reason}")
 
         {:ok, []} ->
-          log(ctx, :dns, :warn, ctx.explain, "DNS void lookup (0 answers)")
+          log(ctx, :dns, :warn, "#{domain}: DNS void lookup (0 answers)")
 
         {:ok, list} when length(list) > 1 ->
-          log(ctx, :dns, :error, ctx.explain, "too many explain txt records")
+          log(ctx, :dns, :error, "#{domain}: too many explain txt records")
 
         {:ok, [explain]} ->
-          log(ctx, :dns, :info, ctx.explain, "'#{explain}'")
+          log(ctx, :dns, :info, "#{domain} -> '#{explain}'")
           |> Map.put(:explanation, explainp(ctx, explain))
       end
     else
@@ -90,12 +90,12 @@ defmodule Spf.Eval do
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
-      log(ctx, :match, :note, term, "matches #{ctx.ip}")
+      log(ctx, :match, :note, "matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
       |> Map.put(:match, {term, ctx.nth})
     else
-      log(ctx, :match, :info, term, "no match")
+      log(ctx, :match, :info, "no match")
       |> tick(:num_checks)
       |> evalp(tail)
     end
@@ -107,8 +107,8 @@ defmodule Spf.Eval do
   # 2. resolve names -> their ip's
   # 3. keep names that have <ip> among their ip's
   # 4. add <ip> if such a (validated) name is (sub)domain of <domain>
-  defp validated(ctx, {:ptr, [_, domain], _} = term, {:error, reason}),
-    do: log(ctx, :eval, :error, term, "DNS error for #{domain}: #{inspect(reason)}")
+  defp validated(ctx, {:ptr, [_, domain], _} = _term, {:error, reason}),
+    do: log(ctx, :eval, :error, "DNS error for #{domain}: #{inspect(reason)}")
 
   defp validated(ctx, term, {:ok, rrs}),
     do: Enum.reduce(rrs, ctx, fn name, acc -> validate(name, acc, term) end)
@@ -119,10 +119,10 @@ defmodule Spf.Eval do
     case validate?(dns, ctx.ip, name, domain) do
       true ->
         addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, term})
-        |> log(:eval, :info, term, "validated: #{name}, #{ctx.ip} for #{domain}")
+        |> log(:eval, :info, "validated: #{name}, #{ctx.ip} for #{domain}")
 
       false ->
-        log(ctx, :eval, :info, term, "not validated: #{name}, #{ctx.ip} for #{domain}")
+        log(ctx, :eval, :info, "not validated: #{name}, #{ctx.ip} for #{domain}")
     end
   end
 
@@ -186,7 +186,7 @@ defmodule Spf.Eval do
       ctx =
         case dns do
           {:error, reason} ->
-            log(ctx, :eval, :info, term, "DNS error #{domain} #{reason}")
+            log(ctx, :eval, :info, "DNS error #{domain} #{reason}")
 
           {:ok, rrs} ->
             log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
@@ -235,7 +235,7 @@ defmodule Spf.Eval do
   end
 
   # INCLUDE
-  defp evalp(ctx, [{:include, [q, domain], _range} = term | tail]) do
+  defp evalp(ctx, [{:include, [q, domain], _range} = _term | tail]) do
     if ctx.map[domain] do
       log(ctx, :eval, :error, "ignoring included '#{domain}', seen before")
     else

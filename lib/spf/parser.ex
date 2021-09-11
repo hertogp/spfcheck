@@ -21,7 +21,7 @@ defmodule Spf.Parser do
         ctx
 
       {redir, ast} ->
-        log(ctx, :parse, :warn, redir, "ignored:  `all` is present")
+        log(ctx, :parse, :warn, "redirect #{inspect(redir)} ignored: `all` is present")
         |> Map.put(:ast, ast)
     end
   end
@@ -189,7 +189,7 @@ defmodule Spf.Parser do
   end
 
   # Whitespace
-  defp check({:whitespace, [wspace], range} = token, ctx) do
+  defp check({:whitespace, [wspace], range} = _token, ctx) do
     ctx =
       if String.length(wspace) > 1,
         do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
@@ -211,13 +211,13 @@ defmodule Spf.Parser do
   end
 
   # Ptr
-  defp check({:ptr, [qual, args], range} = token, ctx) do
+  defp check({:ptr, [qual, args], range} = _token, ctx) do
     {spec, _} = taketok(args, :domain_spec)
 
     ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
     |> tick(:num_dnsm)
     |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
-    |> log(:parse, :warn, token, "ptr usage is not recommended")
+    |> log(:parse, :warn, "ptr usage is not recommended")
   end
 
   # Include, Exists
