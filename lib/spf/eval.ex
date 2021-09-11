@@ -84,7 +84,7 @@ defmodule Spf.Eval do
     |> Enum.join()
   end
 
-  defp match(ctx, term, tail) do
+  defp match(ctx, {_m, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     # see if ctx's current state is a match (i.e. <ip> is a match now)
     # TODO:
@@ -93,12 +93,12 @@ defmodule Spf.Eval do
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
-      log(ctx, :match, :note, "matches #{ctx.ip}")
+      log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
-      |> Map.put(:match, {term, ctx.nth})
+      |> Map.put(:match, "spf[#{ctx.nth}] -> #{String.slice(ctx.spf, range)}")
     else
-      log(ctx, :match, :info, "no match")
+      log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
       |> tick(:num_checks)
       |> evalp(tail)
     end
@@ -182,7 +182,7 @@ defmodule Spf.Eval do
   # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
   defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
     if ctx.map[domain] do
-      log(ctx, :eval, :error, "domain '#{domain}' seen before")
+      log(ctx, :eval, :warn, "domain '#{domain}' seen before")
     else
       {ctx, dns} = DNS.resolve(ctx, domain, :a)
 
@@ -208,7 +208,6 @@ defmodule Spf.Eval do
       log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
       |> tick(:num_checks)
       |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-      # |> Map.put(:verdict, verdict(q))
       |> match(term, tail)
     end
   end
@@ -238,12 +237,12 @@ defmodule Spf.Eval do
   end
 
   # INCLUDE
-  defp evalp(ctx, [{:include, [q, domain], _range} = _term | tail]) do
+  defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
     if ctx.map[domain] do
-      log(ctx, :eval, :error, "ignoring included '#{domain}', seen before")
+      log(ctx, :eval, :warn, "ignoring included '#{domain}', seen before")
     else
       ctx =
-        log(ctx, :eval, :note, "include #{domain} - recurse")
+        log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - recurse")
         |> push(domain)
         |> Spf.grep()
         |> Spf.parse()
@@ -251,22 +250,30 @@ defmodule Spf.Eval do
 
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
-          pop(ctx)
-          |> log(:eval, :info, "no match")
+          ctx = pop(ctx)
+
+          log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
           |> evalp(tail)
 
         :pass ->
-          Map.put(ctx, :verdict, verdict(q))
-          |> pop()
-          |> log(:eval, :info, "match")
+          ctx = pop(ctx)
+
+          ctx
+          |> Map.put(:verdict, verdict(q))
+          |> log(:eval, :info, "#{String.slice(ctx.spf, range)} - match")
 
         v when v in [:none, :permerror] ->
-          Map.put(ctx, :verdict, :permerror)
-          |> pop()
-          |> log(:eval, :error, "permanent error")
+          ctx = pop(ctx)
+
+          ctx
+          |> Map.put(:verdict, :permerror)
+          |> log(:eval, :error, "#{String.slice(ctx.spf, range)} - permanent error")
 
         :temperror ->
+          ctx = pop(ctx)
+
           ctx
+          |> log(:eval, :warn, "#{String.slice(ctx.spf, range)} - temp error")
       end
     end
   end
@@ -274,7 +281,7 @@ defmodule Spf.Eval do
   # REDIRECT
   defp evalp(ctx, [{:redirect, [domain], _range} = term | tail]) do
     if ctx.map[domain] do
-      log(ctx, :eval, :error, "ignoring redirect '#{domain}', domain seen before")
+      log(ctx, :eval, :warn, "ignoring redirect '#{domain}', domain seen before")
     else
       nth = ctx.cnt
 

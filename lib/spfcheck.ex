@@ -53,7 +53,8 @@ defmodule Spfcheck do
     :num_warn,
     :num_error,
     :duration,
-    :explanation
+    :explanation,
+    :match
   ]
 
   # Helpers

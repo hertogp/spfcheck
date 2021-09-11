@@ -250,6 +250,9 @@ defmodule Spf.Parser do
   defp check({:exp, [domain_spec], range}, ctx),
     do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 
+  defp check({:unknown, _tokvalue, range} = _token, ctx),
+    do: log(ctx, :parse, :error, "UNKNOWN TERM \"#{String.slice(ctx.spf, range)}\"")
+
   # CatchAll
   defp check(token, ctx),
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")

@@ -163,10 +163,10 @@ defmodule Spf.Context do
       sender: sender,
       # user log function, or local one.
       log: Keyword.get(opts, :log, nil),
-      # {term, nth} that matched, nil otherwise
-      match: nil,
       # default verdict is ?all, ie neutral
       verdict: :neutral,
+      # what actually caused a match
+      match: "",
       # default :inet_res timeout in msec
       dns_timeout: 2000,
       # dns cache {key, type} => [value]
