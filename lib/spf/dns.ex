@@ -92,7 +92,7 @@ defmodule Spf.DNS do
     {ctx, name} = cname(ctx, name)
 
     case ctx.dns[{name, type}] do
-      {:error, reason} -> {:error, reason}
+      [{:error, reason}] -> {:error, reason}
       nil -> {:ok, []}
       res -> {:ok, res}
     end
@@ -103,22 +103,28 @@ defmodule Spf.DNS do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
     |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{type} #{name}")
-    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+    |> update({name, type, result})
+
+    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, [result]))
   end
 
   defp cache({:error, :timeout} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{type} #{name}")
-    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+    |> update({name, type, result})
+
+    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{type} #{name}")
-    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
+    |> update({name, type, result})
+
+    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
-  defp cache({:error, reason}, ctx, name, type) do
+  defp cache({:error, reason} = result, ctx, name, type) do
     # catch all other :error reasons
     tick(ctx, :num_dnsq)
     |> log(
@@ -126,14 +132,18 @@ defmodule Spf.DNS do
       :error,
       "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{type} #{name} - #{inspect(reason)}"
     )
-    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
+    |> update({name, type, result})
+
+    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
     |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{type} #{name}")
-    |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
+    |> update({name, type, []})
+
+    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, entries}, ctx, name, type) do
@@ -196,8 +206,12 @@ defmodule Spf.DNS do
     "#{pref} #{domain}"
   end
 
-  def rrdata_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip),
-    do: "#{Pfx.new(ip)}"
+  def rrdata_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
+    "#{Pfx.new(ip)}"
+  rescue
+    # since dns errors are cached as well:
+    _ -> ip
+  end
 
   def rrdata_tostr(_type, data) do
     data

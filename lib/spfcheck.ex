@@ -154,8 +154,7 @@ defmodule Spfcheck do
 
   # Report result
   defp report(ctx, 0) do
-    IO.inspect(ctx.map, label: :report0_ctx_map)
-    IO.puts("\n# Spfcheck #{ctx.domain}\n")
+    IO.puts("\n\n# Spfcheck #{ctx.domain}\n")
 
     Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
     |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
