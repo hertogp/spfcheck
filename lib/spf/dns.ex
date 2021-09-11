@@ -20,7 +20,7 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    name = String.trim(name) |> String.trim(".")
+    name = stringify(name) |> String.trim() |> String.trim(".")
 
     if seen[name] do
       ctx =
@@ -68,7 +68,6 @@ defmodule Spf.DNS do
 
       ctx =
         update(ctx, {name, type, error})
-        # Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
         |> log(:dns, :error, "DNS error: #{name} #{type}: #{inspect(error)}")
 
       {ctx, error}
@@ -78,7 +77,6 @@ defmodule Spf.DNS do
 
       ctx =
         update(ctx, {name, type, error})
-        # Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
         |> log(:dns, :error, "DNS ILLEGAL name: #{name} #{Exception.message(x)}")
 
       {ctx, error}
@@ -106,24 +104,18 @@ defmodule Spf.DNS do
     |> tick(:num_dnsv)
     |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{type} #{name}")
     |> update({name, type, result})
-
-    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, [result]))
   end
 
   defp cache({:error, :timeout} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{type} #{name}")
     |> update({name, type, result})
-
-    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{type} #{name}")
     |> update({name, type, result})
-
-    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, reason} = result, ctx, name, type) do
@@ -135,8 +127,6 @@ defmodule Spf.DNS do
       "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{type} #{name} - #{inspect(reason)}"
     )
     |> update({name, type, result})
-
-    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, []}, ctx, name, type) do
@@ -144,8 +134,6 @@ defmodule Spf.DNS do
     |> tick(:num_dnsv)
     |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{type} #{name}")
     |> update({name, type, []})
-
-    # |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, entries}, ctx, name, type) do
