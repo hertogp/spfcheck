@@ -156,10 +156,13 @@ defmodule Spfcheck do
   defp report(ctx, 0) do
     IO.puts("\n\n# Spfcheck #{ctx.domain}\n")
 
+    IO.puts("```")
+
     Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
     |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
     |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
 
+    IO.puts("```")
     ctx
   end
 
@@ -168,6 +171,8 @@ defmodule Spfcheck do
     IO.puts("\n## SPF records seen\n")
     nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
 
+    IO.puts("```")
+
     for nth <- nths do
       domain = ctx.map[nth]
 
@@ -175,6 +180,8 @@ defmodule Spfcheck do
       IO.puts("[#{nth}] #{domain}")
       IO.puts("    #{spf}")
     end
+
+    IO.puts("```")
 
     ctx
   end
@@ -225,9 +232,13 @@ defmodule Spfcheck do
         IO.puts("None.")
 
       msgs ->
+        IO.puts("```")
+
         Enum.map(msgs, fn {nth, facility, severity, msg} ->
           IO.puts("spf [#{nth}] %#{facility}-#{severity}: #{msg}")
         end)
+
+        IO.puts("```")
     end
 
     ctx
@@ -247,9 +258,13 @@ defmodule Spfcheck do
         IO.puts("None.")
 
       msgs ->
+        IO.puts("```")
+
         Enum.map(msgs, fn {nth, facility, severity, msg} ->
           IO.puts("spf [#{nth}] %#{facility}-#{severity}: #{msg}")
         end)
+
+        IO.puts("```")
     end
 
     ctx
@@ -271,9 +286,13 @@ defmodule Spfcheck do
 
     IO.puts("\n## DNS\n")
 
+    IO.puts("```")
+
     ctx.dns
     |> Enum.map(fn {{domain, type}, data} -> rrs.(domain, type, data) end)
     |> IO.puts()
+
+    IO.puts("```")
   end
 
   def usage() do

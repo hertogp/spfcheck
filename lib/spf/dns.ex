@@ -170,7 +170,6 @@ defmodule Spf.DNS do
     # donot use from_cache since that unrolls cnames
     rdata = ctx.dns[{domain, type}] || []
     data = rr_str_data(type, data)
-    IO.inspect(data, label: :update_data)
 
     case data in rdata do
       true ->
@@ -182,7 +181,9 @@ defmodule Spf.DNS do
         )
 
       false ->
-        Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | rdata]))
+        # List.flatten ensures that rdata remains a non-nested list (eg when
+        # adding [] case resolved yielded ZERO answers
+        Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, List.flatten([data | rdata])))
         |> log(:dns, :debug, "CACHED: #{type} #{domain} -> #{inspect(data)}")
     end
   end
@@ -219,7 +220,7 @@ defmodule Spf.DNS do
   end
 
   def rrdata_tostr(_type, data) do
-    "#{inspect(data)}"
+    "#{inspect(data)}" |> no_quotes()
   end
 
   defp entries(msg) do
