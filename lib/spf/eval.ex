@@ -19,6 +19,8 @@ defmodule Spf.Eval do
         log(ctx, :dns, :warn, "ZERO answers for MX #{domain}")
 
       {:ok, rrs} ->
+        IO.inspect(rrs, label: :evalmx_rrs)
+
         Enum.map(rrs, fn {_, name} -> name end)
         |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
         |> log(:dns, :debug, "MX #{domain} #{inspect(value)} added")
@@ -29,7 +31,7 @@ defmodule Spf.Eval do
     {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
 
     case dns do
-      {:error, reason} -> log(ctx, :dns, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+      {:error, reason} -> log(ctx, :eval, :warn, "DNS error for #{domain}: #{inspect(reason)}")
       {:ok, rrs} -> addip(ctx, rrs, dual, value)
     end
   end
@@ -111,7 +113,7 @@ defmodule Spf.Eval do
   # 3. keep names that have <ip> among their ip's
   # 4. add <ip> if such a (validated) name is (sub)domain of <domain>
   defp validated(ctx, {:ptr, [_, domain], _} = _term, {:error, reason}),
-    do: log(ctx, :eval, :error, "DNS error for #{domain}: #{inspect(reason)}")
+    do: log(ctx, :eval, :warn, "DNS error for #{domain}: #{inspect(reason)}")
 
   defp validated(ctx, term, {:ok, rrs}),
     do: Enum.reduce(rrs, ctx, fn name, acc -> validate(name, acc, term) end)

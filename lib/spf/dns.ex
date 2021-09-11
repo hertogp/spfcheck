@@ -11,7 +11,10 @@ defmodule Spf.DNS do
   @doc """
   Resolves a query and returns an `ok/error` tuple with the results.
 
-  Returns `{:ok, [rrs]}` in case of success, `{:error, :code}` otherwise.
+  Returns:
+  - `{:error, reason}` if a DNS error occurred
+  - `{:ok, []}` if there are ZERO answers
+  - `{:ok, [rrs]}` otherwise, where rrs is a list of rrdata's
 
   """
   @spec resolve(map, binary, atom) :: {map, any}
@@ -47,7 +50,7 @@ defmodule Spf.DNS do
          |> log(
            :dns,
            :info,
-           "DNS QUERY (#{ctx.num_dnsq}) - CACHE yields #{type} #{name} -> #{inspect(res)}"
+           "DNS QUERY (#{ctx.num_dnsq}) (cached) #{type} #{name} -> #{inspect(res)}"
          ), res}
     end
   end
@@ -68,7 +71,7 @@ defmodule Spf.DNS do
 
       ctx =
         update(ctx, {name, type, error})
-        |> log(:dns, :error, "DNS error: #{name} #{type}: #{inspect(error)}")
+        |> log(:dns, :warn, "DNS error: #{name} #{type}: #{inspect(error)}")
 
       {ctx, error}
 
@@ -83,7 +86,11 @@ defmodule Spf.DNS do
   end
 
   @doc """
-  Retrieve RR's for given `name` from `ctx.dns`.
+  Returns a cache hit or miss for given `name` and `type` from cache `ctx.dns`.
+
+  - `{:ok, []}` is a cache miss.
+  - `{:error, reason}` is a previously cached negative result
+  - `{:ok, rrs}` is a cache hit where `rrs` is a list of rrdata's.
 
   """
   @spec from_cache(map, binary, atom) :: {:error, any} | {:ok, list}
@@ -102,19 +109,19 @@ defmodule Spf.DNS do
   defp cache({:error, :nxdomain} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{type} #{name}")
+    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> NXDOMAIN")
     |> update({name, type, result})
   end
 
   defp cache({:error, :timeout} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{type} #{name}")
+    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> TIMEOUT")
     |> update({name, type, result})
   end
 
   defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{type} #{name}")
+    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> SERVFAIL")
     |> update({name, type, result})
   end
 
@@ -123,8 +130,8 @@ defmodule Spf.DNS do
     tick(ctx, :num_dnsq)
     |> log(
       :dns,
-      :error,
-      "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{type} #{name} - #{inspect(reason)}"
+      :warn,
+      "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> ERROR: #{inspect(reason)}"
     )
     |> update({name, type, result})
   end
@@ -160,9 +167,10 @@ defmodule Spf.DNS do
   defp update(ctx, {domain, type, data}) do
     # return ctx after updating ctx.dns if appropiate
     domain = stringify(domain) |> String.trim() |> String.trim(".")
-    # TODO: all cache access should be via from_cache
+    # donot use from_cache since that unrolls cnames
     rdata = ctx.dns[{domain, type}] || []
     data = rr_str_data(type, data)
+    IO.inspect(data, label: :update_data)
 
     case data in rdata do
       true ->
