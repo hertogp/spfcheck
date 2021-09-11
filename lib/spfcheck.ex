@@ -114,6 +114,16 @@ defmodule Spfcheck do
     if [] == domains,
       do: do_stdin(parsed)
 
+    meta = """
+    ---
+    title: SPF
+    author: spfcheck
+    date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
+    ...
+    """
+
+    IO.puts(meta)
+
     for domain <- domains do
       Spf.check(domain, parsed)
       |> report(0)
@@ -155,7 +165,7 @@ defmodule Spfcheck do
 
   # Report result
   defp report(ctx, 0) do
-    IO.puts("\n\n# Spfcheck #{ctx.domain}\n")
+    IO.puts("\n# Spfcheck #{ctx.domain}\n")
 
     IO.puts("```")
 
@@ -200,7 +210,7 @@ defmodule Spfcheck do
       end
       |> Enum.into(%{})
 
-    IO.puts("#{indent} #Seen #{String.pad_trailing("Prefixes", wpfx)} Term(s)")
+    IO.puts("#{indent} #Seen #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
 
     for {ip, v} <- Iptrie.to_list(ctx.ipt) do
       seen = String.pad_trailing("#{length(v)}", wseen)
@@ -208,7 +218,7 @@ defmodule Spfcheck do
 
       terms =
         for {_q, nth, {_, _, slice}} <- v do
-          "[#{nth}] " <> String.slice(Map.get(spfs, nth, ""), slice)
+          "spf[#{nth}] " <> String.slice(Map.get(spfs, nth, ""), slice)
         end
         |> Enum.sort()
         |> Enum.join(", ")

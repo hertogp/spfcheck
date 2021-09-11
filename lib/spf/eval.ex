@@ -96,7 +96,7 @@ defmodule Spf.Eval do
       log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
-      |> Map.put(:match, "spf[#{ctx.nth}] -> #{String.slice(ctx.spf, range)}")
+      |> Map.put(:match, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
     else
       log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
       |> tick(:num_checks)
@@ -240,6 +240,7 @@ defmodule Spf.Eval do
   defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
     if ctx.map[domain] do
       log(ctx, :eval, :warn, "ignoring included '#{domain}', seen before")
+      |> evalp(tail)
     else
       ctx =
         log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - recurse")
@@ -261,6 +262,7 @@ defmodule Spf.Eval do
           ctx
           |> Map.put(:verdict, verdict(q))
           |> log(:eval, :info, "#{String.slice(ctx.spf, range)} - match")
+          |> Map.put(:match, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)} - matched")
 
         v when v in [:none, :permerror] ->
           ctx = pop(ctx)
@@ -268,6 +270,7 @@ defmodule Spf.Eval do
           ctx
           |> Map.put(:verdict, :permerror)
           |> log(:eval, :error, "#{String.slice(ctx.spf, range)} - permanent error")
+          |> Map.put(:match, "#{String.slice(ctx.spf, range)} - permerror")
 
         :temperror ->
           ctx = pop(ctx)
