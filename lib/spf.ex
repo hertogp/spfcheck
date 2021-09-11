@@ -43,7 +43,7 @@ defmodule Spf do
       end
 
     ctx
-    |> Context.log(:note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
+    |> Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
   end
 
   defparsec(:tokenize, Spf.Tokens.tokenize())
@@ -54,7 +54,7 @@ defmodule Spf do
     ctx = Context.new(domain, opts)
 
     ctx
-    |> Context.log(:note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
+    |> Context.log(:spf, :note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
     |> grep()
     |> Parser.parse()
     |> Eval.eval()

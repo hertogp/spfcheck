@@ -9,7 +9,12 @@ defmodule Spf.Context do
     ctx =
       case Iptrie.lookup(ctx.ipt, k) do
         {k2, v2} ->
-          log(ctx, :warn, IO.inspect(elem(v, 2)), "#{k} covered by #{k2} from #{inspect(v2)}")
+          log(
+            ctx,
+            :ipt,
+            :warn,
+            "#{k} covered by #{k2} from #{inspect(v2)}"
+          )
 
         nil ->
           ctx
@@ -18,7 +23,7 @@ defmodule Spf.Context do
     ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
 
     Map.put(ctx, :ipt, ipt)
-    |> log(:debug, "IPT UPDATE: #{k} -> #{inspect(v)}")
+    |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
   end
 
   defp prefix(ip, [len4, len6]) do
@@ -71,37 +76,28 @@ defmodule Spf.Context do
     end
   end
 
-  # log
-  # ctx     the current context
-  # src     the source of the log entry
-  # lvl     one of :error, :warn, :note, :info, :debug
-  # msg     any string
+  # log(ctx, facility, severity, msg)
   #
-  # Context.log(ctx, __MODULE__, :warn, "#<param> was unexpected here", param: :exp)
+  # Context.log(ctx, :spf, :warn, "'exp=' was unexpected here")
+  # Context.log(ctx, :dns, :warn, "zero answers for 'a.b.nl' txt"
+  # Context.log(ctx, :check, :info, "spf 5 term"
+  # 
 
-  @spec log(map, atom, binary) :: map
-  def log(ctx, type, msg) do
+  @spec log(map, atom, atom, binary) :: map
+  def log(ctx, facility, severity, msg) do
     if ctx[:log],
-      do: ctx.log.(ctx, {type, msg})
+      do: ctx.log.(ctx, facility, severity, msg)
 
     ctx =
-      Map.update(ctx, :msg, [{ctx.nth, type, msg}], fn msgs -> [{ctx.nth, type, msg} | msgs] end)
+      Map.update(ctx, :msg, [{ctx.nth, facility, severity, msg}], fn msgs ->
+        [{ctx.nth, facility, severity, msg} | msgs]
+      end)
 
-    case type do
+    case severity do
       :warn -> tick(ctx, :num_warn)
       :error -> tick(ctx, :num_error)
       _ -> ctx
     end
-  end
-
-  @spec log(map, atom, tuple, binary) :: map
-  def log(ctx, type, {_token, _tokval, _range} = token, msg) do
-    if ctx[:log],
-      do: ctx.log.(ctx, {type, token, msg})
-
-    Map.update(ctx, :msg, [{ctx.nth, type, token, msg}], fn msgs ->
-      [{ctx.nth, type, token, msg} | msgs]
-    end)
   end
 
   @doc """
@@ -229,7 +225,7 @@ defmodule Spf.Context do
   def pop(ctx) do
     case ctx.stack do
       [] ->
-        log(ctx, :error, "attempted to pop from empty stack")
+        log(ctx, :ctx, :error, "attempted to pop from empty stack")
 
       [state | tail] ->
         Map.put(ctx, :stack, tail)
@@ -307,10 +303,10 @@ defmodule Spf.Context do
   @doc """
   Adds `label`ed log `msg` to given `ctx`, if `test` is true
   """
-  def test(ctx, label, term, test, msg)
+  def test(ctx, facility, severity, test, msg)
 
-  def test(ctx, label, term, true, msg),
-    do: log(ctx, label, term, msg)
+  def test(ctx, facility, severity, true, msg),
+    do: log(ctx, facility, severity, msg)
 
   def test(ctx, _, _, false, _),
     do: ctx

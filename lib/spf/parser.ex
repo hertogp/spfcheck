@@ -21,7 +21,7 @@ defmodule Spf.Parser do
         ctx
 
       {redir, ast} ->
-        log(ctx, :warn, redir, "ignored:  `all` is present")
+        log(ctx, :parse, :warn, redir, "ignored:  `all` is present")
         |> Map.put(:ast, ast)
     end
   end
@@ -68,10 +68,10 @@ defmodule Spf.Parser do
   # either append or ignore new token
   defp ast(ctx, {:exp, _, _} = token) do
     if ctx.f_include do
-      log(ctx, :info, token, "spf #{ctx.nth} ignored: included explain")
+      log(ctx, :parse, :info, "spf #{ctx.nth} ignoring included explain #{inspect(token)}")
     else
       if ctx.explain do
-        log(ctx, :info, token, "ignored: multiple explains")
+        log(ctx, :parse, :info, "ignored: multiple explains #{inspect(token)}")
       else
         # TODO: add warning if explain won't be used because a :fail is impossible
         Map.put(ctx, :explain, token)
@@ -81,7 +81,7 @@ defmodule Spf.Parser do
 
   defp ast(ctx, token) do
     if ctx.f_all do
-      log(ctx, :warn, token, "ignored: term past `all`")
+      log(ctx, :parse, :warn, "ignored #{inspect(token)}: term past `all`")
     else
       case token do
         {:all, _tokval, _range} ->
@@ -91,7 +91,7 @@ defmodule Spf.Parser do
 
         {:redirect, _tokval, _range} ->
           if ctx.f_redirect,
-            do: log(ctx, :warn, token, "ignored: multiple redirects"),
+            do: log(ctx, :parse, :warn, "ignored: multiple redirects #{inspect(token)}"),
             else:
               Map.put(ctx, :f_redirect, true)
               |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
@@ -121,7 +121,7 @@ defmodule Spf.Parser do
 
   def parse(%{spf: []} = ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
-    log(ctx, :note, "no spf records found")
+    log(ctx, :parse, :note, "no spf records found")
     |> Map.put(:verdict, :none)
   end
 
@@ -141,7 +141,7 @@ defmodule Spf.Parser do
   end
 
   def parse(ctx = %{spf: spf}) do
-    log(ctx, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
+    log(ctx, :parse, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
     |> Map.put(:spf, "")
     |> Map.put(:verdict, :permerror)
   end
@@ -184,7 +184,7 @@ defmodule Spf.Parser do
   defp check({:version, [n], _range} = token, ctx) do
     case n do
       1 -> ctx
-      _ -> log(ctx, :error, token, "unknown SPF version")
+      _ -> log(ctx, :parse, :error, "unknown SPF version #{inspect(token)}")
     end
   end
 
@@ -192,11 +192,11 @@ defmodule Spf.Parser do
   defp check({:whitespace, [wspace], range} = token, ctx) do
     ctx =
       if String.length(wspace) > 1,
-        do: log(ctx, :warn, token, "repeated whitespace: #{inspect(range)}"),
+        do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
         else: ctx
 
     if String.contains?(wspace, "\t"),
-      do: log(ctx, :warn, token, "tab as whitespace: #{inspect(range)}"),
+      do: log(ctx, :parse, :warn, "tab as whitespace: #{inspect(range)}"),
       else: ctx
   end
 
@@ -207,7 +207,7 @@ defmodule Spf.Parser do
 
     ast(ctx, {atom, [qual, domain(ctx, spec), cidr(dual)], range})
     |> tick(:num_dnsm)
-    |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+    |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
   end
 
   # Ptr
@@ -216,8 +216,8 @@ defmodule Spf.Parser do
 
     ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
     |> tick(:num_dnsm)
-    |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
-    |> log(:warn, token, "ptr usage is not recommended")
+    |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+    |> log(:parse, :warn, token, "ptr usage is not recommended")
   end
 
   # Include, Exists
@@ -225,7 +225,7 @@ defmodule Spf.Parser do
     do:
       ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range})
       |> tick(:num_dnsm)
-      |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # All
   defp check({:all, [qual], range}, ctx),
@@ -235,7 +235,7 @@ defmodule Spf.Parser do
   defp check({atom, [qual, ip], range} = token, ctx) when atom in [:ip4, :ip6] do
     case pfxparse(ip) do
       {:ok, pfx} -> ast(ctx, {atom, [qual, pfx], range})
-      {:error, _} -> log(ctx, :warn, token, "ignoring invalid IP")
+      {:error, _} -> log(ctx, :parse, :warn, "ignoring invalid IP in #{inspect(token)}")
     end
   end
 
@@ -244,7 +244,7 @@ defmodule Spf.Parser do
     do:
       ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
       |> tick(:num_dnsm)
-      |> log(:debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # Exp - not included in count of dns mechanisms
   defp check({:exp, [domain_spec], range}, ctx),
@@ -252,5 +252,5 @@ defmodule Spf.Parser do
 
   # CatchAll
   defp check(token, ctx),
-    do: log(ctx, :DEBUG, token, "Spf.parser.check: no handler available")
+    do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
 end

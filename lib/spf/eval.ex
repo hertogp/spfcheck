@@ -13,12 +13,12 @@ defmodule Spf.Eval do
 
     case dns do
       {:error, reason} ->
-        log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+        log(ctx, :dns, :warn, "#{domain}: #{inspect(reason)}")
 
       {:ok, rrs} ->
         Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
         |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
-        |> log(:debug, "MX #{domain} #{inspect(value)} added")
+        |> log(:dns, :debug, "MX #{domain} #{inspect(value)} added")
     end
   end
 
@@ -26,7 +26,7 @@ defmodule Spf.Eval do
     {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
 
     case dns do
-      {:error, reason} -> log(ctx, :warn, "DNS error for #{domain}: #{inspect(reason)}")
+      {:error, reason} -> log(ctx, :dns, :warn, "DNS error for #{domain}: #{inspect(reason)}")
       {:ok, rrs} -> addip(ctx, rrs, dual, value)
     end
   end
@@ -41,16 +41,16 @@ defmodule Spf.Eval do
 
       case dns do
         {:error, reason} ->
-          log(ctx, :warn, ctx.explain, "DNS error #{reason}")
+          log(ctx, :dns, :warn, ctx.explain, "DNS error #{reason}")
 
         {:ok, []} ->
-          log(ctx, :warn, ctx.explain, "DNS void lookup (0 answers)")
+          log(ctx, :dns, :warn, ctx.explain, "DNS void lookup (0 answers)")
 
         {:ok, list} when length(list) > 1 ->
-          log(ctx, :error, ctx.explain, "too many explain txt records")
+          log(ctx, :dns, :error, ctx.explain, "too many explain txt records")
 
         {:ok, [explain]} ->
-          log(ctx, :info, ctx.explain, "'#{explain}'")
+          log(ctx, :dns, :info, ctx.explain, "'#{explain}'")
           |> Map.put(:explanation, explainp(ctx, explain))
       end
     else
@@ -90,12 +90,12 @@ defmodule Spf.Eval do
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
-      log(ctx, :note, term, "matches #{ctx.ip}")
+      log(ctx, :match, :note, term, "matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
       |> Map.put(:match, {term, ctx.nth})
     else
-      log(ctx, :info, term, "no match")
+      log(ctx, :match, :info, term, "no match")
       |> tick(:num_checks)
       |> evalp(tail)
     end
@@ -108,7 +108,7 @@ defmodule Spf.Eval do
   # 3. keep names that have <ip> among their ip's
   # 4. add <ip> if such a (validated) name is (sub)domain of <domain>
   defp validated(ctx, {:ptr, [_, domain], _} = term, {:error, reason}),
-    do: log(ctx, :error, term, "DNS error for #{domain}: #{inspect(reason)}")
+    do: log(ctx, :eval, :error, term, "DNS error for #{domain}: #{inspect(reason)}")
 
   defp validated(ctx, term, {:ok, rrs}),
     do: Enum.reduce(rrs, ctx, fn name, acc -> validate(name, acc, term) end)
@@ -119,10 +119,10 @@ defmodule Spf.Eval do
     case validate?(dns, ctx.ip, name, domain) do
       true ->
         addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, term})
-        |> log(:info, term, "validated: #{name}, #{ctx.ip} for #{domain}")
+        |> log(:eval, :info, term, "validated: #{name}, #{ctx.ip} for #{domain}")
 
       false ->
-        log(ctx, :info, term, "not validated: #{name}, #{ctx.ip} for #{domain}")
+        log(ctx, :eval, :info, term, "not validated: #{name}, #{ctx.ip} for #{domain}")
     end
   end
 
@@ -179,17 +179,17 @@ defmodule Spf.Eval do
   # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
   defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
     if ctx.map[domain] do
-      log(ctx, :error, term, "domain seen before")
+      log(ctx, :eval, :error, "domain '#{domain}' seen before")
     else
       {ctx, dns} = DNS.resolve(ctx, domain, :a)
 
       ctx =
         case dns do
           {:error, reason} ->
-            log(ctx, :info, term, "DNS error #{reason}")
+            log(ctx, :eval, :info, term, "DNS error #{domain} #{reason}")
 
           {:ok, rrs} ->
-            log(ctx, :info, term, "DNS #{inspect(rrs)}")
+            log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
             |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
         end
 
@@ -202,7 +202,7 @@ defmodule Spf.Eval do
     if ctx.f_include do
       evalp(ctx, tail)
     else
-      log(ctx, :info, term, "SPF match by #{List.to_string([q])}all")
+      log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
       |> tick(:num_checks)
       |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
       # |> Map.put(:verdict, verdict(q))
@@ -237,10 +237,10 @@ defmodule Spf.Eval do
   # INCLUDE
   defp evalp(ctx, [{:include, [q, domain], _range} = term | tail]) do
     if ctx.map[domain] do
-      log(ctx, :error, term, "ignored: seen before")
+      log(ctx, :eval, :error, "ignoring included '#{domain}', seen before")
     else
       ctx =
-        log(ctx, :note, term, "recurse")
+        log(ctx, :eval, :note, "include #{domain} - recurse")
         |> push(domain)
         |> Spf.grep()
         |> Spf.parse()
@@ -249,18 +249,18 @@ defmodule Spf.Eval do
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
           pop(ctx)
-          |> log(:info, term, "no match")
+          |> log(:eval, :info, "no match")
           |> evalp(tail)
 
         :pass ->
           Map.put(ctx, :verdict, verdict(q))
           |> pop()
-          |> log(:info, term, "match")
+          |> log(:eval, :info, "match")
 
         v when v in [:none, :permerror] ->
           Map.put(ctx, :verdict, :permerror)
           |> pop()
-          |> log(:error, term, :permerror)
+          |> log(:eval, :error, "permanent error")
 
         :temperror ->
           ctx
@@ -271,12 +271,12 @@ defmodule Spf.Eval do
   # REDIRECT
   defp evalp(ctx, [{:redirect, [domain], _range} = term | tail]) do
     if ctx.map[domain] do
-      log(ctx, :error, term, "domain seen before")
+      log(ctx, :eval, :error, "ignoring redirect '#{domain}', domain seen before")
     else
       nth = ctx.cnt
 
       test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
-      |> log(:note, term, "redirect")
+      |> log(:eval, :note, "redirecting to #{domain}")
       |> tick(:cnt)
       |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
       |> Map.put(:domain, domain)
@@ -295,7 +295,7 @@ defmodule Spf.Eval do
 
   # TERM?
   defp evalp(ctx, [term | tail]) do
-    log(ctx, :error, term, "eval is missing a handler")
+    log(ctx, :eval, :error, "internal error, eval is missing a handler for #{inspect(term)}")
     |> evalp(tail)
   end
 

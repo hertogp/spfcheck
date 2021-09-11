@@ -24,8 +24,8 @@ defmodule Spf.DNS do
 
     if seen[name] do
       ctx =
-        log(ctx, :error, "circular CNAMEs: #{inspect(seen)}")
-        |> log(:info, "DNS CNAME: using #{name} to break circular reference")
+        log(ctx, :dns, :error, "circular CNAMEs: #{inspect(seen)}")
+        |> log(:dns, :info, "DNS CNAME: using #{name} to break circular reference")
 
       {ctx, name}
     else
@@ -45,6 +45,7 @@ defmodule Spf.DNS do
       res ->
         {tick(ctx, :num_dnsq)
          |> log(
+           :dns,
            :info,
            "DNS QUERY (#{ctx.num_dnsq}) - CACHE yields #{name} #{type} -> #{inspect(res)}"
          ), res}
@@ -67,7 +68,7 @@ defmodule Spf.DNS do
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:error, "DNS error: #{name} #{type}: #{inspect(error)}")
+        |> log(:dns, :error, "DNS error: #{name} #{type}: #{inspect(error)}")
 
       {ctx, error}
 
@@ -76,7 +77,7 @@ defmodule Spf.DNS do
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:error, "DNS ILLEGAL name: #{name}")
+        |> log(:dns, :error, "DNS ILLEGAL name: #{name}")
 
       {ctx, error}
   end
@@ -100,33 +101,37 @@ defmodule Spf.DNS do
   defp cache({:error, :nxdomain} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, :timeout} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, reason}, ctx, name, type) do
     # catch all other :error reasons
     tick(ctx, :num_dnsq)
-    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{name} #{type} - #{inspect(reason)}")
+    |> log(
+      :dns,
+      :error,
+      "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{name} #{type} - #{inspect(reason)}"
+    )
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
   defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
@@ -135,7 +140,7 @@ defmodule Spf.DNS do
 
     ctx =
       tick(ctx, :num_dnsq)
-      |> log(:info, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
+      |> log(:dns, :info, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
 
     ctx = Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
@@ -162,7 +167,7 @@ defmodule Spf.DNS do
 
       false ->
         Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | rdata]))
-        |> log(:debug, "DNS CACHED: #{domain} #{type} -> #{inspect(data)}")
+        |> log(:dns, :debug, "DNS CACHED: #{domain} #{type} -> #{inspect(data)}")
     end
   end
 
@@ -227,10 +232,10 @@ defmodule Spf.DNS do
       |> Enum.reduce(%{}, &read_rr/2)
 
     ctx
-    |> log(:debug, "DNS cache: #{fpath} yielded #{map_size(cache)} entries")
+    |> log(:dns, :debug, "DNS cache: #{fpath} yielded #{map_size(cache)} entries")
     |> Map.put(:dns, cache)
   rescue
-    err -> log(ctx, :error, "Spf.DNS.load_file: #{Exception.message(err)}")
+    err -> log(ctx, :dns, :error, "Spf.DNS.load_file: #{Exception.message(err)}")
   end
 
   defp read_rr("#" <> _, ctx),
