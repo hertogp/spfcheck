@@ -32,21 +32,18 @@ defmodule Spf do
   def grep(ctx) when is_map(ctx) do
     {ctx, result} = DNS.resolve(ctx, ctx.domain, :txt)
 
-    case DNS.grep(result, &spf?/1) do
-      {:ok, spf} ->
-        Map.put(ctx, :spf, spf)
+    ctx =
+      case DNS.grep(result, &spf?/1) do
+        {:ok, spf} ->
+          Map.put(ctx, :spf, spf)
 
-      {:error, reason} ->
-        Map.put(ctx, :error, reason) |> Map.put(:spf, [])
-    end
-    |> Context.log(:note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
-  end
+        {:error, reason} ->
+          Map.put(ctx, :error, reason)
+          |> Map.put(:spf, [])
+      end
 
-  def grep(domain) when is_binary(domain) do
-    # TODO: remove this, is temp convencience for iex> grepping for a domain
-    ctx = %{dns_timeout: 10000, dns: %{}, domain: domain}
-    {_ctx, result} = DNS.resolve(ctx, domain, :txt)
-    DNS.grep(result, &spf?/1)
+    ctx
+    |> Context.log(:note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
   end
 
   defparsec(:tokenize, Spf.Tokens.tokenize())
@@ -54,7 +51,10 @@ defmodule Spf do
   defdelegate parse(context), to: Spf.Parser
 
   def check(domain, opts \\ []) do
-    Context.new(domain, opts)
+    ctx = Context.new(domain, opts)
+
+    ctx
+    |> Context.log(:note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
     |> grep()
     |> Parser.parse()
     |> Eval.eval()

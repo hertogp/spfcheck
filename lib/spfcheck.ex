@@ -4,6 +4,7 @@ defmodule Spfcheck do
              |> String.split("<!-- @MODULEDOC -->")
              |> Enum.fetch!(1)
   alias Spf
+  alias Spf.Context
   alias IO.ANSI
 
   @options [
@@ -79,6 +80,145 @@ defmodule Spfcheck do
     "[spf #{nth}][#{type}] #{depth}"
   end
 
+  # Log callback
+
+  def log(ctx, {type, msg}) do
+    if @verbosity[type] <= ctx.verbosity do
+      lead = loglead(ctx.nth, type, ctx.depth)
+      IO.puts(:stderr, "#{lead}#{msg}")
+    end
+  end
+
+  def log(ctx, {type, {_token, _tokval, range}, msg}) do
+    if @verbosity[type] <= ctx.verbosity do
+      tokstr = String.slice(ctx[:spf], range)
+      lead = loglead(ctx.nth, type, ctx.depth)
+      IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
+    end
+  end
+
+  # MAIN
+
+  @doc """
+  Check spf for given ip, sender and domain.
+  """
+  def main(argv) do
+    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+
+    if Keyword.get(parsed, :help, false), do: usage()
+
+    if Keyword.get(parsed, :color, true),
+      do: Application.put_env(:elixir, :ansi_enabled, true),
+      else: Application.put_env(:elixir, :ansi_enabled, false)
+
+    parsed = Keyword.put(parsed, :log, &log/2)
+
+    if [] == domains,
+      do: do_stdin(parsed)
+
+    for domain <- domains do
+      Spf.check(domain, parsed)
+      |> report(0)
+      |> report(1)
+      |> report(2)
+      |> report(3)
+    end
+  end
+
+  defp do_stdin(parsed) do
+    IO.puts(Enum.join(@csv_fields, ","))
+
+    IO.stream()
+    |> Enum.each(&do_stdin(parsed, String.trim(&1)))
+  end
+
+  # skip comments and empty lines
+  defp do_stdin(_parsed, "#" <> _comment), do: nil
+  defp do_stdin(_parsed, ""), do: nil
+
+  defp do_stdin(opts, line) do
+    argv = String.split(line, ~r/\s+/, trim: true)
+    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+    opts = Keyword.merge(opts, parsed)
+
+    for domain <- domains do
+      Spf.check(domain, opts)
+      |> csv_result()
+    end
+  end
+
+  defp csv_result(ctx) do
+    Enum.map(@csv_fields, fn field -> "#{inspect(ctx[field])}" end)
+    |> Enum.join(",")
+    |> IO.puts()
+  end
+
+  # Report result
+  defp report(ctx, 0) do
+    IO.puts("\n# Spfcheck #{ctx.domain}\n")
+
+    Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
+    |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
+    |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
+
+    ctx
+  end
+
+  # Report Spf's
+  defp report(ctx, 1) do
+    IO.puts("\n# SPF records seen\n")
+    nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
+
+    for nth <- nths do
+      domain = ctx.map[nth]
+
+      spf = Context.get_spf(ctx, nth)
+      IO.puts("[#{nth}] #{domain}")
+      IO.puts("    #{spf}")
+    end
+
+    ctx
+  end
+
+  # Report Prefixes
+  defp report(ctx, 2) do
+    IO.puts("\n# Prefixes\n")
+    wseen = 5
+    wpfx = 35
+    indent = "    "
+
+    spfs =
+      for n <- 0..ctx.cnt do
+        {n, Context.get_spf(ctx, n)}
+      end
+      |> Enum.into(%{})
+
+    IO.puts("#{indent} #Seen #{String.pad_trailing("Prefixes", wpfx)} Term(s)")
+
+    for {ip, v} <- Iptrie.to_list(ctx.ipt) do
+      seen = String.pad_trailing("#{length(v)}", wseen)
+      pfx = "#{ip}" |> String.pad_trailing(wpfx)
+
+      terms =
+        for {_q, nth, {_, _, slice}} <- v do
+          "[#{nth}] " <> String.slice(Map.get(spfs, nth, ""), slice)
+        end
+        |> Enum.sort()
+        |> Enum.join(", ")
+
+      IO.puts("#{indent} #{seen} #{pfx} #{terms}")
+    end
+
+    ctx
+  end
+
+  # Report warinings
+  defp report(ctx, 3) do
+    warnings = Enum.filter(ctx.msg, fn t -> elem(t, 1) == :warn end)
+    IO.inspect(warnings)
+    ctx
+  end
+
   def usage() do
     """
 
@@ -135,81 +275,5 @@ defmodule Spfcheck do
     |> IO.puts()
 
     exit({:shutdown, 1})
-  end
-
-  # Log callback
-
-  def log(ctx, {type, msg}) do
-    if @verbosity[type] <= ctx.verbosity do
-      lead = loglead(ctx.nth, type, ctx.depth)
-      IO.puts(:stderr, "#{lead}#{msg}")
-    end
-  end
-
-  def log(ctx, {type, {_token, _tokval, range}, msg}) do
-    if @verbosity[type] <= ctx.verbosity do
-      tokstr = String.slice(ctx[:spf], range)
-      lead = loglead(ctx.nth, type, ctx.depth)
-      IO.puts(:stderr, "#{lead}> #{tokstr} - #{msg}")
-    end
-  end
-
-  # MAIN
-
-  @doc """
-  Check spf for given ip, sender and domain.
-  """
-  def main(argv) do
-    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
-
-    if Keyword.get(parsed, :help, false), do: usage()
-
-    if Keyword.get(parsed, :color, true),
-      do: Application.put_env(:elixir, :ansi_enabled, true),
-      else: Application.put_env(:elixir, :ansi_enabled, false)
-
-    parsed = Keyword.put(parsed, :log, &log/2)
-
-    if [] == domains,
-      do: do_stdin(parsed)
-
-    for domain <- domains do
-      Spf.check(domain, parsed)
-      |> cli_result()
-    end
-  end
-
-  defp cli_result(ctx) do
-    Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
-    |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
-    |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
-  end
-
-  defp do_stdin(parsed) do
-    IO.puts(Enum.join(@csv_fields, ","))
-
-    IO.stream()
-    |> Enum.each(&do_stdin(parsed, String.trim(&1)))
-  end
-
-  # skip comments and empty lines
-  defp do_stdin(_parsed, "#" <> _comment), do: nil
-  defp do_stdin(_parsed, ""), do: nil
-
-  defp do_stdin(opts, line) do
-    argv = String.split(line, ~r/\s+/, trim: true)
-    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
-    opts = Keyword.merge(opts, parsed)
-
-    for domain <- domains do
-      Spf.check(domain, opts)
-      |> csv_result()
-    end
-  end
-
-  defp csv_result(ctx) do
-    Enum.map(@csv_fields, fn field -> "#{inspect(ctx[field])}" end)
-    |> Enum.join(",")
-    |> IO.puts()
   end
 end

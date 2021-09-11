@@ -18,6 +18,7 @@ defmodule Spf.Eval do
       {:ok, rrs} ->
         Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
         |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
+        |> log(:debug, "MX #{domain} #{inspect(value)} added")
     end
   end
 
@@ -160,8 +161,7 @@ defmodule Spf.Eval do
   # API
 
   def eval(ctx) do
-    log(ctx, :note, "SPF, got: #{inspect(ctx.spf)}")
-    |> evalp(ctx.ast)
+    evalp(ctx, ctx.ast)
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
   end

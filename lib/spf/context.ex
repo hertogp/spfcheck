@@ -8,12 +8,17 @@ defmodule Spf.Context do
   defp ipt_update({k, v}, ctx) do
     ctx =
       case Iptrie.lookup(ctx.ipt, k) do
-        {k2, v2} -> log(ctx, :warn, "#{k} covered by #{k2} from #{inspect(v2)}")
-        nil -> ctx
+        {k2, v2} ->
+          log(ctx, :warn, IO.inspect(elem(v, 2)), "#{k} covered by #{k2} from #{inspect(v2)}")
+
+        nil ->
+          ctx
       end
 
     ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
+
     Map.put(ctx, :ipt, ipt)
+    |> log(:debug, "IPT UPDATE: #{k} -> #{inspect(v)}")
   end
 
   defp prefix(ip, [len4, len6]) do
@@ -24,8 +29,6 @@ defmodule Spf.Context do
       _ -> Pfx.keep(pfx, len6)
     end
   rescue
-    # ip might be a CNAME due to the resolving works
-    # or simply illegal
     _ -> :error
   end
 
@@ -67,6 +70,14 @@ defmodule Spf.Context do
       _ -> nil
     end
   end
+
+  # log
+  # ctx     the current context
+  # src     the source of the log entry
+  # lvl     one of :error, :warn, :note, :info, :debug
+  # msg     any string
+  #
+  # Context.log(ctx, __MODULE__, :warn, "#<param> was unexpected here", param: :exp)
 
   @spec log(map, atom, binary) :: map
   def log(ctx, type, msg) do

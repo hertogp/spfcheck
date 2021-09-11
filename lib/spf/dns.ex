@@ -33,11 +33,6 @@ defmodule Spf.DNS do
         nil -> {ctx, name}
         [realname] -> cname(ctx, realname, Map.put(seen, name, realname))
       end
-
-      # seen = Map.put(seen, name, realname)
-
-      # log(ctx, :note, "DNS CNAME: #{name} -> #{realname}")
-      # |> cname(realname, seen)
     end
   end
 
@@ -50,8 +45,8 @@ defmodule Spf.DNS do
       res ->
         {tick(ctx, :num_dnsq)
          |> log(
-           :debug,
-           "DNS QUERY (#{ctx.num_dnsq}) - CACHED for #{name} #{type} -> #{inspect(res)}"
+           :info,
+           "DNS QUERY (#{ctx.num_dnsq}) - CACHE yields #{name} #{type} -> #{inspect(res)}"
          ), res}
     end
   end
@@ -86,7 +81,11 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  defp from_cache(ctx, name, type) do
+  @doc """
+  Retrieve a record from the DNS cache `ctx.dns`.
+  """
+  @spec from_cache(map, binary, atom) :: {:error, any} | {:ok, list}
+  def from_cache(ctx, name, type) do
     # returns either {:error, reason}, {:ok, []} or {:ok, [rrs]}
     {ctx, name} = cname(ctx, name)
 
@@ -101,7 +100,7 @@ defmodule Spf.DNS do
   defp cache({:error, :nxdomain} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{name} #{type}")
+    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
@@ -127,7 +126,7 @@ defmodule Spf.DNS do
   defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{name} #{type}")
+    |> log(:error, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{name} #{type}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
@@ -136,7 +135,7 @@ defmodule Spf.DNS do
 
     ctx =
       tick(ctx, :num_dnsq)
-      |> log(:debug, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
+      |> log(:info, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
 
     ctx = Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
@@ -183,8 +182,11 @@ defmodule Spf.DNS do
   end
 
   defp rrentry(answer) do
-    {:inet_dns.rr(answer, :domain) |> stringify(), :inet_dns.rr(answer, :type),
-     :inet_dns.rr(answer, :data) |> stringify()}
+    {
+      :inet_dns.rr(answer, :domain) |> stringify(),
+      :inet_dns.rr(answer, :type),
+      :inet_dns.rr(answer, :data) |> stringify()
+    }
   end
 
   defp stringify(rrdata) when is_list(rrdata) do
@@ -203,7 +205,7 @@ defmodule Spf.DNS do
   ## Example
 
       iex> DNS.resolve("www.example.com", :txt)
-      ...> |> DNS.grep(fn x -> String.contains?("v=spf1") end)
+      ...> |> DNS.grep(fn x -> String.lower(x) |> String.contains?("v=spf1") end)
       ["v=spf1 -all"]
 
   """
@@ -222,8 +224,6 @@ defmodule Spf.DNS do
     cache =
       File.stream!(fpath)
       |> Enum.map(fn x -> String.trim(x) end)
-      # |> Enum.filter(fn x -> not String.starts_with?(x, "#") end)
-      # |> Enum.filter(fn x -> String.length(x) > 0 end)
       |> Enum.reduce(%{}, &read_rr/2)
 
     ctx
