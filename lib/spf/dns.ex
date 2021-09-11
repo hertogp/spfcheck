@@ -47,7 +47,7 @@ defmodule Spf.DNS do
          |> log(
            :dns,
            :info,
-           "DNS QUERY (#{ctx.num_dnsq}) - CACHE yields #{name} #{type} -> #{inspect(res)}"
+           "DNS QUERY (#{ctx.num_dnsq}) - CACHE yields #{type} #{name} -> #{inspect(res)}"
          ), res}
     end
   end
@@ -72,18 +72,19 @@ defmodule Spf.DNS do
 
       {ctx, error}
 
-    _x in FunctionClauseError ->
+    x in FunctionClauseError ->
       error = {:error, :illegal_name}
 
       ctx =
         Map.put(ctx, :dns, Map.put(ctx.dns, {name, type}, error))
-        |> log(:dns, :error, "DNS ILLEGAL name: #{name}")
+        |> log(:dns, :error, "DNS ILLEGAL name: #{name} #{Exception.message(x)}")
 
       {ctx, error}
   end
 
   @doc """
-  Retrieve a record from the DNS cache `ctx.dns`.
+  Retrieve RR's for given `name` from `ctx.dns`.
+
   """
   @spec from_cache(map, binary, atom) :: {:error, any} | {:ok, list}
   def from_cache(ctx, name, type) do
@@ -101,19 +102,19 @@ defmodule Spf.DNS do
   defp cache({:error, :nxdomain} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - NXDOMAIN for #{type} #{name}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, :timeout} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - TIMEOUT for #{type} #{name}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
   defp cache({:error, {:servfail, _}} = result, ctx, name, type) do
     tick(ctx, :num_dnsq)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{name} #{type}")
+    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - SERVFAIL for #{type} #{name}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, result))
   end
 
@@ -123,7 +124,7 @@ defmodule Spf.DNS do
     |> log(
       :dns,
       :error,
-      "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{name} #{type} - #{inspect(reason)}"
+      "DNS QUERY (#{ctx.num_dnsq}) - ERROR for #{type} #{name} - #{inspect(reason)}"
     )
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
@@ -131,7 +132,7 @@ defmodule Spf.DNS do
   defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:dns, :error, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{name} #{type}")
+    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{type} #{name}")
     |> Map.put(:dns, Map.put(ctx.dns, {name, type}, []))
   end
 
@@ -140,7 +141,7 @@ defmodule Spf.DNS do
 
     ctx =
       tick(ctx, :num_dnsq)
-      |> log(:dns, :info, "DNS QUERY (#{ctx.num_dnsq}): #{name} #{type} -> #{inspect(entries)}")
+      |> log(:dns, :info, "DNS QUERY (#{ctx.num_dnsq}): #{type} #{name} -> #{inspect(entries)}")
 
     ctx = Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
@@ -157,19 +158,49 @@ defmodule Spf.DNS do
   end
 
   defp update(ctx, {domain, type, data}) do
-    # return ctx after updating is ctx.dns if appropiate
+    # return ctx after updating ctx.dns if appropiate
     domain = String.trim(domain) |> String.trim(".")
     rdata = ctx.dns[{domain, type}] || []
+    data = rr_str_data(type, data)
 
     case data in rdata do
       true ->
         ctx
-        |> log(:dns, :warn, "#{inspect(data)} already present in #{inspect(rdata)}")
+        |> log(
+          :dns,
+          :debug,
+          "#{type} #{domain} -> #{inspect(data)} already present in #{inspect(rdata)}"
+        )
 
       false ->
         Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | rdata]))
-        |> log(:dns, :debug, "DNS CACHED: #{domain} #{type} -> #{inspect(data)}")
+        |> log(:dns, :debug, "CACHED: #{type} #{domain} -> #{inspect(data)}")
     end
+  end
+
+  # rrdata with charlists replaces by regular string (for the cache)
+  defp rr_str_data(:mx, {pref, domain}),
+    do: {pref, stringify(domain)}
+
+  defp rr_str_data(type, ip) when type in [:a, :aaaa] do
+    "#{Pfx.new(ip)}"
+  rescue
+    _ ->
+      ip
+  end
+
+  defp rr_str_data(_, data),
+    do: data
+
+  def rrdata_tostr(:mx, {pref, domain}) do
+    "#{pref} #{domain}"
+  end
+
+  def rrdata_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip),
+    do: "#{Pfx.new(ip)}"
+
+  def rrdata_tostr(_type, data) do
+    data
   end
 
   defp entries(msg) do
@@ -227,16 +258,15 @@ defmodule Spf.DNS do
   def load_file(ctx, nil), do: ctx
 
   def load_file(ctx, fpath) when is_binary(fpath) do
-    cache =
+    ctx =
       File.stream!(fpath)
       |> Enum.map(fn x -> String.trim(x) end)
-      |> Enum.reduce(%{}, &read_rr/2)
+      |> Enum.reduce(ctx, &read_rr/2)
 
     ctx
-    |> log(:dns, :debug, "DNS cache: #{fpath} yielded #{map_size(cache)} entries")
-    |> Map.put(:dns, cache)
+    |> log(:dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
   rescue
-    err -> log(ctx, :dns, :error, "Spf.DNS.load_file: #{Exception.message(err)}")
+    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
   defp read_rr("#" <> _, ctx),
@@ -245,19 +275,16 @@ defmodule Spf.DNS do
   defp read_rr("", ctx),
     do: ctx
 
-  defp read_rr(str, acc) do
+  defp read_rr(str, ctx) do
     # assumes str has been trimmed already
-    rr = String.split(str, ~r/ +/, parts: 3)
-
-    case rr do
-      [key, type, value] ->
+    case String.split(str, ~r/ +/, parts: 3) do
+      [domain, type, data] ->
         type = atomize(type)
-        current = Map.get(acc, {key, type}, [])
-        Map.put(acc, {key, type}, [mimic_dns(type, value) | current])
+        update(ctx, {domain, type, mimic_dns(type, data)})
 
       _ ->
         # ignore malformed, TODO: log this as error/warning
-        acc
+        ctx
     end
   end
 
@@ -287,7 +314,13 @@ defmodule Spf.DNS do
       |> String.split(~r/\s+/, parts: 2)
       |> List.to_tuple()
 
-    {pref, String.to_charlist(name)}
+    pref =
+      case Integer.parse(pref) do
+        {n, ""} -> n
+        _ -> pref
+      end
+
+    {pref, stringify(name)}
   end
 
   defp mimic_dns(_, value) do

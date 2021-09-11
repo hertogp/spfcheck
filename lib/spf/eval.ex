@@ -15,8 +15,11 @@ defmodule Spf.Eval do
       {:error, reason} ->
         log(ctx, :dns, :warn, "#{domain}: #{inspect(reason)}")
 
+      {:ok, []} ->
+        log(ctx, :dns, :warn, "ZERO answers for MX #{domain}")
+
       {:ok, rrs} ->
-        Enum.map(rrs, fn {_, name} -> List.to_string(name) end)
+        Enum.map(rrs, fn {_, name} -> name end)
         |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
         |> log(:dns, :debug, "MX #{domain} #{inspect(value)} added")
     end

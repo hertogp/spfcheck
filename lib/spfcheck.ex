@@ -120,6 +120,7 @@ defmodule Spfcheck do
       |> report(2)
       |> report(3)
       |> report(4)
+      |> report(5)
     end
   end
 
@@ -165,7 +166,7 @@ defmodule Spfcheck do
 
   # Report Spf's
   defp report(ctx, 1) do
-    IO.puts("\n# SPF records seen\n")
+    IO.puts("\n## SPF records seen\n")
     nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
 
     for nth <- nths do
@@ -181,7 +182,7 @@ defmodule Spfcheck do
 
   # Report Prefixes
   defp report(ctx, 2) do
-    IO.puts("\n# Prefixes\n")
+    IO.puts("\n## Prefixes\n")
     wseen = 5
     wpfx = 35
     indent = "    "
@@ -218,7 +219,7 @@ defmodule Spfcheck do
       |> Enum.filter(fn t -> elem(t, 2) == :warn end)
       |> Enum.reverse()
 
-    IO.puts("\n# Warnings\n")
+    IO.puts("\n## Warnings\n")
 
     case warnings do
       [] ->
@@ -233,13 +234,14 @@ defmodule Spfcheck do
     ctx
   end
 
+  # Report errors
   defp report(ctx, 4) do
     errors =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :error end)
       |> Enum.reverse()
 
-    IO.puts("\n# Errors\n")
+    IO.puts("\n## Errors\n")
 
     case errors do
       [] ->
@@ -252,6 +254,27 @@ defmodule Spfcheck do
     end
 
     ctx
+  end
+
+  # Report DNS
+  defp report(ctx, 5) do
+    # return list of RRs (one for each of the rdata values)
+    # so: name :a ["ip1", "ip2"] --> [{name, :a, "ip1"}, {name, :a, "ip2"}]
+    rrs = fn domain, type, data ->
+      domain = String.pad_trailing("#{domain}", 25)
+      typestr = String.upcase("#{type}") |> String.pad_trailing(7)
+
+      for elm <- data do
+        rdata = Spf.DNS.rrdata_tostr(type, elm)
+        "#{domain} #{typestr} #{inspect(rdata)}\n"
+      end
+    end
+
+    IO.puts("\n## DNS\n")
+
+    ctx.dns
+    |> Enum.map(fn {{domain, type}, data} -> rrs.(domain, type, data) end)
+    |> IO.puts()
   end
 
   def usage() do
