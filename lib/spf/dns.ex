@@ -164,6 +164,7 @@ defmodule Spf.DNS do
     case data in rdata do
       true ->
         ctx
+        |> log(:dns, :warn, "#{inspect(data)} already present in #{inspect(rdata)}")
 
       false ->
         Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | rdata]))

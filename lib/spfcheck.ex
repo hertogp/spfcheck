@@ -119,6 +119,7 @@ defmodule Spfcheck do
       |> report(1)
       |> report(2)
       |> report(3)
+      |> report(4)
     end
   end
 
@@ -152,6 +153,7 @@ defmodule Spfcheck do
 
   # Report result
   defp report(ctx, 0) do
+    IO.inspect(ctx.map, label: :report0_ctx_map)
     IO.puts("\n# Spfcheck #{ctx.domain}\n")
 
     Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
@@ -169,7 +171,7 @@ defmodule Spfcheck do
     for nth <- nths do
       domain = ctx.map[nth]
 
-      spf = Context.get_spf(ctx, nth)
+      spf = Context.get_spf(ctx, domain)
       IO.puts("[#{nth}] #{domain}")
       IO.puts("    #{spf}")
     end
@@ -209,10 +211,46 @@ defmodule Spfcheck do
     ctx
   end
 
-  # Report warinings
+  # Report warnings
   defp report(ctx, 3) do
-    warnings = Enum.filter(ctx.msg, fn t -> elem(t, 1) == :warn end)
-    IO.inspect(warnings)
+    warnings =
+      ctx.msg
+      |> Enum.filter(fn t -> elem(t, 2) == :warn end)
+      |> Enum.reverse()
+
+    IO.puts("\n# Warnings\n")
+
+    case warnings do
+      [] ->
+        IO.puts("None.")
+
+      msgs ->
+        Enum.map(msgs, fn {nth, facility, severity, msg} ->
+          IO.puts("spf [#{nth}] %#{facility}-#{severity}: #{msg}")
+        end)
+    end
+
+    ctx
+  end
+
+  defp report(ctx, 4) do
+    errors =
+      ctx.msg
+      |> Enum.filter(fn t -> elem(t, 2) == :error end)
+      |> Enum.reverse()
+
+    IO.puts("\n# Errors\n")
+
+    case errors do
+      [] ->
+        IO.puts("None.")
+
+      msgs ->
+        Enum.map(msgs, fn {nth, facility, severity, msg} ->
+          IO.puts("spf [#{nth}] %#{facility}-#{severity}: #{msg}")
+        end)
+    end
+
     ctx
   end
 

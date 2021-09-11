@@ -64,24 +64,18 @@ defmodule Spf.Context do
     with domain when is_binary(domain) <- ctx.map[nth] do
       get_spf(ctx, domain)
     else
-      _ -> nil
+      # TODO: better error handling here!
+      _ -> "ERROR SPF [#{nth}] NOT FOUND"
     end
   end
 
   def get_spf(ctx, domain) when is_binary(domain) do
-    with rrs when is_list(rrs) <- ctx.dns[{domain, :txt}] do
-      Enum.find(rrs, nil, &Spf.spf?/1)
-    else
-      _ -> nil
+    case Spf.DNS.from_cache(ctx, domain, :txt) do
+      {:ok, []} -> "ERROR SPF NOT FOUND"
+      {:ok, rrs} -> Enum.find(rrs, "ERROR SPF NOT FOUND", &Spf.spf?/1)
+      {:error, _} -> "ERROR SPF NOT FOUND"
     end
   end
-
-  # log(ctx, facility, severity, msg)
-  #
-  # Context.log(ctx, :spf, :warn, "'exp=' was unexpected here")
-  # Context.log(ctx, :dns, :warn, "zero answers for 'a.b.nl' txt"
-  # Context.log(ctx, :check, :info, "spf 5 term"
-  # 
 
   @spec log(map, atom, atom, binary) :: map
   def log(ctx, facility, severity, msg) do
@@ -212,6 +206,7 @@ defmodule Spf.Context do
       report: Keyword.get(opts, :report, :short)
     }
     |> Spf.DNS.load_file(Keyword.get(opts, :rrs, nil))
+    |> log(:ctx, :debug, "created context for #{domain}")
   end
 
   @doc """
@@ -230,6 +225,7 @@ defmodule Spf.Context do
       [state | tail] ->
         Map.put(ctx, :stack, tail)
         |> Map.merge(state)
+        |> log(:ctx, :debug, "popped state, back to #{state.domain}")
     end
   end
 
