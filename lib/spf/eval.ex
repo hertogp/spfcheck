@@ -90,6 +90,26 @@ defmodule Spf.Eval do
     |> Enum.join()
   end
 
+  defp check_limits(ctx) do
+    if ctx.nth == 0 do
+      ctx =
+        if ctx.num_dnsm > ctx.max_dnsm,
+          do: log(ctx, :eval, :warn, "Too many DNS mechanisms used (#{ctx.num_dnsm})"),
+          else: ctx
+
+      ctx =
+        if ctx.num_dnsq > ctx.max_dnsq,
+          do: log(ctx, :eval, :warn, "Too many DNS queries issued (#{ctx.num_dnsq})"),
+          else: ctx
+
+      if ctx.num_dnsv > ctx.max_dnsv,
+        do: log(ctx, :eval, :warn, "Too many VOID DNS queries seen (#{ctx.num_dnsv})"),
+        else: ctx
+    else
+      ctx
+    end
+  end
+
   defp match(ctx, {_m, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     # see if ctx's current state is a match (i.e. <ip> is a match now)
@@ -102,7 +122,7 @@ defmodule Spf.Eval do
       log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
-      |> Map.put(:match, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
+      |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
     else
       log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
       |> tick(:num_checks)
@@ -173,6 +193,7 @@ defmodule Spf.Eval do
     evalp(ctx, ctx.ast)
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
+    |> check_limits()
   end
 
   # HELPERS
@@ -268,7 +289,7 @@ defmodule Spf.Eval do
           ctx
           |> Map.put(:verdict, verdict(q))
           |> log(:eval, :info, "#{String.slice(ctx.spf, range)} - match")
-          |> Map.put(:match, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)} - matched")
+          |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)} - matched")
 
         v when v in [:none, :permerror] ->
           ctx = pop(ctx)
@@ -276,7 +297,7 @@ defmodule Spf.Eval do
           ctx
           |> Map.put(:verdict, :permerror)
           |> log(:eval, :error, "#{String.slice(ctx.spf, range)} - permanent error")
-          |> Map.put(:match, "#{String.slice(ctx.spf, range)} - permerror")
+          |> Map.put(:reason, "#{String.slice(ctx.spf, range)} - permerror")
 
         :temperror ->
           ctx = pop(ctx)
@@ -306,6 +327,7 @@ defmodule Spf.Eval do
       |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
       |> Map.put(:ast, [])
       |> Map.put(:spf, "")
+      |> Map.put(:explain, nil)
       |> Spf.grep()
       |> Spf.parse()
       |> eval()

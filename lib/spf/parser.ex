@@ -58,28 +58,29 @@ defmodule Spf.Parser do
   defp expand(_ctx, :literal, [str]),
     do: str
 
-  defp taketok(args, token) do
-    case List.keytake(args, token, 0) do
+  defp taketok(args, toktype) do
+    case List.keytake(args, toktype, 0) do
       nil -> {[], args}
-      {tok, args} -> {tok, args}
+      {token, args} -> {token, args}
     end
   end
 
-  # either append or ignore new token
-  defp ast(ctx, {:exp, _, _} = token) do
+  defp ast(ctx, {:exp, _tokval, range} = token) do
+    # eplain not added to ctx.ast but only for the original SPF record
+    tokstr = String.slice(ctx.spf, range)
+
     if ctx.f_include do
-      log(ctx, :parse, :info, "spf #{ctx.nth} ignoring included explain #{inspect(token)}")
+      log(ctx, :parse, :info, "#{tokstr} - ignoring included explain")
     else
       if ctx.explain do
-        log(ctx, :parse, :info, "ignored: multiple explains #{inspect(token)}")
+        log(ctx, :parse, :warn, "#{tokstr} - ignoring multiple explains")
       else
-        # TODO: add warning if explain won't be used because a :fail is impossible
         Map.put(ctx, :explain, token)
       end
     end
   end
 
-  defp ast(ctx, token) do
+  defp ast(ctx, {_type, _tokval, _range} = token) do
     if ctx.f_all do
       log(ctx, :parse, :warn, "ignored #{inspect(token)}: term past `all`")
     else
@@ -108,48 +109,58 @@ defmodule Spf.Parser do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
     # - timeout or RCODE other than [0 success, 3 nxdomain] -> temperror
     # - RCODE 3: nxdomain -> none
-    verdict =
-      case reason do
-        :nxdomain -> :none
-        :illegal_name -> :permerror
-        :timeout -> :temperror
-        _ -> :temperror
-      end
+    case reason do
+      :nxdomain ->
+        Map.put(ctx, :verdict, :none)
+        |> Map.put(:reason, "NXDOMAIN")
 
-    Map.put(ctx, :verdict, verdict)
+      :illegal_name ->
+        Map.put(ctx, :verdict, :permerror)
+        |> Map.put(:reason, "Illegal domain")
+
+      :timeout ->
+        Map.put(ctx, :verdict, :temperror)
+        |> Map.put(:reason, "DNS timeout")
+
+      _ ->
+        Map.put(ctx, :verdict, :temperror)
+        |> Map.put(:reason, "#{inspect(reason)}")
+    end
   end
 
   def parse(%{spf: []} = ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
-    log(ctx, :parse, :note, "no spf records found")
+    log(ctx, :parse, :note, "no SPF records found")
     |> Map.put(:verdict, :none)
+    |> Map.put(:reason, "no SPF records found")
   end
 
   def parse(%{spf: [spf]} = ctx) do
     {:ok, tokens, rest, _, _, _} = Spf.tokenize(spf)
-    len = String.length(spf)
 
     ctx =
       Map.put(ctx, :spf, spf)
-      |> test(:warn, :check, len > 512, "SPF string length #{len} > 512 characters")
-      |> test(:DEBUG, :check, String.length(rest) > 0, "SPF string residue: #{rest}")
       |> Map.put(:spf_tokens, tokens)
       |> Map.put(:spf_rest, rest)
       |> Map.put(:ast, [])
+      |> check(:spf_length)
+      |> check(:spf_residue)
 
     Enum.reduce(tokens, ctx, &parse/2)
+    |> check(:explain_reachable)
+    |> check(:no_implicit)
   end
 
   def parse(%{spf: spf} = ctx) do
     log(ctx, :parse, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
     |> Map.put(:spf, "")
     |> Map.put(:verdict, :permerror)
+    |> Map.put(:reason, "#{length(spf)} records found")
   end
 
   # Checks
   # TODO: implement a number of checks
   # - dns name checks (4.3) (both initially and for expanded names)
-  # - 4.5 spf record selection: starts with 'v=spf1'
   # - 4.6 spf syntax is checked -> any error yields a permerror
   # - 4.6.1 eval mechanisms left to right (default is implicit ?all = neutral)
   # - 4.6.2 if mech matches, its qual is the result of the spf record
@@ -256,4 +267,48 @@ defmodule Spf.Parser do
   # CatchAll
   defp parse(token, ctx),
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
+
+  # Checks for ast and spf
+  # Spf_length
+  defp check(ctx, :spf_length) do
+    case String.length(ctx.spf) do
+      len when len > 512 -> log(ctx, :parse, :warn, "SPF string length #{len} > 512 characters")
+      _ -> ctx
+    end
+  end
+
+  # Spf_residue
+  defp check(ctx, :spf_residue) do
+    case String.length(ctx.spf_rest) do
+      len when len > 0 -> log(ctx, :parse, :warn, "SPF string residue #{inspect(ctx.spf_rest)}")
+      _ -> ctx
+    end
+  end
+
+  defp check(ctx, :explain_reachable) do
+    # if none of the terms have a fail qualifier, an explain is superfluous
+    if ctx.explain != nil do
+      mechs =
+        Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type != :redirect end)
+        |> Enum.map(fn {_type, tokval, _range} -> tokval end)
+        |> Enum.filter(fn l -> List.first(l, ?+) == ?- end)
+
+      case mechs do
+        [] -> log(ctx, :parse, :warn, "SPF record cannot fail, so explain is never used")
+        _ -> ctx
+      end
+    else
+      ctx
+    end
+  end
+
+  defp check(ctx, :no_implicit) do
+    # warn if there's no redirect and no all present
+    explicit = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type in [:all, :redirect] end)
+
+    case explicit do
+      [] -> log(ctx, :parse, :warn, "SPF record has implicit end (?all)")
+      _ -> ctx
+    end
+  end
 end

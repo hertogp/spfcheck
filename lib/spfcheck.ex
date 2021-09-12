@@ -54,7 +54,7 @@ defmodule Spfcheck do
     :num_error,
     :duration,
     :explanation,
-    :match
+    :reason
   ]
 
   # Helpers

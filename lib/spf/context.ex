@@ -166,7 +166,7 @@ defmodule Spf.Context do
       # default verdict is ?all, ie neutral
       verdict: :neutral,
       # what actually caused a match
-      match: "",
+      reason: "",
       # default :inet_res timeout in msec
       dns_timeout: 2000,
       # dns cache {key, type} => [value]

@@ -130,7 +130,7 @@ defmodule Spf.DNS do
     tick(ctx, :num_dnsq)
     |> log(
       :dns,
-      :warn,
+      :info,
       "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> ERROR: #{inspect(reason)}"
     )
     |> update({name, type, result})
@@ -139,7 +139,7 @@ defmodule Spf.DNS do
   defp cache({:ok, []}, ctx, name, type) do
     tick(ctx, :num_dnsq)
     |> tick(:num_dnsv)
-    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) - ZERO answers for #{type} #{name}")
+    |> log(:dns, :info, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} - ZERO answers")
     |> update({name, type, []})
   end
 
