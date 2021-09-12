@@ -137,10 +137,10 @@ defmodule Spf.Parser do
       |> Map.put(:spf_rest, rest)
       |> Map.put(:ast, [])
 
-    Enum.reduce(tokens, ctx, &check/2)
+    Enum.reduce(tokens, ctx, &parse/2)
   end
 
-  def parse(ctx = %{spf: spf}) do
+  def parse(%{spf: spf} = ctx) do
     log(ctx, :parse, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
     |> Map.put(:spf, "")
     |> Map.put(:verdict, :permerror)
@@ -175,13 +175,13 @@ defmodule Spf.Parser do
   #   - PTR RR lookup fails -> ptr fails to match
   #   - A RR lookup fails -> name is skipped, continue with the others
   #   - collect validated names (lookup name -> ip is <ip>, then name is validated)
-  #   - filter names, keep eqal to <target> domain or subdomain thereof
+  #   - filter names, keep those equal to <target> domain or subdomain thereof
   #   - 1+ name remains -> match, if empty -> no-match
 
-  # Check Tokens
+  # Parse Tokens
 
   # Version
-  defp check({:version, [n], _range} = token, ctx) do
+  defp parse({:version, [n], _range} = token, ctx) do
     case n do
       1 -> ctx
       _ -> log(ctx, :parse, :error, "unknown SPF version #{inspect(token)}")
@@ -189,7 +189,7 @@ defmodule Spf.Parser do
   end
 
   # Whitespace
-  defp check({:whitespace, [wspace], range} = _token, ctx) do
+  defp parse({:whitespace, [wspace], range} = _token, ctx) do
     ctx =
       if String.length(wspace) > 1,
         do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
@@ -201,7 +201,7 @@ defmodule Spf.Parser do
   end
 
   # A, MX
-  defp check({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
+  defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
 
@@ -211,7 +211,7 @@ defmodule Spf.Parser do
   end
 
   # Ptr
-  defp check({:ptr, [qual, args], range} = _token, ctx) do
+  defp parse({:ptr, [qual, args], range} = _token, ctx) do
     {spec, _} = taketok(args, :domain_spec)
 
     ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
@@ -221,18 +221,18 @@ defmodule Spf.Parser do
   end
 
   # Include, Exists
-  defp check({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
+  defp parse({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
     do:
       ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # All
-  defp check({:all, [qual], range}, ctx),
+  defp parse({:all, [qual], range}, ctx),
     do: ast(ctx, {:all, [qual], range})
 
   # IP4, IP6
-  defp check({atom, [qual, ip], range} = token, ctx) when atom in [:ip4, :ip6] do
+  defp parse({atom, [qual, ip], range} = token, ctx) when atom in [:ip4, :ip6] do
     case pfxparse(ip) do
       {:ok, pfx} -> ast(ctx, {atom, [qual, pfx], range})
       {:error, _} -> log(ctx, :parse, :warn, "ignoring invalid IP in #{inspect(token)}")
@@ -240,20 +240,20 @@ defmodule Spf.Parser do
   end
 
   # Redirect
-  defp check({:redirect, [domain_spec], range}, ctx),
+  defp parse({:redirect, [domain_spec], range}, ctx),
     do:
       ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # Exp - not included in count of dns mechanisms
-  defp check({:exp, [domain_spec], range}, ctx),
+  defp parse({:exp, [domain_spec], range}, ctx),
     do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 
-  defp check({:unknown, _tokvalue, range} = _token, ctx),
+  defp parse({:unknown, _tokvalue, range} = _token, ctx),
     do: log(ctx, :parse, :error, "UNKNOWN TERM \"#{String.slice(ctx.spf, range)}\"")
 
   # CatchAll
-  defp check(token, ctx),
+  defp parse(token, ctx),
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
 end

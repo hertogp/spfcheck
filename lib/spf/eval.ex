@@ -13,10 +13,10 @@ defmodule Spf.Eval do
 
     case dns do
       {:error, reason} ->
-        log(ctx, :dns, :warn, "#{domain}: #{inspect(reason)}")
+        log(ctx, :dns, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
 
       {:ok, []} ->
-        log(ctx, :dns, :warn, "ZERO answers for MX #{domain}")
+        log(ctx, :dns, :warn, "mx #{domain} - ZERO answers")
 
       {:ok, rrs} ->
         Enum.map(rrs, fn {_, name} -> name end)
@@ -29,8 +29,14 @@ defmodule Spf.Eval do
     {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
 
     case dns do
-      {:error, reason} -> log(ctx, :eval, :warn, "DNS error for #{domain}: #{inspect(reason)}")
-      {:ok, rrs} -> addip(ctx, rrs, dual, value)
+      {:error, reason} ->
+        log(ctx, :eval, :warn, "#{ctx.atype} #{domain} - DNS error #{inspect(reason)}")
+
+      {:ok, []} ->
+        log(ctx, :dns, :warn, "#{ctx.atype} #{domain} - ZERO answers")
+
+      {:ok, rrs} ->
+        addip(ctx, rrs, dual, value)
     end
   end
 
@@ -44,16 +50,16 @@ defmodule Spf.Eval do
 
       case dns do
         {:error, reason} ->
-          log(ctx, :dns, :warn, "#{domain}: DNS error #{reason}")
+          log(ctx, :dns, :warn, "txt #{domain} - DNS error #{reason}")
 
         {:ok, []} ->
-          log(ctx, :dns, :warn, "#{domain}: DNS void lookup (0 answers)")
+          log(ctx, :dns, :warn, "txt #{domain}i - DNS void lookup (0 answers)")
 
         {:ok, list} when length(list) > 1 ->
-          log(ctx, :dns, :error, "#{domain}: too many explain txt records")
+          log(ctx, :dns, :error, "txt #{domain} - too many explain txt records #{inspect(list)}")
 
         {:ok, [explain]} ->
-          log(ctx, :dns, :info, "#{domain} -> '#{explain}'")
+          log(ctx, :dns, :info, "txt #{domain} -> '#{explain}'")
           |> Map.put(:explanation, explainp(ctx, explain))
       end
     else

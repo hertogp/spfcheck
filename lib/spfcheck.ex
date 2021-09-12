@@ -197,40 +197,8 @@ defmodule Spfcheck do
     ctx
   end
 
-  # Report Prefixes
-  defp report(ctx, 2) do
-    IO.puts("\n## Prefixes\n")
-    wseen = 5
-    wpfx = 35
-    indent = "    "
-
-    spfs =
-      for n <- 0..ctx.cnt do
-        {n, Context.get_spf(ctx, n)}
-      end
-      |> Enum.into(%{})
-
-    IO.puts("#{indent} #Seen #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
-
-    for {ip, v} <- Iptrie.to_list(ctx.ipt) do
-      seen = String.pad_trailing("#{length(v)}", wseen)
-      pfx = "#{ip}" |> String.pad_trailing(wpfx)
-
-      terms =
-        for {_q, nth, {_, _, slice}} <- v do
-          "spf[#{nth}] " <> String.slice(Map.get(spfs, nth, ""), slice)
-        end
-        |> Enum.sort()
-        |> Enum.join(", ")
-
-      IO.puts("#{indent} #{seen} #{pfx} #{terms}")
-    end
-
-    ctx
-  end
-
   # Report warnings
-  defp report(ctx, 3) do
+  defp report(ctx, 2) do
     warnings =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :warn end)
@@ -256,7 +224,7 @@ defmodule Spfcheck do
   end
 
   # Report errors
-  defp report(ctx, 4) do
+  defp report(ctx, 3) do
     errors =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :error end)
@@ -276,6 +244,38 @@ defmodule Spfcheck do
         end)
 
         IO.puts("```")
+    end
+
+    ctx
+  end
+
+  # Report Prefixes
+  defp report(ctx, 4) do
+    IO.puts("\n## Prefixes\n")
+    wseen = 5
+    wpfx = 35
+    indent = "    "
+
+    spfs =
+      for n <- 0..ctx.cnt do
+        {n, Context.get_spf(ctx, n)}
+      end
+      |> Enum.into(%{})
+
+    IO.puts("#{indent} #Seen #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
+
+    for {ip, v} <- Iptrie.to_list(ctx.ipt) do
+      seen = String.pad_trailing("#{length(v)}", wseen)
+      pfx = "#{ip}" |> String.pad_trailing(wpfx)
+
+      terms =
+        for {_q, nth, {_, _, slice}} <- v do
+          "spf[#{nth}] " <> String.slice(Map.get(spfs, nth, ""), slice)
+        end
+        |> Enum.sort()
+        |> Enum.join(", ")
+
+      IO.puts("#{indent} #{seen} #{pfx} #{terms}")
     end
 
     ctx
