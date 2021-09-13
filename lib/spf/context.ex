@@ -40,7 +40,11 @@ defmodule Spf.Context do
   # CONTEXT
 
   @doc """
-  Add key,value pairs to `ctx.ipt`.
+  Update `ctx.ipt` with one or more ip,value-pairs.
+
+  When given a list op ip's, they all will be be updated with given `value`
+  which should consist of a tuple `{q, nth, term}` which records the SPF record
+  and term (including the qualifier) that attributed the ip or ip's.
 
   """
   def addip(ctx, ips, dual, value) when is_list(ips) do

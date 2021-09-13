@@ -8,23 +8,6 @@ defmodule Spf.Eval do
 
   # Helpers
 
-  defp evalmx(ctx, domain, dual, value) do
-    {ctx, dns} = DNS.resolve(ctx, domain, :mx)
-
-    case dns do
-      {:error, reason} ->
-        log(ctx, :dns, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
-
-      {:ok, []} ->
-        log(ctx, :dns, :warn, "mx #{domain} - ZERO answers")
-
-      {:ok, rrs} ->
-        Enum.map(rrs, fn {_, name} -> name end)
-        |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, value) end)
-        |> log(:dns, :debug, "MX #{domain} #{inspect(value)} added")
-    end
-  end
-
   defp evalname(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
 
@@ -184,7 +167,10 @@ defmodule Spf.Eval do
   defp verdict(qlist, nth) do
     {{qualifier, _nth, _term}, _} = List.keytake(qlist, nth, 1) || {{:error, nth, nil}, qlist}
 
-    verdict(qualifier)
+    case verdict(qualifier) do
+      :qualifier_error -> :qerror
+      q -> q
+    end
   end
 
   # API
@@ -242,7 +228,23 @@ defmodule Spf.Eval do
   # MX
   # TODO: check if we've seen {domain, dual} before
   defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
-    evalmx(ctx, domain, dual, {q, ctx.nth, term})
+    # evalmx(ctx, domain, dual, {q, ctx.nth, term})
+    # |> match(term, tail)
+
+    {ctx, dns} = DNS.resolve(ctx, domain, :mx)
+
+    case dns do
+      {:error, reason} ->
+        log(ctx, :dns, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
+
+      {:ok, []} ->
+        log(ctx, :dns, :warn, "mx #{domain} - ZERO answers")
+
+      {:ok, rrs} ->
+        Enum.map(rrs, fn {_pref, name} -> name end)
+        |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, term}) end)
+        |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
+    end
     |> match(term, tail)
   end
 
@@ -320,7 +322,7 @@ defmodule Spf.Eval do
       |> tick(:cnt)
       |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
       |> Map.put(:domain, domain)
-      |> Map.put(:f_include, false)
+      |> Map.put(:f_include, ctx.f_include)
       |> Map.put(:f_redirect, false)
       |> Map.put(:f_all, false)
       |> Map.put(:nth, nth)

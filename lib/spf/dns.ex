@@ -166,10 +166,11 @@ defmodule Spf.DNS do
 
   defp update(ctx, {domain, type, data}) do
     # return ctx after updating ctx.dns if appropiate
+    # Note:
+    # - donot use from_cache since that unrolls cnames
     domain = stringify(domain) |> String.trim() |> String.trim(".")
-    # donot use from_cache since that unrolls cnames
     rdata = ctx.dns[{domain, type}] || []
-    data = rr_str_data(type, data)
+    data = stringify(data, type)
 
     case data in rdata do
       true ->
@@ -184,45 +185,69 @@ defmodule Spf.DNS do
         # List.flatten ensures that rdata remains a non-nested list (eg when
         # adding [] case resolved yielded ZERO answers
         Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, List.flatten([data | rdata])))
-        |> log(:dns, :debug, "CACHED: #{type} #{domain} -> #{inspect(data)}")
+        |> log(:dns, :debug, "CACHED: #{type} #{domain} ->> #{inspect(data)}")
     end
   end
 
-  # rrdata with charlists replaces by regular string (for the cache)
-  defp rr_str_data(:mx, {pref, domain}),
-    do: {pref, stringify(domain)}
-
-  defp rr_str_data(type, ip) when type in [:a, :aaaa] do
-    "#{Pfx.new(ip)}"
-  rescue
-    # in case ip is an {:error, reason}-tuple
-    _ ->
-      ip
-  end
-
-  defp rr_str_data(_, data),
-    do: data
-
-  def rrdata_tostr(:mx, {pref, domain}) do
-    "#{pref} #{domain}"
-  end
-
   @doc """
-  Return a RR's data as a string
+  Return all acquired DNS RR's in a flat list of printable lines.
+
+  Note that RR's with multiple entries in their rrdata are listed individually,
+  so the output can be copy/paste'd into a local dns.txt pre-cache to facilitate
+  experimentation with RR records.
 
   """
-  @spec rrdata_tostr(atom, any) :: String.t()
-  def rrdata_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
+  def to_list(ctx) do
+    ctx.dns
+    |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
+    |> List.flatten()
+    |> Enum.filter(fn {_domain, _type, data} -> not rr_error(data) end)
+    |> Enum.map(fn {domain, type, data} -> rr_tostr(domain, type, data) end)
+  end
+
+  defp rr_flatten(domain, type, data) do
+    for rrdata <- data do
+      {domain, type, rrdata}
+    end
+  end
+
+  defp rr_error(data) do
+    case data do
+      {:error, _} -> true
+      _ -> false
+    end
+  end
+
+  defp rr_tostr(domain, type, data) do
+    domain = String.pad_trailing(domain, 25)
+    rrtype = String.upcase("#{type}") |> String.pad_trailing(7)
+    data = rr_data_tostr(type, data)
+    Enum.join([domain, rrtype, data], " ")
+  end
+
+  @spec rr_data_tostr(atom, any) :: String.t()
+  defp rr_data_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
     "#{Pfx.new(ip)}"
   rescue
     # since dns errors are cached as well:
     _ -> ip
   end
 
-  def rrdata_tostr(_type, data) do
+  defp rr_data_tostr(:mx, {pref, domain}) do
+    "#{pref} #{domain}"
+  end
+
+  defp rr_data_tostr(:txt, txt) do
+    inspect(txt)
+  end
+
+  defp rr_data_tostr(_type, data) do
     "#{inspect(data)}" |> no_quotes()
   end
 
+  # return either:
+  # {:ok, [{domain, type, value}, ...]}
+  # {:error, reason}
   defp entries(msg) do
     case msg do
       {:error, reason} -> {:error, reason}
@@ -239,22 +264,69 @@ defmodule Spf.DNS do
   end
 
   defp rrentry(answer) do
-    {
-      :inet_dns.rr(answer, :domain) |> stringify(),
-      :inet_dns.rr(answer, :type),
-      :inet_dns.rr(answer, :data) |> stringify()
-    }
+    domain = :inet_dns.rr(answer, :domain) |> stringify()
+    type = :inet_dns.rr(answer, :type)
+
+    data = :inet_dns.rr(answer, :data) |> stringify(type)
+    {domain, type, data}
   end
 
+  # stringify -> turn any charlists *inside* rrdata into a string.
+  # Note:
+  # - empty list should stay an empty list and NOT become ""
+  # - {:error, _} should stay an error-tuple
+  defp stringify([]),
+    do: []
+
   defp stringify(rrdata) when is_list(rrdata) do
-    # turn a charlist or list thereof into single string
+    # turn a single (non-empty) charlist or list of charlists into single string
     IO.iodata_to_binary(rrdata)
   end
 
   defp stringify(rrdata) do
-    # if not a list, keep it as it is (e.g. {a, b, c, d} for ipv4 address)
     rrdata
   end
+
+  # no charlist in error situations
+  defp stringify({:error, reason}, _),
+    do: {:error, reason}
+
+  # mta name to string
+  defp stringify({pref, domain}, :mx),
+    do: {pref, stringify(domain)}
+
+  # txt value to string
+  defp stringify(txt, :txt) do
+    stringify(txt)
+  end
+
+  # domain name of ptr record to string
+  defp stringify(domain, :ptr),
+    do: stringify(domain)
+
+  # address tuple to string (or keep {:error,_}-tuple)
+  defp stringify(ip, :a) do
+    "#{Pfx.new(ip)}"
+  rescue
+    _ -> ip
+  end
+
+  # address tuple to string (or keep {:error,_}-tuple)
+  defp stringify(ip, :aaaa) do
+    "#{Pfx.new(ip)}"
+  rescue
+    _ -> ip
+  end
+
+  # primary nameserver and admin contact to string
+  defp stringify({mname, rname, serial, refresh, retry, expiry, neg_ttl}, :soa),
+    do: {stringify(mname), stringify(rname), serial, refresh, retry, expiry, neg_ttl}
+
+  defp stringify(data, _) when is_list(data),
+    do: stringify(data)
+
+  defp stringify(data, _),
+    do: data
 
   @doc """
   Keep only the rrdata from `rrdatas` where `fun` returns truthy.

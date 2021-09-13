@@ -283,24 +283,12 @@ defmodule Spfcheck do
 
   # Report DNS
   defp report(ctx, 5) do
-    # return list of RRs (one for each of the rdata values)
-    # so: name :a ["ip1", "ip2"] --> [{name, :a, "ip1"}, {name, :a, "ip2"}]
-    rrs = fn domain, type, data ->
-      domain = String.pad_trailing("#{domain}", 25)
-      typestr = String.upcase("#{type}") |> String.pad_trailing(7)
-
-      for elm <- data do
-        rdata = Spf.DNS.rrdata_tostr(type, elm)
-        "#{domain} #{typestr} #{inspect(rdata)}\n"
-      end
-    end
-
     IO.puts("\n## DNS\n")
 
     IO.puts("```")
 
-    ctx.dns
-    |> Enum.map(fn {{domain, type}, data} -> rrs.(domain, type, data) end)
+    Spf.DNS.to_list(ctx)
+    |> Enum.join("\n")
     |> IO.puts()
 
     IO.puts("```")
