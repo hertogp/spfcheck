@@ -204,6 +204,9 @@ defmodule Spf.Eval do
           {:error, reason} ->
             log(ctx, :eval, :info, "DNS error #{domain} #{reason}")
 
+          {:ok, []} ->
+            log(ctx, :dns, :warn, "A #{domain} - ZERO answers")
+
           {:ok, rrs} ->
             log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
             |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
