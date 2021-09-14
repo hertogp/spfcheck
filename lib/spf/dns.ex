@@ -197,11 +197,14 @@ defmodule Spf.DNS do
   experimentation with RR records.
 
   """
-  def to_list(ctx) do
+  def to_list(ctx, opts \\ []) do
+    valid = Keyword.get(opts, :valid, true)
+
     ctx.dns
     |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
     |> List.flatten()
-    |> Enum.filter(fn {_domain, _type, data} -> not rr_error(data) end)
+    |> rrs_sort()
+    |> Enum.filter(fn {_domain, _type, data} -> valid != rr_is_error(data) end)
     |> Enum.map(fn {domain, type, data} -> rr_tostr(domain, type, data) end)
   end
 
@@ -211,7 +214,14 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rr_error(data) do
+  defp rrs_sort(rrs) do
+    # keeps related records close to each other in report output
+    Enum.sort(rrs, fn {domain1, _type, _data}, {domain2, _type1, _data2} ->
+      String.reverse(domain1) <= String.reverse(domain2)
+    end)
+  end
+
+  defp rr_is_error(data) do
     case data do
       {:error, _} -> true
       _ -> false
@@ -226,6 +236,9 @@ defmodule Spf.DNS do
   end
 
   @spec rr_data_tostr(atom, any) :: String.t()
+  defp rr_data_tostr(_, {:error, _} = error),
+    do: "#{inspect(error)}"
+
   defp rr_data_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
     "#{Pfx.new(ip)}"
   rescue
@@ -276,7 +289,8 @@ defmodule Spf.DNS do
   # - empty list should stay an empty list and NOT become ""
   # - {:error, _} should stay an error-tuple
   defp stringify([]),
-    do: []
+    # do: []
+    do: {:error, :zero_answers}
 
   defp stringify(rrdata) when is_list(rrdata) do
     # turn a single (non-empty) charlist or list of charlists into single string

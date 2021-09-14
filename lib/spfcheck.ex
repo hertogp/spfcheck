@@ -65,22 +65,14 @@ defmodule Spfcheck do
     iodata =
       case type do
         :error -> ANSI.format([:red_background, :white, padded])
-        :warn -> ANSI.format([:yellow, padded])
+        :warn -> ANSI.format([:light_yellow, padded])
         :note -> ANSI.format([:green, padded])
-        :debug -> ANSI.format([:red, padded])
+        :debug -> ANSI.format([:light_blue, padded])
         _ -> padded
       end
 
     IO.iodata_to_binary(iodata)
   end
-
-  # defp loglead(nth, facility, severity, depth) do
-  #   nth = String.pad_leading("#{nth}", 2)
-  #   facility = String.pad_trailing("#{facility}", 5)
-  #   severity = color(severity, 5)
-  #   depth = String.duplicate("| ", depth)
-  #   "[spf #{nth}][#{facility}][#{severity}] #{depth}"
-  # end
 
   # Log callback
 
@@ -292,6 +284,18 @@ defmodule Spfcheck do
     |> IO.puts()
 
     IO.puts("```")
+
+    errors = Spf.DNS.to_list(ctx, valid: false)
+
+    if length(errors) > 0 do
+      IO.puts("\n## DNS errors\n")
+      IO.puts("```")
+
+      Enum.join(errors, "\n")
+      |> IO.puts()
+
+      IO.puts("```")
+    end
   end
 
   def usage() do
