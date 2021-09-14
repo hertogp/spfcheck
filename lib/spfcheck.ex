@@ -288,7 +288,7 @@ defmodule Spfcheck do
     errors = Spf.DNS.to_list(ctx, valid: false)
 
     if length(errors) > 0 do
-      IO.puts("\n## DNS errors\n")
+      IO.puts("\n## DNS issues\n")
       IO.puts("```")
 
       Enum.join(errors, "\n")

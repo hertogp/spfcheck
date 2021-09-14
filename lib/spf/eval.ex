@@ -202,7 +202,7 @@ defmodule Spf.Eval do
       ctx =
         case dns do
           {:error, reason} ->
-            log(ctx, :eval, :info, "DNS error #{domain} #{reason}")
+            log(ctx, :eval, :warn, "DNS error #{domain} #{reason}")
 
           {:ok, []} ->
             log(ctx, :dns, :warn, "A #{domain} - ZERO answers")
