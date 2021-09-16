@@ -16,7 +16,7 @@ defmodule Spf.Eval do
         log(ctx, :eval, :warn, "#{ctx.atype} #{domain} - DNS error #{inspect(reason)}")
 
       {:ok, []} ->
-        log(ctx, :dns, :warn, "#{ctx.atype} #{domain} - ZERO answers")
+        log(ctx, :eval, :warn, "#{ctx.atype} #{domain} - ZERO answers")
 
       {:ok, rrs} ->
         addip(ctx, rrs, dual, value)
