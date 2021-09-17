@@ -121,23 +121,8 @@ defmodule Spf.DNS do
       {:error, :cache_miss} ->
         query(ctx, name, type)
 
-      {:error, reason} ->
-        # TODO: limit reason to :nxdomain or :zero_answers in order to tick num_dnsv
-        {tick(ctx, :num_dnsq)
-         |> tick(:num_dnsv)
-         |> log(
-           :dns,
-           :info,
-           "DNS QUERY (#{ctx.num_dnsq}) (cached) #{type} #{name} -> #{inspect(reason)}"
-         ), {:error, reason}}
-
-      {:ok, res} ->
-        {tick(ctx, :num_dnsq)
-         |> log(
-           :dns,
-           :info,
-           "DNS QUERY (#{ctx.num_dnsq}) (cached) #{type} #{name} -> #{inspect(res)}"
-         ), {:ok, res}}
+      result ->
+        do_stats(ctx, name, type, result, cached: true)
     end
   end
 
@@ -152,7 +137,34 @@ defmodule Spf.DNS do
       |> tick(:num_dnsq)
 
     result = from_cache(ctx, name, type)
-    qry = "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
+    do_stats(ctx, name, type, result)
+  rescue
+    x in CaseClauseError ->
+      error = {:error, Exception.message(x)}
+
+      ctx =
+        update(ctx, {name, type, error})
+        |> log(:dns, :error, "DNS error!: #{name} #{type}: #{inspect(error)}")
+
+      {ctx, error}
+
+    x in FunctionClauseError ->
+      error = {:error, :illegal_name}
+
+      ctx =
+        update(ctx, {name, type, error})
+        |> log(:dns, :error, "DNS ILLEGAL name: #{name} #{Exception.message(x)}")
+
+      {ctx, error}
+  end
+
+  defp do_stats(ctx, name, type, result, opts \\ []) do
+    # return ctx with updated stats and possibly updated result
+    qry =
+      case Keyword.get(opts, :cached, false) do
+        true -> "DNS QUERY (#{ctx.num_dnsq}) [cache] #{type} #{name}"
+        false -> "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
+      end
 
     case result do
       {:error, :cache_miss} ->
@@ -180,24 +192,6 @@ defmodule Spf.DNS do
       {:ok, res} ->
         {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}
     end
-  rescue
-    x in CaseClauseError ->
-      error = {:error, Exception.message(x)}
-
-      ctx =
-        update(ctx, {name, type, error})
-        |> log(:dns, :error, "DNS error!: #{name} #{type}: #{inspect(error)}")
-
-      {ctx, error}
-
-    x in FunctionClauseError ->
-      error = {:error, :illegal_name}
-
-      ctx =
-        update(ctx, {name, type, error})
-        |> log(:dns, :error, "DNS ILLEGAL name: #{name} #{Exception.message(x)}")
-
-      {ctx, error}
   end
 
   defp rrentries(msg) do
