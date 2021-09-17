@@ -174,7 +174,7 @@ defmodule Spf.DNS do
 
       {:error, reason} ->
         # any other error, like :servfail
-        err = String.upcase("#{reason}")
+        err = String.upcase("#{inspect(reason)}")
         {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}
 
       {:ok, res} ->
@@ -266,6 +266,9 @@ defmodule Spf.DNS do
 
   # cache an {:error, reason} or data entry for given `name` and `type`
   # note that `name` and `type` come from the {:dns_rr, ..}-record itself.
+  defp cache({:error, {:servfail, _reason}} = _result, ctx, name, type),
+    do: update(ctx, {name, type, {:error, :servfail}})
+
   defp cache({:error, _reason} = result, ctx, name, type),
     do: update(ctx, {name, type, result})
 
