@@ -457,7 +457,7 @@ defmodule Spf.DNS do
     # assumes str has been trimmed already
     case String.split(str, ~r/ +/, parts: 3) do
       [domain, type, data] ->
-        type = atomize(type)
+        type = rr_type(type)
         update(ctx, {domain, type, mimic_dns(type, data)})
 
       _ ->
@@ -466,15 +466,17 @@ defmodule Spf.DNS do
     end
   end
 
-  defp atomize(type) do
+  defp rr_type(type) do
+    # return an type for known rr types, otherwise keep the string as-is
     case String.downcase(type) do
       "txt" -> :txt
       "a" -> :a
       "aaaa" -> :aaaa
       "ptr" -> :ptr
-      "spf" -> :spf
       "mx" -> :mx
       "cname" -> :cname
+      # rr_type spf is really not used anymore
+      "spf" -> :spf
       _ -> type
     end
   end
