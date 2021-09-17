@@ -83,7 +83,7 @@ defmodule Spf.DNS do
   #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:class)   -> :in
   #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:ttl)  -> 1664
   #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:data) -> {74, 6, 143, 26}
-  #    where we stringify
+  #    where we normalize
   #    - domain and 
   #    - data (which might be an address tuple, 'domain name', {pref, 'domain name'} etc ...
   #  and put all that in an easy map:
@@ -195,7 +195,8 @@ defmodule Spf.DNS do
   end
 
   defp rrentries(msg) do
-    # return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
+    # given a dns_msg {:dns_rec, ...} or error-tuple
+    # -> return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
     case msg do
       {:error, reason} -> {:error, reason}
       {:ok, record} -> {:ok, rrdata(record)}
@@ -203,7 +204,7 @@ defmodule Spf.DNS do
   end
 
   defp rrdata(record) do
-    # turn dns record into list of entries: [{domain, type, data}]
+    # turn dns record into list of simple rrdata entries: [{domain, type, data}]
     # see https://erlang.org/doc/man/inet_res.html#type-dns_data
     record
     |> :inet_dns.msg(:anlist)
@@ -214,9 +215,9 @@ defmodule Spf.DNS do
     # {:dns_rr, :domain, :type, :in, _, _, :data, :undefined, [], false}
     # -> {domain, type, data}, where shape of data depends on type
     # .e.g :mx -> {10, name}, :a -> {1, 1, 1, 1}, etc ..
-    domain = :inet_dns.rr(answer, :domain) |> stringify()
+    domain = :inet_dns.rr(answer, :domain) |> normalize()
     type = :inet_dns.rr(answer, :type)
-    data = :inet_dns.rr(answer, :data) |> stringify(type)
+    data = :inet_dns.rr(answer, :data) |> normalize(type)
     {domain, type, data}
   end
 
@@ -242,7 +243,7 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    name = stringify(name) |> String.trim() |> String.trim(".")
+    name = normalize(name) |> String.trim() |> String.trim(".")
 
     if seen[name] do
       ctx =
@@ -275,9 +276,9 @@ defmodule Spf.DNS do
   defp update(ctx, {domain, type, data}) do
     # update ctx.dns with a (single) `data` for given `domain` and `type`
     # note: donot use from_cache since that unrolls cnames
-    domain = stringify(domain) |> String.trim() |> String.trim(".")
+    domain = normalize(domain) |> String.trim() |> String.trim(".")
     cached = ctx.dns[{domain, type}] || []
-    data = stringify(data, type)
+    data = normalize(data, type)
 
     case data in cached do
       true -> ctx
@@ -285,63 +286,63 @@ defmodule Spf.DNS do
     end
   end
 
-  # stringify -> turn any charlists *inside* rrdata into a string.
+  # normalize -> turn any charlists *inside* rrdata into a string.
   # note:
   # - empty list should turn into {:error, :zero_answers}, and NOT ""
   # - {:error, _} should stay an error-tuple
-  defp stringify([]),
+  defp normalize([]),
     do: {:error, :zero_answers}
 
-  defp stringify(rrdata) when is_list(rrdata) do
+  defp normalize(rrdata) when is_list(rrdata) do
     # turn a single (non-empty) charlist or list of charlists into single string
     # this glues the strings together without spaces.
     IO.iodata_to_binary(rrdata)
   end
 
-  defp stringify(rrdata) do
+  defp normalize(rrdata) do
     # catch all, keep it as it is
     rrdata
   end
 
   # no charlist in error situations
-  defp stringify({:error, reason}, _),
+  defp normalize({:error, reason}, _),
     do: {:error, reason}
 
   # mta name to string
-  defp stringify({pref, domain}, :mx),
-    do: {pref, stringify(domain)}
+  defp normalize({pref, domain}, :mx),
+    do: {pref, normalize(domain)}
 
   # txt value to string
-  defp stringify(txt, :txt) do
-    stringify(txt)
+  defp normalize(txt, :txt) do
+    normalize(txt)
   end
 
   # domain name of ptr record to string
-  defp stringify(domain, :ptr),
-    do: stringify(domain)
+  defp normalize(domain, :ptr),
+    do: normalize(domain)
 
   # address tuple to string (or keep {:error,_}-tuple)
-  defp stringify(ip, :a) do
+  defp normalize(ip, :a) do
     "#{Pfx.new(ip)}"
   rescue
     _ -> ip
   end
 
   # address tuple to string (or keep {:error,_}-tuple)
-  defp stringify(ip, :aaaa) do
+  defp normalize(ip, :aaaa) do
     "#{Pfx.new(ip)}"
   rescue
     _ -> ip
   end
 
   # primary nameserver and admin contact to string
-  defp stringify({mname, rname, serial, refresh, retry, expiry, min_ttl}, :soa),
-    do: {stringify(mname), stringify(rname), serial, refresh, retry, expiry, min_ttl}
+  defp normalize({mname, rname, serial, refresh, retry, expiry, min_ttl}, :soa),
+    do: {normalize(mname), normalize(rname), serial, refresh, retry, expiry, min_ttl}
 
-  defp stringify(data, _) when is_list(data),
-    do: stringify(data)
+  defp normalize(data, _) when is_list(data),
+    do: normalize(data)
 
-  defp stringify(data, _),
+  defp normalize(data, _),
     do: data
 
   @doc """
@@ -497,7 +498,7 @@ defmodule Spf.DNS do
         _ -> pref
       end
 
-    {pref, stringify(name)}
+    {pref, normalize(name)}
   end
 
   defp mimic_dns(_, value) do
