@@ -147,24 +147,39 @@ defmodule Spf.DNS do
       name
       |> String.to_charlist()
       |> :inet_res.resolve(:in, type, [{:timeout, ctx.dns_timeout}])
-      |> entries()
+      |> rrentries()
       |> cache(ctx, name, type)
       |> tick(:num_dnsq)
 
-    case from_cache(ctx, name, type) do
-      # :anlist did not contain an answer for given `type`
-      {:error, :cache_miss} ->
-        {cache({:error, :zero_answers}, ctx, name, type), {:error, :zero_answers}}
+    result = from_cache(ctx, name, type)
+    qry = "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
 
-      # :anlist was empty all together
+    case result do
+      {:error, :cache_miss} ->
+        # result didn't include an answer for given `type`
+        result = {:error, :zero_answers}
+
+        {update(ctx, {name, type, result})
+         |> tick(:num_dnsv)
+         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
+
+      {:error, :zero_answers} ->
+        # result didn't include any answers
+        {tick(ctx, :num_dnsv)
+         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
+
+      {:error, :nxdomain} ->
+        {tick(ctx, :num_dnsv)
+         |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
+
       {:error, reason} ->
-        {ctx, {:error, reason}}
+        # any other error, like :servfail
+        err = String.upcase("#{reason}")
+        {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}
 
       {:ok, res} ->
-        {ctx, {:ok, res}}
+        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}
     end
-
-    # {ctx, from_cache(ctx, name, type)}
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
@@ -185,7 +200,7 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  defp entries(msg) do
+  defp rrentries(msg) do
     # return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
     case msg do
       {:error, reason} -> {:error, reason}
@@ -251,58 +266,18 @@ defmodule Spf.DNS do
 
   # cache an {:error, reason} or data entry for given `name` and `type`
   # note that `name` and `type` come from the {:dns_rr, ..}-record itself.
-  defp cache({:error, :nxdomain} = result, ctx, name, type) do
-    tick(ctx, :num_dnsv)
-    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> NXDOMAIN")
-    |> update({name, type, result})
-  end
+  defp cache({:error, _reason} = result, ctx, name, type),
+    do: update(ctx, {name, type, result})
 
-  defp cache({:error, :zero_answers} = result, ctx, name, type) do
-    tick(ctx, :num_dnsv)
-    |> log(:dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> ZERO answers")
-    |> update({name, type, result})
-  end
+  defp cache({:ok, []}, ctx, name, type),
+    do: update(ctx, {name, type, {:error, :zero_answers}})
 
-  defp cache({:error, :timeout} = result, ctx, name, type) do
-    log(ctx, :dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> TIMEOUT")
-    |> update({name, type, result})
-  end
-
-  defp cache({:error, {:servfail, _}} = _result, ctx, name, type) do
-    log(ctx, :dns, :warn, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> SERVFAIL")
-    |> update({name, type, {:error, :servfail}})
-  end
-
-  defp cache({:error, reason} = result, ctx, name, type) do
-    # catch all other :error reasons
-    log(
-      ctx,
-      :dns,
-      :warn,
-      "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} -> #{inspect(reason)}"
-    )
-    |> update({name, type, result})
-  end
-
-  defp cache({:ok, []}, ctx, name, type) do
-    # :inet_resolve might yield an empty :anlist
-    tick(ctx, :num_dnsv)
-    |> log(:dns, :info, "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name} - ZERO answers")
-    |> update({name, type, {:error, :zero_answers}})
-  end
-
-  defp cache({:ok, entries}, ctx, name, type) do
-    # got some real :dns_rr data records (even if its only CNAME's)
-    name = String.trim(name) |> String.trim(".")
-
-    Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
-    |> log(:dns, :info, "DNS QUERY (#{ctx.num_dnsq}): #{type} #{name} -> #{inspect(entries)}")
-  end
+  defp cache({:ok, entries}, ctx, _name, _type),
+    do: Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
   defp update(ctx, {domain, type, data}) do
-    # return ctx after updating ctx.dns if appropiate
-    # note:
-    # - donot use from_cache since that unrolls cnames
+    # update ctx.dns with a (single) `data` for given `domain` and `type`
+    # note: donot use from_cache since that unrolls cnames
     domain = stringify(domain) |> String.trim() |> String.trim(".")
     cached = ctx.dns[{domain, type}] || []
     data = stringify(data, type)
