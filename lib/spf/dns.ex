@@ -5,6 +5,16 @@ defmodule Spf.DNS do
 
   import Spf.Context
 
+  @rrtypes %{
+    "txt" => :txt,
+    "a" => :a,
+    "aaaa" => :aaaa,
+    "ptr" => :ptr,
+    "mx" => :mx,
+    "cname" => :cname,
+    "soa" => :soa,
+    "spf" => :spf
+  }
   # https://www.rfc-editor.org/rfc/rfc6895.html
   # https://erlang.org/doc/man/inet_res.html
 
@@ -466,20 +476,8 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rr_type(type) do
-    # return an type for known rr types, otherwise keep the string as-is
-    case String.downcase(type) do
-      "txt" -> :txt
-      "a" -> :a
-      "aaaa" -> :aaaa
-      "ptr" -> :ptr
-      "mx" -> :mx
-      "cname" -> :cname
-      # rr_type spf is really not used anymore
-      "spf" -> :spf
-      _ -> type
-    end
-  end
+  defp rr_type(type),
+    do: @rrtypes[String.downcase(type)] || String.upcase(type)
 
   defp no_quotes(str) do
     str
@@ -487,6 +485,12 @@ defmodule Spf.DNS do
     |> String.replace(~r/\"$/, "")
   end
 
+  # TODO: mimic_dns
+  # - check validity of supplied data (e.g. IP addresses)
+  # - support error entries, e.g. like <domain> <type> :nxdomain
+  #   -> this would also mean <domain> <other_type> should be :error :nxdomain (!)
+  #   -> same goes for :servfail and maybe others ...
+  #   -> but not for e.g. :error :zero_answers or :timeout (!)
   defp mimic_dns(:mx, value) do
     {pref, name} =
       value

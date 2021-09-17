@@ -142,7 +142,9 @@ defmodule Spf.Context do
   Returns a context map for SPF parsing and evaluation.
   """
   def new(domain, opts \\ []) do
+    # TODO: check validity of user supplied IP address
     ip = Keyword.get(opts, :ip, "127.0.0.1")
+
     sender = Keyword.get(opts, :sender, "postmaster@host.local")
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
 
