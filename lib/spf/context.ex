@@ -145,7 +145,7 @@ defmodule Spf.Context do
     # TODO: check validity of user supplied IP address
     ip = Keyword.get(opts, :ip, "127.0.0.1")
 
-    sender = Keyword.get(opts, :sender, "postmaster@host.local")
+    sender = Keyword.get(opts, :sender, "postmaster@localhost.invalid")
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
 
     %{
