@@ -157,7 +157,7 @@ defmodule Spfcheck do
 
     IO.puts(meta)
 
-    IO.puts("\n# Spfcheck #{ctx.domain}\n")
+    IO.puts("\n# Verdict\n")
 
     IO.puts("```")
 

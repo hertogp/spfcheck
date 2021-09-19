@@ -106,21 +106,30 @@ defmodule Spf.Parser do
   # Parser
 
   def parse(%{error: reason} = ctx) when reason != nil do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
+    # - malformed domain -> none
+    # - result is nxdomain -> none
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
-    # - timeout or RCODE other than [0 success, 3 nxdomain] -> temperror
-    # - RCODE 3: nxdomain -> none
+    # - timeout -> temperror
+    # - servfail (or any RCODE not in [0, 3]) -> temperror
+    # - nxdomain -> none
     case reason do
+      # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.2
       :nxdomain ->
         Map.put(ctx, :verdict, :none)
         |> Map.put(:reason, "NXDOMAIN")
 
       :illegal_name ->
-        Map.put(ctx, :verdict, :permerror)
+        Map.put(ctx, :verdict, :none)
         |> Map.put(:reason, "Illegal domain")
 
       :timeout ->
         Map.put(ctx, :verdict, :temperror)
         |> Map.put(:reason, "DNS timeout")
+
+      :servfail ->
+        Map.put(ctx, :verdict, :temperror)
+        |> Map.put(:reason, "DNS server failure")
 
       _ ->
         Map.put(ctx, :verdict, :temperror)
@@ -160,7 +169,6 @@ defmodule Spf.Parser do
 
   # Checks
   # TODO: implement a number of checks
-  # - dns name checks (4.3) (both initially and for expanded names)
   # - 4.6 spf syntax is checked -> any error yields a permerror
   # - 4.6.1 eval mechanisms left to right (default is implicit ?all = neutral)
   # - 4.6.2 if mech matches, its qual is the result of the spf record
