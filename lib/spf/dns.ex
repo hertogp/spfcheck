@@ -117,16 +117,34 @@ defmodule Spf.DNS do
   ##   TTL's and timeout's of a DNS server.
   #   
   @doc """
-  Validates and charlists_tostrs given `domain`-name, Returns {:ok, name} or {:error, reason}
-  """
-  @spec validate(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def validate(domain) do
-    domain =
-      domain
-      |> String.downcase()
-      |> String.trim()
-      |> String.replace(~r/\.$/, "")
+  Normalize a domain name: lowercase and no trailing dot.
 
+  The DNS cache should only see lowercase names. Domain spec's should be
+  normalized after expansion.
+
+  """
+  @spec normalize(String.t() | list) :: String.t()
+  def normalize(domain) when is_binary(domain) do
+    domain
+    |> String.trim()
+    |> String.replace(~r/\.$/, "")
+    |> String.downcase()
+  end
+
+  def normalize(domain) when is_list(domain),
+    do: List.to_string(domain) |> normalize()
+
+  @doc """
+  Checks validity of a domain name, Returns {:ok, name} or {:error, reason}
+
+  Checks the domain name:
+  - is an ascii string
+  - is less than 254 chars long
+  - has labels less than 64 chars long, and
+  - has at least 2 labels
+  """
+  @spec valid?(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def valid?(domain) do
     with {:ascii, true} <- {:ascii, validp?(domain, :ascii)},
          {:length, true} <- {:length, validp?(domain, :length)},
          {:labels, true} <- {:labels, validp?(domain, :labels)},
@@ -154,21 +172,27 @@ defmodule Spf.DNS do
     do: domain == for(<<c <- domain>>, c in 0..127, into: "", do: <<c>>)
 
   @doc """
-  Resolves a query and returns an `ok/error` tuple with the results.
+  Resolves a query and returns a {`ctx`, results}-tuple.
 
   Returns:
-  - `{:error, reason}` if a DNS error occurred
-  - `{:ok, []}` if there are ZERO answers
-  - `{:ok, [rrs]}` otherwise, where rrs is a list of rrdata's
+  - `{ctx, {:error, reason}}` if a DNS error occurred, or
+  - `{ctx, {:ok, [rrs]}}` where rrs is a list of rrdata's
+
+  Although, technically a result with ZERO answers is not a DNS error, it
+  will be reported as `{:error, :zero_answers}`.
 
   """
   @spec resolve(map, binary, atom) :: {map, any}
-  def resolve(ctx, name, type \\ :a) when is_map(ctx) and is_binary(name) do
-    # TODO:
-    # - dns is case insensitive, so charlists_tostr name
-    # - make resolve handle a charlist for a name as well -> charlists_tostr
-    # - make name relative to root (ie remove trailing dot)
-    # - handle illegal names (e.g. when a label is > 63 chars long)
+  def resolve(ctx, name, type \\ :a) when is_map(ctx) do
+    name = normalize(name)
+
+    case valid?(name) do
+      {:ok, name} -> do_resolve(ctx, name, type)
+      {:error, reason} -> {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+    end
+  end
+
+  defp do_resolve(ctx, name, type) do
     case from_cache(ctx, name, type) do
       {:error, :cache_miss} ->
         query(ctx, name, type)
@@ -180,7 +204,7 @@ defmodule Spf.DNS do
 
   defp query(ctx, name, type) do
     # returns either {ctx, {:error, reason}} or {ctx, {:ok, [rrs]}}
-    timeout = Map.get(ctx, :dns_timeout, 20000)
+    timeout = Map.get(ctx, :dns_timeout, 2000)
 
     ctx =
       name
