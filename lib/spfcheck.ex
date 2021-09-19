@@ -45,7 +45,7 @@ defmodule Spfcheck do
     :ip,
     :sender,
     :verdict,
-    :cnt,
+    :num_spf,
     :num_dnsm,
     :num_dnsq,
     :num_dnsv,
@@ -106,16 +106,6 @@ defmodule Spfcheck do
     if [] == domains,
       do: do_stdin(parsed)
 
-    meta = """
-    ---
-    title: SPF
-    author: spfcheck
-    date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
-    ...
-    """
-
-    IO.puts(meta)
-
     for domain <- domains do
       Spf.check(domain, parsed)
       |> report(0)
@@ -157,6 +147,16 @@ defmodule Spfcheck do
 
   # Report result
   defp report(ctx, 0) do
+    meta = """
+    ---
+    title: SPF report on #{ctx.domain}.
+    author: spfcheck
+    date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
+    ...
+    """
+
+    IO.puts(meta)
+
     IO.puts("\n# Spfcheck #{ctx.domain}\n")
 
     IO.puts("```")
@@ -249,7 +249,7 @@ defmodule Spfcheck do
     indent = "    "
 
     spfs =
-      for n <- 0..ctx.cnt do
+      for n <- 0..ctx.num_spf do
         {n, Context.get_spf(ctx, n)}
       end
       |> Enum.into(%{})

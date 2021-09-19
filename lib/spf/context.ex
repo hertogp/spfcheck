@@ -86,9 +86,11 @@ defmodule Spf.Context do
     if ctx[:log],
       do: ctx.log.(ctx, facility, severity, msg)
 
+    nth = Map.get(ctx, :nth, 0)
+
     ctx =
-      Map.update(ctx, :msg, [{ctx.nth, facility, severity, msg}], fn msgs ->
-        [{ctx.nth, facility, severity, msg} | msgs]
+      Map.update(ctx, :msg, [{nth, facility, severity, msg}], fn msgs ->
+        [{nth, facility, severity, msg} | msgs]
       end)
 
     case severity do
@@ -152,7 +154,7 @@ defmodule Spf.Context do
       # the nth spf record is now current
       nth: 0,
       # linear increasing count of spf records
-      cnt: 1,
+      num_spf: 1,
       # current recursion depth (for pretty logging)
       depth: 0,
       # current <domain> whose authorisation is evaluated
@@ -258,9 +260,9 @@ defmodule Spf.Context do
       explain: ctx.explain
     }
 
-    nth = ctx.cnt
+    nth = ctx.num_spf
 
-    tick(ctx, :cnt)
+    tick(ctx, :num_spf)
     |> tick(:depth)
     |> Map.put(:stack, [state | ctx.stack])
     |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
@@ -284,9 +286,9 @@ defmodule Spf.Context do
   """
   @spec redirect(map, binary) :: map
   def redirect(ctx, domain) do
-    nth = ctx.cnt
+    nth = ctx.num_spf
 
-    tick(ctx, :cnt)
+    tick(ctx, :num_spf)
     |> Map.put(:depth, 0)
     |> Map.put(:stack, [])
     |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))

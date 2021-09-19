@@ -2,15 +2,10 @@ defmodule Spf do
   @moduledoc """
   Functions to get and debug SPF records.
   """
+
   import NimbleParsec
 
-  alias Spf.DNS
-  alias Spf.Context
-  alias Spf.Eval
-  alias Spf.Parser
-
   # Helpers
-  # check if string contains v=spf, even if malformed
 
   @doc """
   Returns true if `str` looks like an SPF record, false otherwise.
@@ -22,18 +17,18 @@ defmodule Spf do
     # - we're a bit more relaxed
     str
     |> String.downcase()
-    |> String.replace([" ", "\t", "\n", "\r"], "")
-    |> String.contains?("v=spf1")
+    |> String.replace(~r/^\s*/, "")
+    |> String.starts_with?("v=spf1")
   end
 
   def spf?(_),
     do: false
 
   def grep(ctx) when is_map(ctx) do
-    {ctx, result} = DNS.resolve(ctx, ctx.domain, :txt)
+    {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, :txt)
 
     ctx =
-      case DNS.grep(result, &spf?/1) do
+      case Spf.DNS.grep(result, &spf?/1) do
         {:ok, spf} ->
           Map.put(ctx, :spf, spf)
 
@@ -43,21 +38,20 @@ defmodule Spf do
       end
 
     ctx
-    |> Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
+    |> Spf.Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
   end
 
   defparsec(:tokenize, Spf.Tokens.tokenize())
   defparsec(:exp_tokens, Spf.Tokens.exp_str())
-  defdelegate parse(context), to: Spf.Parser
 
   def check(domain, opts \\ []) do
-    ctx = Context.new(domain, opts)
+    ctx = Spf.Context.new(domain, opts)
 
     ctx
-    |> Context.log(:spf, :note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
+    |> Spf.Context.log(:spf, :note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
     |> grep()
-    |> Parser.parse()
-    |> Eval.eval()
-    |> Context.tick(:num_dnsq, -1)
+    |> Spf.Context.tick(:num_dnsq, -1)
+    |> Spf.Parser.parse()
+    |> Spf.Eval.eval()
   end
 end

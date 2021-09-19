@@ -278,7 +278,7 @@ defmodule Spf.Eval do
         log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - recurse")
         |> push(domain)
         |> Spf.grep()
-        |> Spf.parse()
+        |> Spf.Parser.parse()
         |> eval()
 
       case ctx.verdict do
@@ -318,11 +318,11 @@ defmodule Spf.Eval do
     if ctx.map[domain] do
       log(ctx, :eval, :warn, "ignoring redirect '#{domain}', domain seen before")
     else
-      nth = ctx.cnt
+      nth = ctx.num_spf
 
       test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
       |> log(:eval, :note, "redirecting to #{domain}")
-      |> tick(:cnt)
+      |> tick(:num_spf)
       |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
       |> Map.put(:domain, domain)
       |> Map.put(:f_include, ctx.f_include)
@@ -334,7 +334,7 @@ defmodule Spf.Eval do
       |> Map.put(:spf, "")
       |> Map.put(:explain, nil)
       |> Spf.grep()
-      |> Spf.parse()
+      |> Spf.Parser.parse()
       |> eval()
     end
   end

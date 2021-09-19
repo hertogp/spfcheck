@@ -19,7 +19,7 @@ defmodule Spf.DNS do
   # https://erlang.org/doc/man/inet_res.html
 
   # TODO:
-  # DNS RESOLVE -> {:error, reason} | {:ok, []}
+  ## DNS RESOLVE -> {:error, reason} | {:ok, []}
   # - inet_res.lookup -> list of rrdatas only:
   #   :inet_res.lookup('yahoo.com', :in, :a)  
   #   [
@@ -30,9 +30,9 @@ defmodule Spf.DNS do
   #     {98, 137, 11, 164},
   #     {74, 6, 231, 21}
   #   ]
-  #   In case of any type of error, you get a [] which could mean
+  #   in case of any type of error, you get a [] which could mean
   #   nxdomain, servfail or timeout etc ...  This also hides any
-  #   CNAME's that might be in play...  So we use :inet_res.resolve()
+  ##  CNAME's that might be in play...  So we use :inet_res.resolve()
   #
   # :inet_res.resolve('mlzopendata.cbs.nl', :in, :mx) -> {:ok, :zero_answer}
   # {:ok,
@@ -72,7 +72,7 @@ defmodule Spf.DNS do
   #     []                                                                              # arlist
   #    }
   #  }
-  #  Now we need to:
+  #  now we need to:
   #  - get RCODE from dns msg's header
   #    {:ok, msg} = :inet_resolve('domain', :in, :type)
   #    hdr = :inet_dns.header(msg) -> {:dns_header, 18, true, :query, false, false, true, true, false, 0}
@@ -93,7 +93,7 @@ defmodule Spf.DNS do
   #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:class)   -> :in
   #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:ttl)  -> 1664
   #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:data) -> {74, 6, 143, 26}
-  #    where we normalize
+  #    where we charlists_tostr
   #    - domain and 
   #    - data (which might be an address tuple, 'domain name', {pref, 'domain name'} etc ...
   #  and put all that in an easy map:
@@ -108,14 +108,51 @@ defmodule Spf.DNS do
   #   }
   # - Note that in order to fully be able to use the testcases from
   #
-  # DNS cache
+  ## DNS cache
   # {domain, type} -> [{:error, reason}] | [{:ok, :nodata}] | [rrdata, rrdata, ..]
   #
   # - Cache & Timeout
-  #   If http://www.open-spf.org/svn/project/test-suite/ (the rfc7208 suite) is
+  #   if http://www.open-spf.org/svn/project/test-suite/ (the rfc7208 suite) is
   #   to be used to its fullest extend, the cache needs to be able to handle 
-  #   TTL's and timeout's of a DNS server.
+  ##   TTL's and timeout's of a DNS server.
   #   
+  @doc """
+  Validates and charlists_tostrs given `domain`-name, Returns {:ok, name} or {:error, reason}
+  """
+  @spec validate(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def validate(domain) do
+    domain =
+      domain
+      |> String.downcase()
+      |> String.trim()
+      |> String.replace(~r/\.$/, "")
+
+    with {:ascii, true} <- {:ascii, validp?(domain, :ascii)},
+         {:length, true} <- {:length, validp?(domain, :length)},
+         {:labels, true} <- {:labels, validp?(domain, :labels)},
+         {:multi, true} <- {:multi, validp?(domain, :multi)} do
+      {:ok, domain}
+    else
+      {:ascii, false} -> {:error, "name contains non-ascii characters"}
+      {:length, false} -> {:error, "name too long (> 254 chars long)"}
+      {:labels, false} -> {:error, "name has either an empty label or label > 63 chars long"}
+      {:multi, false} -> {:error, "name not multi-label"}
+      {reason, _} -> {:error, "name error: #{inspect(reason)}"}
+    end
+  end
+
+  defp validp?(domain, :length),
+    do: String.length(domain) < 254
+
+  defp validp?(domain, :labels),
+    do: String.split(domain, ".") |> Enum.all?(fn label -> String.length(label) in 1..63 end)
+
+  defp validp?(domain, :multi),
+    do: length(String.split(domain, ".")) > 1
+
+  defp validp?(domain, :ascii),
+    do: domain == for(<<c <- domain>>, c in 0..127, into: "", do: <<c>>)
+
   @doc """
   Resolves a query and returns an `ok/error` tuple with the results.
 
@@ -127,6 +164,11 @@ defmodule Spf.DNS do
   """
   @spec resolve(map, binary, atom) :: {map, any}
   def resolve(ctx, name, type \\ :a) when is_map(ctx) and is_binary(name) do
+    # TODO:
+    # - dns is case insensitive, so charlists_tostr name
+    # - make resolve handle a charlist for a name as well -> charlists_tostr
+    # - make name relative to root (ie remove trailing dot)
+    # - handle illegal names (e.g. when a label is > 63 chars long)
     case from_cache(ctx, name, type) do
       {:error, :cache_miss} ->
         query(ctx, name, type)
@@ -138,10 +180,12 @@ defmodule Spf.DNS do
 
   defp query(ctx, name, type) do
     # returns either {ctx, {:error, reason}} or {ctx, {:ok, [rrs]}}
+    timeout = Map.get(ctx, :dns_timeout, 20000)
+
     ctx =
       name
       |> String.to_charlist()
-      |> :inet_res.resolve(:in, type, [{:timeout, ctx.dns_timeout}])
+      |> :inet_res.resolve(:in, type, [{:timeout, timeout}])
       |> rrentries()
       |> cache(ctx, name, type)
       |> tick(:num_dnsq)
@@ -225,9 +269,9 @@ defmodule Spf.DNS do
     # {:dns_rr, :domain, :type, :in, _, _, :data, :undefined, [], false}
     # -> {domain, type, data}, where shape of data depends on type
     # .e.g :mx -> {10, name}, :a -> {1, 1, 1, 1}, etc ..
-    domain = :inet_dns.rr(answer, :domain) |> normalize()
+    domain = :inet_dns.rr(answer, :domain) |> charlists_tostr()
     type = :inet_dns.rr(answer, :type)
-    data = :inet_dns.rr(answer, :data) |> normalize(type)
+    data = :inet_dns.rr(answer, :data) |> charlists_tostr(type)
     {domain, type, data}
   end
 
@@ -243,8 +287,9 @@ defmodule Spf.DNS do
   def from_cache(ctx, name, type) do
     # returns either {:error, reason} or {:ok, [rrs]}
     {ctx, name} = cname(ctx, name)
+    cache = Map.get(ctx, :dns, %{})
 
-    case ctx.dns[{name, type}] do
+    case cache[{name, type}] do
       nil -> {:error, :cache_miss}
       [{:error, reason}] -> {:error, reason}
       res -> {:ok, res}
@@ -253,7 +298,8 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    name = normalize(name) |> String.trim() |> String.trim(".")
+    name = charlists_tostr(name) |> String.trim() |> String.trim(".")
+    cache = Map.get(ctx, :dns, %{})
 
     if seen[name] do
       ctx =
@@ -262,7 +308,7 @@ defmodule Spf.DNS do
 
       {ctx, name}
     else
-      case ctx.dns[{name, :cname}] do
+      case cache[{name, :cname}] do
         nil -> {ctx, name}
         [realname] -> cname(ctx, realname, Map.put(seen, name, realname))
       end
@@ -286,73 +332,74 @@ defmodule Spf.DNS do
   defp update(ctx, {domain, type, data}) do
     # update ctx.dns with a (single) `data` for given `domain` and `type`
     # note: donot use from_cache since that unrolls cnames
-    domain = normalize(domain) |> String.trim() |> String.trim(".")
-    cached = ctx.dns[{domain, type}] || []
-    data = normalize(data, type)
+    domain = charlists_tostr(domain) |> String.trim() |> String.trim_trailing(".")
+    cache = Map.get(ctx, :dns, %{})
+    cached = cache[{domain, type}] || []
+    data = charlists_tostr(data, type)
 
     case data in cached do
       true -> ctx
-      false -> Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [data | cached]))
+      false -> Map.put(ctx, :dns, Map.put(cache, {domain, type}, [data | cached]))
     end
   end
 
-  # normalize -> turn any charlists *inside* rrdata into a string.
+  # charlists_tostr -> turn any charlists *inside* rrdata into a string.
   # note:
   # - empty list should turn into {:error, :zero_answers}, and NOT ""
   # - {:error, _} should stay an error-tuple
-  defp normalize([]),
+  defp charlists_tostr([]),
     do: {:error, :zero_answers}
 
-  defp normalize(rrdata) when is_list(rrdata) do
+  defp charlists_tostr(rrdata) when is_list(rrdata) do
     # turn a single (non-empty) charlist or list of charlists into single string
     # this glues the strings together without spaces.
     IO.iodata_to_binary(rrdata)
   end
 
-  defp normalize(rrdata) do
+  defp charlists_tostr(rrdata) do
     # catch all, keep it as it is
     rrdata
   end
 
   # no charlist in error situations
-  defp normalize({:error, reason}, _),
+  defp charlists_tostr({:error, reason}, _),
     do: {:error, reason}
 
   # mta name to string
-  defp normalize({pref, domain}, :mx),
-    do: {pref, normalize(domain)}
+  defp charlists_tostr({pref, domain}, :mx),
+    do: {pref, charlists_tostr(domain)}
 
   # txt value to string
-  defp normalize(txt, :txt) do
-    normalize(txt)
+  defp charlists_tostr(txt, :txt) do
+    charlists_tostr(txt)
   end
 
   # domain name of ptr record to string
-  defp normalize(domain, :ptr),
-    do: normalize(domain)
+  defp charlists_tostr(domain, :ptr),
+    do: charlists_tostr(domain)
 
   # address tuple to string (or keep {:error,_}-tuple)
-  defp normalize(ip, :a) do
+  defp charlists_tostr(ip, :a) do
     "#{Pfx.new(ip)}"
   rescue
     _ -> ip
   end
 
   # address tuple to string (or keep {:error,_}-tuple)
-  defp normalize(ip, :aaaa) do
+  defp charlists_tostr(ip, :aaaa) do
     "#{Pfx.new(ip)}"
   rescue
     _ -> ip
   end
 
   # primary nameserver and admin contact to string
-  defp normalize({mname, rname, serial, refresh, retry, expiry, min_ttl}, :soa),
-    do: {normalize(mname), normalize(rname), serial, refresh, retry, expiry, min_ttl}
+  defp charlists_tostr({mname, rname, serial, refresh, retry, expiry, min_ttl}, :soa),
+    do: {charlists_tostr(mname), charlists_tostr(rname), serial, refresh, retry, expiry, min_ttl}
 
-  defp normalize(data, _) when is_list(data),
-    do: normalize(data)
+  defp charlists_tostr(data, _) when is_list(data),
+    do: charlists_tostr(data)
 
-  defp normalize(data, _),
+  defp charlists_tostr(data, _),
     do: data
 
   @doc """
@@ -365,8 +412,9 @@ defmodule Spf.DNS do
   """
   def to_list(ctx, opts \\ []) do
     valid = Keyword.get(opts, :valid, true)
+    cache = Map.get(ctx, :dns, %{})
 
-    ctx.dns
+    cache
     |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
     |> List.flatten()
     |> rrs_sort()
@@ -458,13 +506,13 @@ defmodule Spf.DNS do
   end
 
   defp read_rr("#" <> _, ctx),
+    # this is why str must be trimmed already
     do: ctx
 
   defp read_rr("", ctx),
     do: ctx
 
   defp read_rr(str, ctx) do
-    # assumes str has been trimmed already
     case String.split(str, ~r/ +/, parts: 3) do
       [domain, type, data] ->
         type = rr_type(type)
@@ -504,7 +552,7 @@ defmodule Spf.DNS do
         _ -> pref
       end
 
-    {pref, normalize(name)}
+    {pref, charlists_tostr(name)}
   end
 
   defp mimic_dns(_, value) do
