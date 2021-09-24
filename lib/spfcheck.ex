@@ -45,6 +45,8 @@ defmodule Spfcheck do
     :ip,
     :sender,
     :verdict,
+    :reason,
+    :explanation,
     :num_spf,
     :num_dnsm,
     :num_dnsq,
@@ -52,9 +54,7 @@ defmodule Spfcheck do
     :num_checks,
     :num_warn,
     :num_error,
-    :duration,
-    :explanation,
-    :reason
+    :duration
   ]
 
   # Helpers

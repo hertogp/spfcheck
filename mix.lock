@@ -15,4 +15,6 @@
   "nimble_parsec": {:hex, :nimble_parsec, "1.1.0", "3a6fca1550363552e54c216debb6a9e95bd8d32348938e13de5eda962c0d7f89", [:mix], [], "hexpm", "08eb32d66b706e913ff748f11694b17981c0b04a33ef470e33e11b3d3ac8f54b"},
   "pfx": {:hex, :pfx, "0.7.0", "551ead4c303d6e4943d315bba349ee2a7cecf05a5311d8a8e6a2661cc9e64951", [:mix], [], "hexpm", "4497f1625c0b71d5749bebca0acf564ae60e5ea374645088c7c57079165379ae"},
   "radix": {:hex, :radix, "0.3.0", "9d68a58c360283f08bc9c3b38ff13948c93be85358ded44f8a0b459fc4a5fdc3", [:mix], [], "hexpm", "1924a1c8a6c54b7777e045c57fa646c402fb315b5f7292c09de4eedefba2efd0"},
+  "yamerl": {:hex, :yamerl, "0.8.1", "07da13ffa1d8e13948943789665c62ccd679dfa7b324a4a2ed3149df17f453a4", [:rebar3], [], "hexpm", "96cb30f9d64344fed0ef8a92e9f16f207de6c04dfff4f366752ca79f5bceb23f"},
+  "yaml_elixir": {:hex, :yaml_elixir, "2.8.0", "c7ff0034daf57279c2ce902788ce6fdb2445532eb4317e8df4b044209fae6832", [:mix], [{:yamerl, "~> 0.8", [hex: :yamerl, repo: "hexpm", optional: false]}], "hexpm", "4b674bd881e373d1ac6a790c64b2ecb69d1fd612c2af3b22de1619c15473830b"},
 }

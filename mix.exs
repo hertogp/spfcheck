@@ -56,7 +56,8 @@ defmodule Spfcheck.MixProject do
       {:nimble_parsec, "~> 1.0"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
-      {:credo, "~> 0.8", only: [:dev, :test]}
+      {:credo, "~> 0.8", only: [:dev, :test]},
+      {:yaml_elixir, "~> 2.8.0", only: [:test]}
     ]
   end
 
