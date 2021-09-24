@@ -25,9 +25,16 @@ defmodule Spfcheck.MixProject do
       aliases: aliases(),
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
-      escript: [main_module: Spfcheck]
+      escript: [main_module: Spfcheck],
+      elixirc_paths: elixirc_paths(Mix.env())
     ]
   end
+
+  defp elixirc_paths(:test),
+    do: ["lib", "test/helpers"]
+
+  defp elixirc_paths(_),
+    do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
