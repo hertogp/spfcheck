@@ -44,8 +44,8 @@ defmodule Spf do
   defparsec(:tokenize, Spf.Tokens.tokenize())
   defparsec(:exp_tokens, Spf.Tokens.exp_str())
 
-  def check(domain, opts \\ []) do
-    ctx = Spf.Context.new(domain, opts)
+  def check(sender, opts \\ []) do
+    ctx = Spf.Context.new(sender, opts)
 
     ctx
     |> Spf.Context.log(:spf, :note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")

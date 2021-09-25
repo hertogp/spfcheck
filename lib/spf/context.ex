@@ -105,11 +105,33 @@ defmodule Spf.Context do
 
   Uppercase macro letters expand as their lowercase variants, but are URL escaped.
 
+  The following macro letters are expanded in term arguments:
+
+  - s = <sender>
+  - l = local-part of <sender>
+  - o = domain of <sender>
+  - d = <domain>
+  - i = <ip>
+  - p = the validated domain name of <ip> (do not use)
+  - v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
+  - h = HELO/EHLO domain
+
+   <domain>, <sender>, and <ip> are defined in Section 4.1.
+
+   The following macro letters are allowed only in "exp" text:
+
+   - c = SMTP client IP (easily readable format)
+   - r = domain name of host performing the check
+   - t = current timestamp
   """
-  @spec macros(binary, binary, binary) :: map
-  def macros(domain, ip, sender) do
+  @spec macros(binary, binary, binary, binary) :: map
+  def macros(domain, ip, sender, helo) do
     pfx = Pfx.new(ip)
     tstamp = DateTime.utc_now() |> DateTime.to_unix()
+    {sender_local, sender_domain} = split(sender)
+    {_, helo_domain} = split(helo)
+    sender_domain = sender_domain || helo_domain || ""
+    helo_domain = helo_domain || ""
 
     m = %{
       # d = <domain>
@@ -121,15 +143,15 @@ defmodule Spf.Context do
       # s = <sender>
       ?s => sender,
       # o = domain of <sender> (after last @ in sender)
-      ?o => String.replace(sender, ~r(^.*@), ""),
+      ?o => sender_domain,
       # l = local-part of <sender> (before last @ in sender)
-      ?l => String.replace(sender, ~r(@[^@]*$), ""),
+      ?l => sender_local,
       # p = the validated domain name of <ip> (do not use)
       ?p => Pfx.dns_ptr(ip),
       # v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
       ?v => (pfx.maxlen == 32 && "in-addr") || "ip6",
       # h = HELO/EHLO domain (fake it with domain part of sender)
-      ?h => String.replace(sender, ~r(^.*@), ""),
+      ?h => helo_domain,
       # r = domain name of host performing the check
       ?r => "localhost"
     }
@@ -140,14 +162,27 @@ defmodule Spf.Context do
     |> Map.put(?T, tstamp)
   end
 
+  defp split(mbox) do
+    case String.split(mbox, "@", parts: 2) do
+      ["", domain] -> {"postmaster", domain}
+      [local, ""] -> {local, nil}
+      [local, domain] -> {local, domain}
+      [domain] -> {"postmaster", domain}
+    end
+  end
+
   @doc """
   Returns a context map for SPF parsing and evaluation.
   """
-  def new(domain, opts \\ []) do
+  def new(sender, opts \\ []) do
     # TODO: check validity of user supplied IP address
     ip = Keyword.get(opts, :ip, "127.0.0.1")
+    helo = Keyword.get(opts, :helo, "")
 
-    sender = Keyword.get(opts, :sender, "postmaster@localhost.invalid")
+    {local, domain} = split(sender)
+    {_, helo_domain} = split(helo)
+    domain = domain || helo_domain || ""
+
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
 
     %{
@@ -159,6 +194,8 @@ defmodule Spf.Context do
       depth: 0,
       # current <domain> whose authorisation is evaluated
       domain: domain,
+      local: local,
+      helo: helo,
       # tracks what was seen before: nth=>domain, domain=>nth; for reporting
       map: %{0 => domain, domain => 0},
       # push state (part of ctx) when recursing on include'd domains
@@ -182,7 +219,7 @@ defmodule Spf.Context do
       # no dns error seen (yet)
       error: nil,
       # how macro letters expand for current domain
-      macro: macros(domain, ip, sender),
+      macro: macros(domain, ip, sender, helo),
       # output errors (1), warnings (2), notes (3), info (4) or debug (5) messages (quiet=0)
       verbosity: Keyword.get(opts, :verbosity, 4),
       # log of messages, whether outputted or not
@@ -213,7 +250,7 @@ defmodule Spf.Context do
       # report back
       report: Keyword.get(opts, :report, :short)
     }
-    |> Spf.DNS.load_file(Keyword.get(opts, :rrs, nil))
+    |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
     |> log(:ctx, :debug, "created context for #{domain}")
   end
 
@@ -271,7 +308,7 @@ defmodule Spf.Context do
     |> Map.put(:f_redirect, false)
     |> Map.put(:f_all, false)
     |> Map.put(:nth, nth)
-    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
+    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
@@ -298,7 +335,7 @@ defmodule Spf.Context do
     |> Map.put(:f_redirect, false)
     |> Map.put(:f_all, false)
     |> Map.put(:nth, nth)
-    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
+    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)

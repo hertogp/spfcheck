@@ -15,107 +15,27 @@ defmodule Spf.DNS do
     "soa" => :soa,
     "spf" => :spf
   }
+
+  @rrerrors %{
+    "timeout" => :timeout,
+    "nxdomain" => :nxdomain,
+    "formerr" => :formerr,
+    "servfail" => :servfail,
+    "zero_answers" => :zero_answers
+  }
+
   # https://www.rfc-editor.org/rfc/rfc6895.html
   # https://erlang.org/doc/man/inet_res.html
 
-  # TODO:
-  ## DNS RESOLVE -> {:error, reason} | {:ok, []}
-  # - inet_res.lookup -> list of rrdatas only:
-  #   :inet_res.lookup('yahoo.com', :in, :a)  
-  #   [
-  #     {98, 137, 11, 163},
-  #     {74, 6, 143, 26},
-  #     {74, 6, 231, 20},
-  #     {74, 6, 143, 25},
-  #     {98, 137, 11, 164},
-  #     {74, 6, 231, 21}
-  #   ]
-  #   in case of any type of error, you get a [] which could mean
-  #   nxdomain, servfail or timeout etc ...  This also hides any
-  ##  CNAME's that might be in play...  So we use :inet_res.resolve()
-  #
-  # :inet_res.resolve('mlzopendata.cbs.nl', :in, :mx) -> {:ok, :zero_answer}
-  # {:ok,
-  # {:dns_rec, {:dns_header, 20, true, :query, false, false, true, true, false, 0},
-  #  [{:dns_query, 'mlzopendata.cbs.nl', :mx, :in}],
-  #  [
-  #    {:dns_rr, 'mlzopendata.cbs.nl', :cname, :in, 0, 2724, 'adc4.cbs.nl',
-  #     :undefined, [], false}
-  #  ], [], []}}
-  #
-  # :inet_res.resolve('380kv.nl', :in, :mx) -> {:error, :servfail}
-  # {:error,
-  # {:servfail,
-  #  {:dns_rec,
-  #   {:dns_header, 21, true, :query, false, false, true, true, false, 2},
-  #   [{:dns_query, '380kv.nl', :mx, :in}], [], [], []}}}
-  # - :inet_res.resolve('yahoo.com', :in, :a) 
-  # {:ok,
-  #   {:dns_rec,
-  #     {:dns_header, 18, true, :query, false, false, true, true, false, 0},            # header
-  #     [{:dns_query, 'yahoo.com', :a, :in}],                                           # qdlist
-  #     [
-  #       {:dns_rr, 'yahoo.com', :a, :in, 0, 330, {74, 6, 231, 20}, :undefined, [],
-  #        false},
-  #       {:dns_rr, 'yahoo.com', :a, :in, 0, 330, {98, 137, 11, 164}, :undefined, [],
-  #        false},
-  #       {:dns_rr, 'yahoo.com', :a, :in, 0, 330, {74, 6, 143, 25}, :undefined, [],
-  #        false},
-  #       {:dns_rr, 'yahoo.com', :a, :in, 0, 330, {98, 137, 11, 163}, :undefined, [],
-  #        false},
-  #       {:dns_rr, 'yahoo.com', :a, :in, 0, 330, {74, 6, 143, 26}, :undefined, [],
-  #        false},
-  #       {:dns_rr, 'yahoo.com', :a, :in, 0, 330, {74, 6, 231, 21}, :undefined, [],
-  #        false}
-  #     ],                                                                              # anlist
-  #     [],                                                                             # nslist
-  #     []                                                                              # arlist
-  #    }
-  #  }
-  #  now we need to:
-  #  - get RCODE from dns msg's header
-  #    {:ok, msg} = :inet_resolve('domain', :in, :type)
-  #    hdr = :inet_dns.header(msg) -> {:dns_header, 18, true, :query, false, false, true, true, false, 0}
-  #    rcode = :inet_dns.msg(msg, :header) |> :inet_dns.header(:rcode)
-  #  - RR's from dns msg's answer list
-  #    :inet_dns.msg(msg, :anlist)                            
-  #    [
-  #      {:dns_rr, 'yahoo.com', :a, :in, 0, 1664, {74, 6, 143, 26}, :undefined, [], false},
-  #      {:dns_rr, 'yahoo.com', :a, :in, 0, 1664, {74, 6, 143, 25}, :undefined, [], false},
-  #      {:dns_rr, 'yahoo.com', :a, :in, 0, 1664, {98, 137, 11, 164}, :undefined, [], false},
-  #      {:dns_rr, 'yahoo.com', :a, :in, 0, 1664, {74, 6, 231, 21}, :undefined, [], false},
-  #      {:dns_rr, 'yahoo.com', :a, :in, 0, 1664, {98, 137, 11, 163}, :undefined, [], false},
-  #      {:dns_rr, 'yahoo.com', :a, :in, 0, 1664, {74, 6, 231, 20}, :undefined, [], false}
-  #    ]
-  #  - convert for each rr in the list of rrs, eg
-  #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:domain) -> 'yahoo.com'
-  #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:type)  -> :a
-  #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:class)   -> :in
-  #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:ttl)  -> 1664
-  #    :inet_dns.msg(msg, :anlist) |> hd() |> :inet_dns.rr(:data) -> {74, 6, 143, 26}
-  #    where we charlists_tostr
-  #    - domain and 
-  #    - data (which might be an address tuple, 'domain name', {pref, 'domain name'} etc ...
-  #  and put all that in an easy map:
-  #  %{ rcode => int,
-  #     ncode => String.t  (see https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml)
-  #     domain => String.t
-  #     ttl => integer
-  #     expires => ttl + now()
-  #     class => :class
-  #     type => :type
-  #     data => {int, String.t} | String.t | ...
-  #   }
-  # - Note that in order to fully be able to use the testcases from
-  #
   ## DNS cache
   # {domain, type} -> [{:error, reason}] | [{:ok, :nodata}] | [rrdata, rrdata, ..]
-  #
   # - Cache & Timeout
   #   if http://www.open-spf.org/svn/project/test-suite/ (the rfc7208 suite) is
   #   to be used to its fullest extend, the cache needs to be able to handle 
-  ##   TTL's and timeout's of a DNS server.
-  #   
+  ##  timeout's of a DNS server or the records sought after
+
+  # Helpers
+
   @doc """
   Normalize a domain name: lowercase and no trailing dot.
 
@@ -144,6 +64,11 @@ defmodule Spf.DNS do
   - has at least 2 labels
   """
   @spec valid?(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def valid?(domain)
+
+  def valid?(nil),
+    do: {:error, :invalid_fqdn}
+
   def valid?(domain) do
     with {:ascii, true} <- {:ascii, validp?(domain, :ascii)},
          {:length, true} <- {:length, validp?(domain, :length)},
@@ -171,6 +96,8 @@ defmodule Spf.DNS do
   defp validp?(domain, :ascii),
     do: domain == for(<<c <- domain>>, c in 0..127, into: "", do: <<c>>)
 
+  # Resolve
+
   @doc """
   Resolves a query and returns a {`ctx`, results}-tuple.
 
@@ -187,12 +114,12 @@ defmodule Spf.DNS do
     name = normalize(name)
 
     case valid?(name) do
-      {:ok, name} -> do_resolve(ctx, name, type)
+      {:ok, name} -> resolvep(ctx, name, type)
       {:error, reason} -> {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
     end
   end
 
-  defp do_resolve(ctx, name, type) do
+  defp resolvep(ctx, name, type) do
     case from_cache(ctx, name, type) do
       {:error, :cache_miss} ->
         query(ctx, name, type)
@@ -299,6 +226,8 @@ defmodule Spf.DNS do
     {domain, type, data}
   end
 
+  # Cache
+
   @doc """
   Returns a cache hit or miss for given `name` and `type` from cache `ctx.dns`.
 
@@ -322,18 +251,20 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    name = charlists_tostr(name) |> String.trim() |> String.trim(".")
+    # name = charlists_tostr(name) |> String.trim() |> String.trim(".")
+    name = charlists_tostr(name) |> normalize()
     cache = Map.get(ctx, :dns, %{})
 
     if seen[name] do
       ctx =
         log(ctx, :dns, :error, "circular CNAMEs: #{inspect(seen)}")
-        |> log(:dns, :info, "DNS CNAME: using #{name} to break circular reference")
+        |> log(:dns, :warn, "DNS CNAME: using #{name} to break circular reference")
 
       {ctx, name}
     else
       case cache[{name, :cname}] do
         nil -> {ctx, name}
+        [{:error, _}] -> {ctx, name}
         [realname] -> cname(ctx, realname, Map.put(seen, name, realname))
       end
     end
@@ -466,6 +397,33 @@ defmodule Spf.DNS do
     end
   end
 
+  def rr_fromstr(str, ctx),
+    do: String.trim(str) |> rr_fromstrp(ctx)
+
+  defp rr_fromstrp("#" <> _, ctx),
+    # this is why str must be trimmed already
+    do: ctx
+
+  defp rr_fromstrp("", ctx),
+    do: ctx
+
+  defp rr_fromstrp(str, ctx) do
+    case String.split(str, ~r/\s+/, parts: 3) do
+      [domain, type, data] ->
+        type = rr_type(type)
+        update(ctx, {domain, type, rr_data_fromstr(type, data)})
+
+      [domain, data] ->
+        Enum.reduce(@rrtypes, ctx, fn {_name, type}, ctx ->
+          update(ctx, {domain, type, {:error, rr_error(data)}})
+        end)
+
+      _ ->
+        # ignore malformed, TODO: log this as error/warning
+        ctx
+    end
+  end
+
   defp rr_tostr(domain, type, data) do
     domain = String.pad_trailing(domain, 25)
     rrtype = String.upcase("#{type}") |> String.pad_trailing(7)
@@ -473,9 +431,35 @@ defmodule Spf.DNS do
     Enum.join([domain, rrtype, data], " ")
   end
 
+  # TODO: rr_data_fromstr
+  # - check validity of supplied data (e.g. IP addresses)
+  # - support error entries, e.g. like <domain> <type> :nxdomain
+  #   -> this would also mean <domain> <other_type> should be :error :nxdomain (!)
+  #   -> same goes for :servfail and maybe others ...
+  #   -> but not for e.g. :error :zero_answers or :timeout (!)
+  defp rr_data_fromstr(:mx, value) do
+    {pref, name} =
+      value
+      |> no_quotes()
+      |> String.split(~r/\s+/, parts: 2)
+      |> List.to_tuple()
+
+    pref =
+      case Integer.parse(pref) do
+        {n, ""} -> n
+        _ -> pref
+      end
+
+    {pref, charlists_tostr(name)}
+  end
+
+  defp rr_data_fromstr(_, value) do
+    no_quotes(value)
+  end
+
   @spec rr_data_tostr(atom, any) :: String.t()
-  defp rr_data_tostr(_, {:error, _} = error),
-    do: "#{inspect(error)}"
+  defp rr_data_tostr(_, {:error, reason}),
+    do: "#{inspect(reason)}" |> String.upcase() |> String.trim_leading(":")
 
   defp rr_data_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
     "#{Pfx.new(ip)}"
@@ -515,71 +499,40 @@ defmodule Spf.DNS do
   def grep(rrdatas, fun) when is_function(fun, 1),
     do: {:ok, Enum.filter(rrdatas, fn rrdata -> fun.(rrdata) end)}
 
+  # From File/Strings
+
   def load_file(ctx, nil), do: ctx
 
   def load_file(ctx, fpath) when is_binary(fpath) do
     ctx =
-      File.stream!(fpath)
-      |> Enum.map(fn x -> String.trim(x) end)
-      |> Enum.reduce(ctx, &read_rr/2)
+      case File.read(fpath) do
+        {:ok, binary} ->
+          load_lines(ctx, String.split(binary, "\n"))
 
-    ctx
-    |> log(:dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
+        {:error, reason} ->
+          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
+      end
+
+    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
   rescue
     err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
-  defp read_rr("#" <> _, ctx),
-    # this is why str must be trimmed already
-    do: ctx
-
-  defp read_rr("", ctx),
-    do: ctx
-
-  defp read_rr(str, ctx) do
-    case String.split(str, ~r/ +/, parts: 3) do
-      [domain, type, data] ->
-        type = rr_type(type)
-        update(ctx, {domain, type, mimic_dns(type, data)})
-
-      _ ->
-        # ignore malformed, TODO: log this as error/warning
-        ctx
-    end
+  def load_lines(ctx, lines) when is_list(lines) do
+    lines
+    |> Enum.map(&String.trim/1)
+    |> Enum.reduce(ctx, &rr_fromstr/2)
   end
 
   defp rr_type(type),
     do: @rrtypes[String.downcase(type)] || String.upcase(type)
 
+  defp rr_error(error),
+    do: @rrerrors[String.downcase(error)] || String.upcase(error)
+
   defp no_quotes(str) do
     str
     |> String.replace(~r/^\"/, "")
     |> String.replace(~r/\"$/, "")
-  end
-
-  # TODO: mimic_dns
-  # - check validity of supplied data (e.g. IP addresses)
-  # - support error entries, e.g. like <domain> <type> :nxdomain
-  #   -> this would also mean <domain> <other_type> should be :error :nxdomain (!)
-  #   -> same goes for :servfail and maybe others ...
-  #   -> but not for e.g. :error :zero_answers or :timeout (!)
-  defp mimic_dns(:mx, value) do
-    {pref, name} =
-      value
-      |> no_quotes()
-      |> String.split(~r/\s+/, parts: 2)
-      |> List.to_tuple()
-
-    pref =
-      case Integer.parse(pref) do
-        {n, ""} -> n
-        _ -> pref
-      end
-
-    {pref, charlists_tostr(name)}
-  end
-
-  defp mimic_dns(_, value) do
-    no_quotes(value)
   end
 end

@@ -8,27 +8,21 @@ defmodule Spfcheck do
   alias IO.ANSI
 
   @options [
-    # <ip>, defaults to 127.0.0.1
-    ip: :string,
-    # <sender>, defaults to me@host.local
-    sender: :string,
-    # 0 error, 1 warn, 2 note, 3 info, 4 debug, default 2
-    verbosity: :integer,
-    # local dns RRs -> <name> SP <type> SP <value>
-    rrs: :string,
-    # display help and quit
+    color: :boolean,
+    dns: :string,
+    helo: :string,
     help: :boolean,
-    # use color, default true
-    color: :boolean
+    ip: :string,
+    verbosity: :integer
   ]
 
   @aliases [
+    H: :help,
+    c: :color,
+    d: :dns,
+    h: :helo,
     i: :ip,
-    s: :sender,
-    v: :verbosity,
-    h: :help,
-    r: :rrs,
-    c: :color
+    v: :verbosity
   ]
 
   @verbosity %{
@@ -93,7 +87,7 @@ defmodule Spfcheck do
   Check spf for given ip, sender and domain.
   """
   def main(argv) do
-    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+    {parsed, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
 
     if Keyword.get(parsed, :help, false), do: usage()
 
@@ -103,11 +97,11 @@ defmodule Spfcheck do
 
     parsed = Keyword.put(parsed, :log, &log/4)
 
-    if [] == domains,
+    if [] == senders,
       do: do_stdin(parsed)
 
-    for domain <- domains do
-      Spf.check(domain, parsed)
+    for sender <- senders do
+      Spf.check(sender, parsed)
       |> report(0)
       |> report(1)
       |> report(2)
@@ -301,20 +295,22 @@ defmodule Spfcheck do
   def usage() do
     """
 
-    Usage: spfcheck [options] domain
+    Usage: spfcheck [options] sender
+
+    where sender = [localpart@]domain and localpart defaults to 'postmaster'
 
     Options:
+     -H, --help           print this message and exit
      -c, --color          use colored output (--no-color to set this to false)
-     -h, --help           prints this message and exits
-     -i, --ip=string      specify sender's <ip> to check (default 127.0.0.1)
-     -r, --rrs=filepath   file with DNS RR records to override live DNS
-     -s, --sender=string  specify sender from address (default me@host.local)
+     -d, --dns=filepath   file with DNS RR records to override live DNS
+     -h, --helo=string    sending MTA's helo/ehlo identity (defaults to nil)
+     -i, --ip=string      sending MTA's IPv4/IPv6 address (defaults to 127.0.0.1)
      -v, --verbosity      set logging noise level (0..5)
 
     Examples:
 
       spfcheck example.com
-      spfcheck  -i 1.1.1.1   -s someone@example.com example.com
+      spfcheck  -i 1.1.1.1   --helo example.net xyz@example.com
       spfcheck --ip=1.1.1.1 --sender=someone@example.com example.com -r ./dns.txt
 
     DNS RR override

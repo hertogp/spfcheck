@@ -329,7 +329,7 @@ defmodule Spf.Eval do
       |> Map.put(:f_redirect, false)
       |> Map.put(:f_all, false)
       |> Map.put(:nth, nth)
-      |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender))
+      |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
       |> Map.put(:ast, [])
       |> Map.put(:spf, "")
       |> Map.put(:explain, nil)

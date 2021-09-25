@@ -1,24 +1,29 @@
-defmodule SpfcheckTest do
+defmodule SpfcheckTestSuite do
   alias Rfc7208.TestSuite
   use ExUnit.Case
 
-  Enum.each(TestSuite.all(), fn {desc, mfrom, helo, ip, result, dns} ->
-    @desc desc
-    @mfrom mfrom
+  Enum.each(TestSuite.all(), fn {test, mfrom, helo, ip, result, dns, info} ->
+    @test test
+    @mfrom String.split(mfrom, "@") |> List.last()
     @helo helo
     @ip ip
     @result result
     @dns dns
-    test "#{desc}" do
+    @info info
+    @test_tag String.split(test, ".") |> List.first()
+
+    @tag set: @test_tag
+    test "#{@test}" do
       ctx =
         Spf.Context.new(@mfrom, sender: @helo, ip: @ip)
-        |> Map.put(:dns, @dns)
+        |> Spf.DNS.load_lines(@dns)
         |> Spf.grep()
         |> Spf.Parser.parse()
+        |> IO.inspect(label: "#{@test}")
         |> Spf.Eval.eval()
 
-      IO.inspect(@dns, label: :dns)
-      assert "#{ctx.verdict}" == @result, @desc <> " -> (#{ctx.verdict} != #{@result})"
+      IO.inspect(ctx.dns, label: :dns)
+      assert "#{ctx.verdict}" == @result, "#{ctx.verdict} != #{@result} - #{@info}"
     end
   end)
 end
