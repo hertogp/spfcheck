@@ -7,19 +7,20 @@ defmodule Spf do
 
   # Helpers
 
+  def is_ascii?(string) when is_binary(string),
+    do: string == for(<<c <- string>>, c in 0..127, into: "", do: <<c>>)
+
+  def is_ascii?(_string),
+    do: false
+
   @doc """
   Returns true if `str` looks like an SPF record, false otherwise.
 
   """
   @spec spf?(binary) :: boolean
-  def spf?(str) when is_binary(str) do
+  def spf?(str) when is_binary(str),
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
-    # - we're a bit more relaxed
-    str
-    |> String.downcase()
-    |> String.replace(~r/^\s*/, "")
-    |> String.starts_with?("v=spf1")
-  end
+    do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
 
   def spf?(_),
     do: false
@@ -39,6 +40,7 @@ defmodule Spf do
 
     ctx
     |> Spf.Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
+    |> Spf.Context.tick(:num_dnsq, -1)
   end
 
   defparsec(:tokenize, Spf.Tokens.tokenize())
@@ -49,9 +51,7 @@ defmodule Spf do
 
     ctx
     |> Spf.Context.log(:spf, :note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
-    |> grep()
-    |> Spf.Context.tick(:num_dnsq, -1)
-    |> Spf.Parser.parse()
-    |> Spf.Eval.eval()
+    |> Map.put(:num_dnsq, -1)
+    |> Spf.Eval.evaluate()
   end
 end

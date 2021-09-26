@@ -172,16 +172,30 @@ defmodule Spf.Context do
   end
 
   @doc """
-  Returns a context map for SPF parsing and evaluation.
+  Returns a new context map for an SPF evaluation.
+
+  The initial `domain` is derived from given `sender` and `ip` defaults to
+  `127.0.0.1` if not given via the `ip:` option.  The context is used for the
+  entire SPF evaluation, including during any recursive calls.
+
+  When evaluating an `include` mechanism, the current state (a few selected
+  context properties) is pushed onto an internal stack and a new `domain` is
+  set directly.  After evaluating the `include` mechanism, the state if popped
+  and the results are processed according to the `include`-mechanism's
+  qualifier.
+
+  When evaluating a `redirect` modifier, the current state is altered for the
+  new domain specified by the modifier.
+
   """
   def new(sender, opts \\ []) do
     # TODO: check validity of user supplied IP address
     ip = Keyword.get(opts, :ip, "127.0.0.1")
     helo = Keyword.get(opts, :helo, "")
 
-    {local, domain} = split(sender)
+    {local, sender_domain} = split(sender)
     {_, helo_domain} = split(helo)
-    domain = domain || helo_domain || ""
+    domain = sender_domain || helo_domain || ""
 
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
 
@@ -231,19 +245,23 @@ defmodule Spf.Context do
       # explain term (if any)
       explain: nil,
       explanation: "",
-      # track some stats: dns queries, void lookups, dns mech's, checks done
+      # number of dns queries
       num_dnsq: 0,
+      # number of void lookups (NXDOMAIN's and/or ZERO answers)
       num_dnsv: 0,
+      # num of DNS mechanisms of modifiers seen in the SPF record
+      # (mechanisms: a, mx, ptr, exists, include & modifier: redirect)
       num_dnsm: 0,
       max_dnsq: 10,
       max_dnsv: 2,
       max_dnsm: 10,
+      # number of checks perform to arrive at a verdict
       num_checks: 0,
       num_warn: 0,
       num_error: 0,
       # list of terms to be evaluated to arrive at a verdict
       ast: [],
-      # how long the evaluation took
+      # how long the evaluation took; warn if it took > 20 sec!
       duration: 0,
       # ip -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
       ipt: Iptrie.new(),

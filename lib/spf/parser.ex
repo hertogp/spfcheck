@@ -105,46 +105,10 @@ defmodule Spf.Parser do
 
   # Parser
 
-  def parse(%{error: reason} = ctx) when reason != nil do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
-    # - malformed domain -> none
-    # - result is nxdomain -> none
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
-    # - timeout -> temperror
-    # - servfail (or any RCODE not in [0, 3]) -> temperror
-    # - nxdomain -> none
-    case reason do
-      # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.2
-      :nxdomain ->
-        Map.put(ctx, :verdict, :none)
-        |> Map.put(:reason, "NXDOMAIN")
+  def parse(%{error: error} = ctx) when error != nil,
+    do: ctx
 
-      :illegal_name ->
-        Map.put(ctx, :verdict, :none)
-        |> Map.put(:reason, "Illegal domain")
-
-      :timeout ->
-        Map.put(ctx, :verdict, :temperror)
-        |> Map.put(:reason, "DNS timeout")
-
-      :servfail ->
-        Map.put(ctx, :verdict, :temperror)
-        |> Map.put(:reason, "DNS server failure")
-
-      _ ->
-        Map.put(ctx, :verdict, :temperror)
-        |> Map.put(:reason, "#{inspect(reason)}")
-    end
-  end
-
-  def parse(%{spf: []} = ctx) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
-    log(ctx, :parse, :note, "no SPF records found")
-    |> Map.put(:verdict, :none)
-    |> Map.put(:reason, "no SPF records found")
-  end
-
-  def parse(%{spf: [spf]} = ctx) do
+  def parse(%{spf: spf} = ctx) do
     {:ok, tokens, rest, _, _, _} = Spf.tokenize(spf)
 
     ctx =
@@ -158,13 +122,6 @@ defmodule Spf.Parser do
     Enum.reduce(tokens, ctx, &parse/2)
     |> check(:explain_reachable)
     |> check(:no_implicit)
-  end
-
-  def parse(%{spf: spf} = ctx) do
-    log(ctx, :parse, :error, "#{length(spf)} spf records found: #{inspect(spf)}")
-    |> Map.put(:spf, "")
-    |> Map.put(:verdict, :permerror)
-    |> Map.put(:reason, "#{length(spf)} records found")
   end
 
   # Checks

@@ -6,14 +6,14 @@ defmodule Spf.DNS do
   import Spf.Context
 
   @rrtypes %{
-    "txt" => :txt,
     "a" => :a,
     "aaaa" => :aaaa,
-    "ptr" => :ptr,
-    "mx" => :mx,
     "cname" => :cname,
+    "mx" => :mx,
+    "ptr" => :ptr,
     "soa" => :soa,
-    "spf" => :spf
+    "spf" => :spf,
+    "txt" => :txt
   }
 
   @rrerrors %{
@@ -78,7 +78,7 @@ defmodule Spf.DNS do
     else
       {:ascii, false} -> {:error, "name contains non-ascii characters"}
       {:length, false} -> {:error, "name too long (> 254 chars long)"}
-      {:labels, false} -> {:error, "name has either an empty label or label > 63 chars long"}
+      {:labels, false} -> {:error, "name has illegal label (empty or > 63 chars)"}
       {:multi, false} -> {:error, "name not multi-label"}
       {reason, _} -> {:error, "name error: #{inspect(reason)}"}
     end
@@ -397,6 +397,15 @@ defmodule Spf.DNS do
     end
   end
 
+  defp rr_data_maybe_error(data) do
+    error = no_quotes(data) |> String.downcase()
+
+    case @rrerrors[error] do
+      nil -> data
+      error -> {:error, error}
+    end
+  end
+
   def rr_fromstr(str, ctx),
     do: String.trim(str) |> rr_fromstrp(ctx)
 
@@ -438,23 +447,25 @@ defmodule Spf.DNS do
   #   -> same goes for :servfail and maybe others ...
   #   -> but not for e.g. :error :zero_answers or :timeout (!)
   defp rr_data_fromstr(:mx, value) do
-    {pref, name} =
-      value
-      |> no_quotes()
-      |> String.split(~r/\s+/, parts: 2)
-      |> List.to_tuple()
+    parts = no_quotes(value) |> String.downcase() |> String.split(~r/\s+/, parts: 2)
 
-    pref =
-      case Integer.parse(pref) do
-        {n, ""} -> n
-        _ -> pref
-      end
+    case parts do
+      [pref, name] ->
+        pref =
+          case Integer.parse(pref) do
+            {n, ""} -> n
+            _ -> pref
+          end
 
-    {pref, charlists_tostr(name)}
+        {pref, charlists_tostr(name)}
+
+      [err] ->
+        {:error, @rrerrors[err] || err}
+    end
   end
 
   defp rr_data_fromstr(_, value) do
-    no_quotes(value)
+    no_quotes(value) |> rr_data_maybe_error()
   end
 
   @spec rr_data_tostr(atom, any) :: String.t()

@@ -173,9 +173,84 @@ defmodule Spf.Eval do
     end
   end
 
+  defp check_domain(ctx) do
+    # check validity of domain
+    if ctx.error do
+      ctx
+    else
+      case Spf.DNS.valid?(ctx.domain) do
+        {:ok, _domain} ->
+          ctx
+
+        {:error, reason} ->
+          log(ctx, :name, :error, "domain error: #{reason}")
+          |> Map.put(:error, :illegal_name)
+          |> Map.put(:reason, reason)
+      end
+    end
+  end
+
+  defp check_spf(ctx) do
+    # either set :error, or set :spf to single spf string
+
+    if ctx.error do
+      ctx
+    else
+      case ctx.spf do
+        [] ->
+          log(ctx, :check, :note, "no SPF record found")
+          |> Map.put(:error, :no_spf)
+          |> Map.put(:reason, "no SPF record found")
+
+        [spf] ->
+          if Spf.is_ascii?(spf) do
+            Map.put(ctx, :spf, spf)
+          else
+            Map.put(ctx, :error, :non_ascii_spf)
+            |> Map.put(:reason, "SPF contains non-ascii characters")
+            |> log(:error, :check, "SPF record contains non-ascii characters")
+          end
+
+        list ->
+          log(ctx, :check, :error, "multiple SPF records found (#{length(list)})")
+          |> Map.put(:error, :many_spf)
+          |> Map.put(:reason, "too many SPF records found (#{length(list)})")
+      end
+    end
+  end
+
   # API
 
-  def eval(ctx) do
+  def evaluate(ctx) do
+    ctx
+    |> check_domain()
+    |> Spf.grep()
+    |> check_spf()
+    |> Spf.Parser.parse()
+    |> eval()
+  end
+
+  defp eval(%{error: error} = ctx) when error != nil do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
+    # - malformed domain -> none
+    # - result is nxdomain -> none
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
+    # - timeout -> temperror
+    # - servfail (or any RCODE not in [0, 3]) -> temperror
+    # - nxdomain -> none
+    case error do
+      :no_spf -> Map.put(ctx, :verdict, :none)
+      :many_spf -> Map.put(ctx, :verdict, :permerror)
+      :illegal_name -> Map.put(ctx, :verdict, :none)
+      :zero_answers -> Map.put(ctx, :verdict, :none)
+      :nxdomain -> Map.put(ctx, :verdict, :none)
+      :timeout -> Map.put(ctx, :verdict, :temperror)
+      :servfail -> Map.put(ctx, :verdict, :temperror)
+      :non_ascii_spf -> Map.put(ctx, :verdict, :permerror)
+    end
+  end
+
+  defp eval(ctx) do
     evalp(ctx, ctx.ast)
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
@@ -277,9 +352,7 @@ defmodule Spf.Eval do
       ctx =
         log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - recurse")
         |> push(domain)
-        |> Spf.grep()
-        |> Spf.Parser.parse()
-        |> eval()
+        |> evaluate()
 
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
@@ -333,9 +406,7 @@ defmodule Spf.Eval do
       |> Map.put(:ast, [])
       |> Map.put(:spf, "")
       |> Map.put(:explain, nil)
-      |> Spf.grep()
-      |> Spf.Parser.parse()
-      |> eval()
+      |> evaluate()
     end
   end
 

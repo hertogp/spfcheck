@@ -1,6 +1,28 @@
 defmodule Rfc7208.TestSuite do
   @rfc7208_tests Path.join(__DIR__, "rfc7208-tests-2014.05.yml")
 
+  # See:
+  # - http://www.open-spf.org/Test_Suite/Schema/
+  # - http://www.open-spf.org/Test_Suite/
+
+  # ZoneData is map:
+  # - its keys are dns names
+  # - its values are lists of map's, each with a single entry
+  # - the key of the entry-map, is the RR-type
+  # - the value of the entry-map, is a string or list (eg for MX records)
+  #   A value of a string is promoted to a list of 1 string
+  #
+  # DNS errors
+  # - TIMEOUT
+  #   when the last entry for a dns name in the zonedata is TIMEOUT, then all
+  #   non-specified RR's will result in a timeout
+  #
+  # - NONE
+  #   when a TXT RR's value is none, the SPF record is NOT copied to the TXT RR
+  #   this allows record selection testing (see below)
+  #
+  # - RCODE: n, is not used at the moment
+
   # For RFC 4408, the test suite was designed for use with SPF (type 99) and TXT
   # implementations.  In RFC 7208, use of type SPF has been removed.
 
@@ -28,6 +50,8 @@ defmodule Rfc7208.TestSuite do
   # 13 - Macro expansion rules
   # 14 - Processing limits
 
+  @rrtypes ["A", "AAAA", "CNAME", "MX", "PTR", "SOA", "SPF", "TXT"]
+
   def load_file() do
     {:ok, docs} = YamlElixir.read_all_from_file(@rfc7208_tests)
     docs
@@ -47,7 +71,7 @@ defmodule Rfc7208.TestSuite do
 
   def to_tests({doc, nth}) do
     desc = doc["description"]
-    dns = doc["zonedata"] |> to_dns_lines(nth)
+    dns = doc["zonedata"] |> to_dns_lines()
     tests = doc["tests"] |> Enum.with_index()
 
     for {test, mth} <- tests, do: to_test(test, desc, dns, nth, mth)
@@ -58,39 +82,73 @@ defmodule Rfc7208.TestSuite do
     helo = test["helo"]
     ip = test["host"]
     mailfrom = test["mailfrom"]
-    result = test["result"]
-
-    # desc2 = test["description"] || ""
-    # comment = test["comment"] || ""
+    result = test["result"] |> List.wrap() |> Enum.map(&String.downcase/1)
 
     info = Enum.join(["spec #{spec}", desc, name], " - ")
     {"#{nth}.#{mth} #{name}", mailfrom, helo, ip, result, dns, info}
   end
 
-  def to_dns_lines(zdata, nth) do
+  def to_dns_lines(zdata) do
     for {domain, rdata} <- zdata do
       for data <- rdata do
-        [{type, value}] =
-          case data do
-            v when is_binary(v) -> [{"", v}]
-            m when is_map(m) -> Map.to_list(m)
-          end
-
-        type = type_nth(type, nth)
-        "#{domain} #{type} #{value}"
+        case data do
+          s when is_binary(s) -> {"OTHER", s}
+          %{"MX" => [pref, host]} -> {"MX", "#{pref} #{host}"}
+          m when is_map(m) -> Map.to_list(m) |> List.first()
+        end
       end
+      |> cp_spf()
+      |> do_other()
+      |> Enum.map(fn {type, data} -> "#{domain} #{type} #{data}" end)
     end
     |> List.flatten()
   end
 
-  def type_nth(type, 2),
-    # For category 2 Selecting Records, keep SPF as SPF
-    do: type
+  def cp_spf(rrs) do
+    # http://www.open-spf.org/Test_Suite/Schema/
+    # Records of type SPF get special treatment:
+    # - If no records of type TXT are given for the same DNS name, then
+    #   an identical TXT record is also generated for the DNS data.
+    #   note: for all SPF records found
+    # This reflects the recommendation of section 3.1.1 and allows the test
+    # suite to be used with implementations that choose any of the three
+    # options in section 4.4.
 
-  def type_nth(type, _) do
-    case type do
-      "SPF" -> "TXT"
-      _ -> type
+    # wtf?
+    # In addition:
+    # - when the value of an SPF name is the string NONE, then that record is not added to the DNS data.
+    # As a result, TXT: NONE serves to suppress the auto copy of SPF records to
+    # TXT. This allows testing of record selection rules.
+    # Ah, need to do cp_spf first, then w/ do_others, filter out any RR's that
+    # have value NONE first
+
+    copy = not Enum.any?(rrs, fn {type, _value} -> type == "TXT" end)
+
+    spfs =
+      Enum.filter(rrs, fn {k, v} -> k == "SPF" and v != "NONE" end)
+      |> Enum.map(fn {_, v} -> {"TXT", v} end)
+
+    none = Enum.filter(rrs, fn {_k, v} -> v == "NONE" end)
+
+    if copy and length(spfs) > 0 do
+      spfs ++ (rrs -- none)
+    else
+      rrs -- none
     end
+  end
+
+  def do_other(rrs) do
+    # {"OTHER", value} -> causes the non-specified RRs to be added with value
+    case List.keytake(rrs, "OTHER", 0) do
+      nil -> rrs
+      {{_, value}, rrs} -> add_others(rrs, value)
+    end
+  end
+
+  def add_others(rrs, value) do
+    # add {type, value} for types not included in rrs
+    types = Enum.map(rrs, fn {type, _} -> String.upcase(type) end)
+    others = @rrtypes -- types
+    rrs ++ Enum.map(others, fn type -> {type, value} end)
   end
 end

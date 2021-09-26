@@ -2,9 +2,10 @@ defmodule SpfcheckTestSuite do
   alias Rfc7208.TestSuite
   use ExUnit.Case
 
-  Enum.each(TestSuite.all(), fn {test, mfrom, helo, ip, result, dns, info} ->
+  Enum.each(TestSuite.all(), fn {test, mailfrom, helo, ip, result, dns, info} ->
     @test test
-    @mfrom String.split(mfrom, "@") |> List.last()
+    # @mailfrom String.split(mailfrom, "@") |> List.last()
+    @mailfrom mailfrom
     @helo helo
     @ip ip
     @result result
@@ -13,17 +14,15 @@ defmodule SpfcheckTestSuite do
     @test_tag String.split(test, ".") |> List.first()
 
     @tag set: @test_tag
-    test "#{@test}" do
+    test "#{@test} - #{@mailfrom}" do
       ctx =
-        Spf.Context.new(@mfrom, sender: @helo, ip: @ip)
+        Spf.Context.new(@mailfrom, helo: @helo, ip: @ip)
         |> Spf.DNS.load_lines(@dns)
-        |> Spf.grep()
-        |> Spf.Parser.parse()
-        |> IO.inspect(label: "#{@test}")
-        |> Spf.Eval.eval()
+        |> Spf.Eval.evaluate()
 
-      IO.inspect(ctx.dns, label: :dns)
-      assert "#{ctx.verdict}" == @result, "#{ctx.verdict} != #{@result} - #{@info}"
+      msg = "got #{ctx.verdict}, expected #{@result} - #{@info}\n" <> Enum.join(@dns, "\n")
+
+      assert "#{ctx.verdict}" in @result, msg
     end
   end)
 end
