@@ -287,7 +287,9 @@ defmodule Spf.DNS do
   defp update(ctx, {domain, type, data}) do
     # update ctx.dns with a (single) `data` for given `domain` and `type`
     # note: donot use from_cache since that unrolls cnames
-    domain = charlists_tostr(domain) |> String.trim() |> String.trim_trailing(".")
+    domain = normalize(domain)
+    # charlists_tostr(domain) |> String.trim() |> String.trim_trailing(".") |> String.downcase()
+
     cache = Map.get(ctx, :dns, %{})
     cached = cache[{domain, type}] || []
     data = charlists_tostr(data, type)
@@ -434,7 +436,7 @@ defmodule Spf.DNS do
   end
 
   defp rr_tostr(domain, type, data) do
-    domain = String.pad_trailing(domain, 25)
+    domain = String.pad_trailing(domain, 25) |> String.downcase()
     rrtype = String.upcase("#{type}") |> String.pad_trailing(7)
     data = rr_data_tostr(type, data)
     Enum.join([domain, rrtype, data], " ")
@@ -462,6 +464,14 @@ defmodule Spf.DNS do
       [err] ->
         {:error, @rrerrors[err] || err}
     end
+  end
+
+  defp rr_data_fromstr(:aaaa, value) do
+    String.downcase(value)
+  end
+
+  defp rr_data_fromstr(:ptr, value) do
+    String.downcase(value)
   end
 
   defp rr_data_fromstr(_, value) do

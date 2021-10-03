@@ -15,9 +15,10 @@ defmodule Spf.TokenTest do
 
     test "simple macros" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok, [{:domain_spec, [{:expand, [charcode(l), 0, false, ["."]], 0..3}], 0..3}],
-                  "", %{start1: 0, start2: 0}, {1, 0}, 4}
+        {:ok, [{:domain_spec, [{:expand, [mletter, 0, false, ["."]], 0..3}], 0..3}], "", _context,
+         _linepos, 4} = domain_spec(str)
+
+        assert charcode(l) == mletter, str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}}"}
@@ -26,9 +27,10 @@ defmodule Spf.TokenTest do
 
     test "macros with keep" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok, [{:domain_spec, [{:expand, [charcode(l), 3, false, ["."]], 0..4}], 0..4}],
-                  "", %{start1: 0, start2: 0}, {1, 0}, 5}
+        {:ok, [{:domain_spec, [{:expand, [mletter, 3, false, ["."]], 0..4}], 0..4}], "", _context,
+         _linepos, 5} = domain_spec(str)
+
+        assert mletter == charcode(l), str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}3}"}
@@ -37,9 +39,10 @@ defmodule Spf.TokenTest do
 
     test "macros with reverse" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok, [{:domain_spec, [{:expand, [charcode(l), 0, true, ["."]], 0..4}], 0..4}],
-                  "", %{start1: 0, start2: 0}, {1, 0}, 5}
+        {:ok, [{:domain_spec, [{:expand, [mletter, 0, true, ["."]], 0..4}], 0..4}], "", _context,
+         _linepos, _} = domain_spec(str)
+
+        assert charcode(l) == mletter, str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}r}"}
@@ -51,9 +54,10 @@ defmodule Spf.TokenTest do
 
     test "macros with keep and reverse" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok, [{:domain_spec, [{:expand, [charcode(l), 9, true, ["."]], 0..5}], 0..5}],
-                  "", %{start1: 0, start2: 0}, {1, 0}, 6}
+        {:ok, [{:domain_spec, [{:expand, [mletter, 9, true, ["."]], 0..5}], 0..5}], "", _context,
+         _linepos, 6} = domain_spec(str)
+
+        assert charcode(l) == mletter, str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}9r}"}
@@ -65,15 +69,15 @@ defmodule Spf.TokenTest do
 
     test "macros with delimiters" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok,
-                  [
-                    {:domain_spec,
-                     [
-                       {:expand, [charcode(l), 0, false, [".", "-", "+", ",", "/", "_", "="]],
-                        0..10}
-                     ], 0..10}
-                  ], "", %{start1: 0, start2: 0}, {1, 0}, 11}
+        {:ok,
+         [
+           {:domain_spec,
+            [
+              {:expand, [mletter, 0, false, [".", "-", "+", ",", "/", "_", "="]], 0..10}
+            ], 0..10}
+         ], "", _context, _linepos, 11} = domain_spec(str)
+
+        assert charcode(l) == mletter, str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}.-+,/_=}"}
@@ -82,26 +86,26 @@ defmodule Spf.TokenTest do
 
     test "macro specials" do
       {:ok, [token], _, _, _, _} = domain_spec("%%")
-      assert token == {:domain_spec, [{:expand, '%', 0..1}], 0..1}
+      assert token == {:domain_spec, [{:expand, ["%"], 0..1}], 0..1}
 
       {:ok, [token], _, _, _, _} = domain_spec("%-")
-      assert token == {:domain_spec, [{:expand, '-', 0..1}], 0..1}
+      assert token == {:domain_spec, [{:expand, ["-"], 0..1}], 0..1}
 
       {:ok, [token], _, _, _, _} = domain_spec("%_")
-      assert token == {:domain_spec, [{:expand, '_', 0..1}], 0..1}
+      assert token == {:domain_spec, [{:expand, ["_"], 0..1}], 0..1}
     end
 
     test "macros with reverse and delimiters" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok,
-                  [
-                    {:domain_spec,
-                     [
-                       {:expand, [charcode(l), 0, true, [".", "-", "+", ",", "/", "_", "="]],
-                        0..11}
-                     ], 0..11}
-                  ], "", %{start1: 0, start2: 0}, {1, 0}, 12}
+        {:ok,
+         [
+           {:domain_spec,
+            [
+              {:expand, [mletter, 0, true, [".", "-", "+", ",", "/", "_", "="]], 0..11}
+            ], 0..11}
+         ], "", _context, _linepos, 12} = domain_spec(str)
+
+        assert charcode(l) == mletter, str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}r.-+,/_=}"}
@@ -113,15 +117,15 @@ defmodule Spf.TokenTest do
 
     test "macros with keep, reverse and delimiters" do
       check = fn l, str ->
-        assert domain_spec(str) ==
-                 {:ok,
-                  [
-                    {:domain_spec,
-                     [
-                       {:expand, [charcode(l), 11, true, [".", "-", "+", ",", "/", "_", "="]],
-                        0..13}
-                     ], 0..13}
-                  ], "", %{start1: 0, start2: 0}, {1, 0}, 14}
+        {:ok,
+         [
+           {:domain_spec,
+            [
+              {:expand, [mletter, 11, true, [".", "-", "+", ",", "/", "_", "="]], 0..13}
+            ], 0..13}
+         ], "", _context, _linepos, 14} = domain_spec(str)
+
+        assert charcode(l) == mletter, str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}11r.-+,/_=}"}
@@ -139,7 +143,7 @@ defmodule Spf.TokenTest do
                {:domain_spec,
                 [
                   {:expand, [?d, 2, true, [".", "-"]], 0..7},
-                  {:expand, '-', 8..9},
+                  {:expand, ["-"], 8..9},
                   {:literal, ["com"], 10..12}
                 ], 0..12}
     end
@@ -164,25 +168,147 @@ defmodule Spf.TokenTest do
     end
   end
 
+  describe "unknown_mod() lexes" do
+    defparsec(:unknown_mod, Spf.Tokens.unknown_mod())
+
+    test "holy.cow=an:expression" do
+      term = "holy.cow=an:expression"
+      {:ok, [token], rest, _, _, _} = unknown_mod(term)
+      assert rest == ""
+      assert elem(token, 0) == :unknown_mod
+      [name | _subtokens] = elem(token, 1)
+      assert name == "holy.cow"
+      # subtokens can include {:literal, ["string"], range} or {:expand, [""}, range]
+    end
+
+    test "holy-cow=%{r}%%expression" do
+      term = "holy-cow=%{r}%%expression"
+      {:ok, [token], rest, _, _, _} = unknown_mod(term)
+      assert rest == ""
+      assert elem(token, 0) == :unknown_mod
+      [name | _subtokens] = elem(token, 1)
+      assert name == "holy-cow"
+      # subtokens can include {:literal, ["string"], range} or {:expand, [""}, range]
+    end
+
+    test "holy_cow=expression%{r} rest" do
+      term = "holy-cow=%{r}%%expression rest"
+      {:ok, [token], rest, _, _, _} = unknown_mod(term)
+      assert rest == " rest"
+      assert elem(token, 0) == :unknown_mod
+      [name | _subtokens] = elem(token, 1)
+      assert name == "holy-cow"
+      # subtokens can include {:literal, ["string"], range} or {:expand, [""}, range]
+    end
+
+    test "but not holy%cow=n/a" do
+      term = "holy%cow=n/a"
+      result = unknown_mod(term)
+      assert elem(result, 0) == :error
+    end
+
+    test "but not holy/cow=n/a" do
+      term = "holy/cow=n/a"
+      result = unknown_mod(term)
+      assert elem(result, 0) == :error
+    end
+  end
+
+  describe "dotlabel()" do
+    defparsecp(:dotlabel, Spf.Tokens.dotlabel())
+
+    test "lexes LDH-label .com" do
+      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com")
+      assert rest == ""
+      assert dotlabel == ".com"
+    end
+
+    test "lexes LDH-label .com." do
+      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com.")
+      assert rest == "."
+      assert dotlabel == ".com"
+    end
+
+    test "lexes LDH-label .1-1." do
+      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".1-1.")
+      assert rest == "."
+      assert dotlabel == ".1-1"
+    end
+
+    test "lexes until dash .com-" do
+      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com-")
+      assert rest == "-"
+      assert dotlabel == ".com"
+    end
+
+    test "lexes LDH-dotlabel .com/24" do
+      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com./24")
+      assert rest == "./24"
+      assert dotlabel == ".com"
+    end
+
+    test "errors on non-LDH-dotlabel -com." do
+      result = dotlabel(".-com")
+      assert elem(result, 0) == :error
+    end
+
+    test "errors on  non-LDH-dotlabel .123" do
+      result = dotlabel(".123")
+      assert elem(result, 0) == :error
+    end
+  end
+
+  # TODO:
+  describe "x_domain_spec() lexes" do
+    defparsecp(:domspec, Spf.Tokens.x_domspec())
+
+    test ":.com/24//64.net/24:%{o2r+}" do
+      msg = ":.com/24//64.net/24:%{o2r+}"
+      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
+      assert rest == ""
+      assert length(list) == 6
+    end
+
+    test ":/33//129.abc-1" do
+      msg = ":/33//129.abc-1"
+      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
+      assert rest == ""
+      assert length(list) == 2, msg <> "~>  #{inspect(list)}"
+    end
+
+    test "empty domain_spec" do
+      msg = ":"
+      {:error, _, rest, _, _, _} = domspec(msg)
+      assert rest == ""
+    end
+  end
+
   describe "dual_cidr() lexes" do
     defparsecp(:cidr, Spf.Tokens.dual_cidr())
 
     test "/24" do
-      assert cidr("/24") == {:ok, [{:dual_cidr, [24, 128], 0..2}], "", %{start1: 0}, {1, 0}, 3}
+      str = "/24"
+      {:ok, [{token, [24, 128], 0..2}], "", _context, _linepos, 3} = cidr(str)
+      assert token == :dual_cidr, str
     end
 
     test "//64" do
-      assert cidr("//64") == {:ok, [{:dual_cidr, [32, 64], 0..3}], "", %{start1: 0}, {1, 0}, 4}
+      str = "//64"
+      {:ok, [{token, [32, 64], 0..3}], "", _context, _linepos, 4} = cidr(str)
+      assert token == :dual_cidr, str
     end
 
     test "/24//64" do
-      assert cidr("/24//64") == {:ok, [{:dual_cidr, [24, 64], 0..6}], "", %{start1: 0}, {1, 0}, 7}
+      str = "/24//64"
+      {:ok, [{token, [24, 64], 0..6}], "", _context, _linepos, 7} = cidr(str)
+      assert token == :dual_cidr, str
     end
 
     test "/33//129" do
       # parser will validate prefix lengths, not the lexer
-      assert cidr("/33//129") ==
-               {:ok, [{:dual_cidr, [33, 129], 0..7}], "", %{start1: 0}, {1, 0}, 8}
+      str = "/33//129"
+      {:ok, [{token, [33, 129], 0..7}], "", _context, _linepos, 8} = cidr(str)
+      assert token == :dual_cidr, str
     end
   end
 
@@ -190,23 +316,65 @@ defmodule Spf.TokenTest do
     defparsecp(:wspace, Spf.Tokens.whitespace())
 
     test "1 space" do
-      assert wspace(" ") ==
-               {:ok, [{:whitespace, [" "], 0..0}], "", %{start1: 0}, {1, 0}, 1}
+      {:ok, [{:whitespace, [" "], 0..0}], "", _context, _linepos, 1} = wspace(" ")
     end
 
     test "1+ spaces" do
-      assert wspace("   ") ==
-               {:ok, [{:whitespace, ["   "], 0..2}], "", %{start1: 0}, {1, 0}, 3}
+      {:ok, [{:whitespace, ["   "], 0..2}], "", _context, _linepos, 3} = wspace("   ")
     end
 
     test "1+ tabs" do
-      assert wspace("\t\t") ==
-               {:ok, [{:whitespace, ["\t\t"], 0..1}], "", %{start1: 0}, {1, 0}, 2}
+      {:ok, [{:whitespace, ["\t\t"], 0..1}], "", _context, _linepos, 2} = wspace("\t\t")
     end
 
     test "1+ (SP / TAB)" do
-      assert wspace(" \t ") ==
-               {:ok, [{:whitespace, [" \t "], 0..2}], "", %{start1: 0}, {1, 0}, 3}
+      {:ok, [{:whitespace, [" \t "], 0..2}], "", _context, _linepos, 3} = wspace(" \t ")
+    end
+  end
+
+  describe "x_a() lexes" do
+    defparsec(:x_a, Spf.Tokens.x_a())
+
+    test "a" do
+      str = "a"
+      result = x_a(str)
+      IO.inspect(result, label: str)
+    end
+
+    test "a:" do
+      str = "a:"
+      result = x_a(str)
+      IO.inspect(result, label: str)
+    end
+
+    test "a/24" do
+      str = "a/24"
+      result = x_a(str)
+      IO.inspect(result, label: str)
+    end
+
+    test "a/24//64" do
+      str = "a/24//64"
+      result = x_a(str)
+      IO.inspect(result, label: str)
+    end
+
+    test "a:/24//64" do
+      str = "a:/24//64"
+      result = x_a(str)
+      IO.inspect(result, label: str)
+    end
+
+    test "a:/24//64/0//0" do
+      str = "a:/24//64/0//0"
+      result = x_a(str)
+      IO.inspect(result, label: str)
+    end
+
+    test "a:l1.l2.tld./24//64" do
+      str = "a:l1.l2.tld./24//64"
+      result = x_a(str)
+      IO.inspect(result, label: str)
     end
   end
 
@@ -214,86 +382,95 @@ defmodule Spf.TokenTest do
     defparsec(:a, Spf.Tokens.a())
 
     test "a" do
-      assert a("a") ==
-               {:ok, [{:a, [?+, []], 0..0}], "", %{start: 0}, {1, 0}, 1}
+      {:ok, [{:a, [?+, []], 0..0}], "", _context, _linepos, 1} = a("a")
     end
 
     test "a with cidr" do
-      assert a("a/24") ==
-               {:ok, [{:a, [?+, [{:dual_cidr, [24, 128], 1..3}]], 0..3}], "",
-                %{start: 0, start1: 1}, {1, 0}, 4}
+      {:ok, [{:a, [?+, [{:dual_cidr, [24, 128], 1..3}]], 0..3}], "", _context, _linepos, 4} =
+        a("a/24")
     end
 
     test "a with domain_spec" do
-      assert a("a:%{d}") ==
-               {:ok,
-                [
-                  {:a, [43, [{:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}]],
-                   0..5}
-                ], "", %{start: 0, start1: 2, start2: 2}, {1, 0}, 6}
+      str = "a:%{d}"
+
+      {:ok,
+       [
+         {token, [43, [{:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}]], 0..5}
+       ], "", _context, _linepost, 6} = a(str)
+
+      assert token == :a, str
     end
 
     test "a with domain_spec and ipv4 cidr" do
-      assert a("a:%{d}/24") ==
-               {:ok,
-                [
-                  {:a,
-                   [
-                     43,
-                     [
-                       {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
-                       {:dual_cidr, [24, 128], 6..8}
-                     ]
-                   ], 0..8}
-                ], "", %{start: 0, start1: 6, start2: 2}, {1, 0}, 9}
+      str = "a:%{d}/24"
+
+      {:ok,
+       [
+         {token,
+          [
+            43,
+            [
+              {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
+              {:dual_cidr, [24, 128], 6..8}
+            ]
+          ], 0..8}
+       ], "", _context, _linepos, 9} = a(str)
+
+      assert token == :a, str
     end
 
     test "a with domain_spec and ipv6 cidr" do
-      assert a("a:%{d}//64") ==
-               {:ok,
-                [
-                  {:a,
-                   [
-                     43,
-                     [
-                       {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
-                       {:dual_cidr, [32, 64], 6..9}
-                     ]
-                   ], 0..9}
-                ], "", %{start: 0, start1: 6, start2: 2}, {1, 0}, 10}
+      str = "a:%{d}//64"
+
+      {:ok,
+       [
+         {token,
+          [
+            43,
+            [
+              {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
+              {:dual_cidr, [32, 64], 6..9}
+            ]
+          ], 0..9}
+       ], "", _context, _linepos, 10} = a(str)
+
+      assert token == :a, str
     end
 
     test "a with domain_spec and dual cidr" do
-      assert a("a:%{d}/24//64") ==
-               {:ok,
-                [
-                  {:a,
-                   [
-                     43,
-                     [
-                       {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
-                       {:dual_cidr, [24, 64], 6..12}
-                     ]
-                   ], 0..12}
-                ], "", %{start: 0, start1: 6, start2: 2}, {1, 0}, 13}
+      str = "a:%{d}/24//64"
+
+      {:ok,
+       [
+         {:a,
+          [
+            43,
+            [
+              {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
+              {:dual_cidr, [24, 64], 6..12}
+            ]
+          ], 0..12}
+       ], "", _context, _linepos, 13} = a(str)
     end
 
     test "a with qualifier, domain_spec and dual cidr" do
       testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}a:%{d}/24//64"}
 
       check = fn q, str ->
-        assert a(str) ==
-                 {:ok,
-                  [
-                    {:a,
-                     [
-                       q,
-                       [
-                         {:domain_spec, [{:expand, [100, 0, false, ["."]], 3..6}], 3..6},
-                         {:dual_cidr, [24, 64], 7..13}
-                       ]
-                     ], 0..13}
-                  ], "", %{start: 0, start1: 7, start2: 3}, {1, 0}, 14}
+        {:ok,
+         [
+           {token,
+            [
+              qual,
+              [
+                {:domain_spec, [{:expand, [100, 0, false, ["."]], 3..6}], 3..6},
+                {:dual_cidr, [24, 64], 7..13}
+              ]
+            ], 0..13}
+         ], "", _context, _linepos, 14} = a(str)
+
+        assert token == :a, str
+        assert qual == q, str
       end
 
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
@@ -312,10 +489,16 @@ defmodule Spf.TokenTest do
       testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}all"}
 
       check = fn q, str ->
-        assert all(str) == {:ok, [{:all, [q], 0..3}], "", %{start: 0}, {1, 0}, 4}
+        {:ok, [{:all, [qual], 0..3}], "", _context, _linepos, 4} = all(str)
+        assert qual == q, str
       end
 
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
+    end
+
+    test "all requires proper term ending" do
+      result = all("all:")
+      assert elem(result, 0) == :error
     end
   end
 
@@ -336,6 +519,14 @@ defmodule Spf.TokenTest do
                    ], 7..17}
                 ], 0..17}
     end
+
+    # test "proper term ending" do
+    #   result = exists("exists:")
+    #   assert elem(result, 0) == :error
+
+    #   result = exists("exists:example.com\24")
+    #   assert elem(result, 0) == :error
+    # end
   end
 
   describe "include() lexes" do
@@ -402,14 +593,15 @@ defmodule Spf.TokenTest do
     defparsec(:mx, Spf.Tokens.mx())
 
     test "mx default qualifier" do
-      assert mx("mx") == {:ok, [{:mx, [?+, []], 0..1}], "", %{start: 0}, {1, 0}, 2}
+      {:ok, [{:mx, [?+, []], 0..1}], "", _context, _linepos, 2} = mx("mx")
     end
 
     test "mx with qualifier" do
       testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}mx"}
 
       check = fn q, str ->
-        assert mx(str) == {:ok, [{:mx, [q, []], 0..2}], "", %{start: 0}, {1, 0}, 3}
+        {:ok, [{:mx, [qual, []], 0..2}], "", _context, _linepos, 3} = mx(str)
+        assert qual == q, str
       end
 
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
@@ -460,11 +652,11 @@ defmodule Spf.TokenTest do
     defparsec(:ptr, Spf.Tokens.ptr())
 
     test "all qualifiers" do
-      assert ptr("ptr") == {:ok, [{:ptr, [?+, []], 0..2}], "", %{start: 0}, {1, 0}, 3}
-      assert ptr("+ptr") == {:ok, [{:ptr, [?+, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
-      assert ptr("-ptr") == {:ok, [{:ptr, [?-, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
-      assert ptr("~ptr") == {:ok, [{:ptr, [?~, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
-      assert ptr("?ptr") == {:ok, [{:ptr, [??, []], 0..3}], "", %{start: 0}, {1, 0}, 4}
+      {:ok, [{:ptr, [?+, []], 0..2}], "", _context, _linepos, 3} = ptr("ptr")
+      {:ok, [{:ptr, [?+, []], 0..3}], "", _context, _linepos, 4} = ptr("+ptr")
+      {:ok, [{:ptr, [?-, []], 0..3}], "", _context, _linepos, 4} = ptr("-ptr")
+      {:ok, [{:ptr, [?~, []], 0..3}], "", _context, _linepos, 4} = ptr("~ptr")
+      {:ok, [{:ptr, [??, []], 0..3}], "", _context, _linepos, 4} = ptr("?ptr")
     end
 
     test "its domain_spec" do
@@ -554,20 +746,21 @@ defmodule Spf.TokenTest do
 
     test "specials" do
       {:ok, [token], _, _, _, _} = expand("%%")
-      assert token == {:expand, '%', 0..1}
+      assert token == {:expand, ["%"], 0..1}
 
       {:ok, [token], _, _, _, _} = expand("%-")
-      assert token == {:expand, '-', 0..1}
+      assert token == {:expand, ["-"], 0..1}
 
       {:ok, [token], _, _, _, _} = expand("%_")
-      assert token == {:expand, '_', 0..1}
+      assert token == {:expand, ["_"], 0..1}
     end
 
     test "simple macros (both cases)" do
       check = fn l, str ->
-        assert expand(str) ==
-                 {:ok, [{:expand, [charcode(l), 0, false, ["."]], 0..3}], "", %{start2: 0},
-                  {1, 0}, 4}
+        {:ok, [{:expand, [mletter, 0, false, ["."]], 0..3}], "", _context, _linepos, 4} =
+          expand(str)
+
+        assert mletter == charcode(l), str
       end
 
       testcases = for l <- @mletters, do: {l, "%{#{l}}"}

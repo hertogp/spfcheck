@@ -49,6 +49,9 @@ defmodule Rfc7208.TestSuite do
   # 12 - Semantics of exp and other modifiers
   # 13 - Macro expansion rules
   # 14 - Processing limits
+  #
+  # mix test test/rfc7208_test.exs --only set:x
+  # where x is in 0..14
 
   @rrtypes ["A", "AAAA", "CNAME", "MX", "PTR", "SOA", "SPF", "TXT"]
 

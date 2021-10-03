@@ -48,12 +48,17 @@ defmodule Spf.Parser do
   # 3. keep (max) N last elements if requested
   # 4. join with "."
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
+    # result of expand1 token
     ctx.macro[ltr]
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
     |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
     |> Enum.join(".")
   end
+
+  defp expand(_ctx, :expand, [str]),
+    # result of expand2 token
+    do: str
 
   defp expand(_ctx, :literal, [str]),
     do: str
@@ -66,7 +71,7 @@ defmodule Spf.Parser do
   end
 
   defp ast(ctx, {:exp, _tokval, range} = token) do
-    # eplain not added to ctx.ast but only for the original SPF record
+    # explain not added to ctx.ast but assigned to ctx.explain (only for the original SPF record)
     tokstr = String.slice(ctx.spf, range)
 
     if ctx.f_include do
@@ -226,8 +231,21 @@ defmodule Spf.Parser do
   defp parse({:exp, [domain_spec], range}, ctx),
     do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
 
-  defp parse({:unknown, _tokvalue, range} = _token, ctx),
-    do: log(ctx, :parse, :error, "UNKNOWN TERM \"#{String.slice(ctx.spf, range)}\"")
+  # Unknown_mod
+  defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
+    # unknown_mod term may be ignored
+    # like 'moo.cow-far_out=man:dog/cat'
+    log(ctx, :parse, :warn, "ignored UNKNOWN MODIFIER \"#{String.slice(ctx.spf, range)}\"")
+  end
+
+  # Unknown
+  defp parse({:unknown, _tokvalue, range} = _token, ctx) do
+    # unknown term may be ignored if its a unknown modifier ...
+    # like 'moo.cow-far_out=man:dog/cat'
+    log(ctx, :parse, :error, "UNKNOWN TERM \"#{String.slice(ctx.spf, range)}\"")
+    |> Map.put(:error, :syntax_error)
+    |> Map.put(:reason, "unknown term '#{String.slice(ctx.spf, range)}' at #{inspect(range)}")
+  end
 
   # CatchAll
   defp parse(token, ctx),

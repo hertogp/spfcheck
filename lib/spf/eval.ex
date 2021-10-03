@@ -247,6 +247,7 @@ defmodule Spf.Eval do
       :timeout -> Map.put(ctx, :verdict, :temperror)
       :servfail -> Map.put(ctx, :verdict, :temperror)
       :non_ascii_spf -> Map.put(ctx, :verdict, :permerror)
+      :syntax_error -> Map.put(ctx, :verdict, :permerror)
     end
   end
 
