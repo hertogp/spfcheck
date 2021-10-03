@@ -98,13 +98,13 @@ defmodule Spf.Tokens do
     do: Range.new(Map.get(context, label, 0), offset - 1)
 
   # record current offset for `token_type` in `context`
-  def mark_start(_rest, args, context, _line, offset, token_type),
+  def start_mark(_rest, args, context, _line, offset, token_type),
     do: {args, Map.put(context, token_type, offset)}
 
   # combinator to record current offset for given `token_type`
   defp start(token_type) do
     empty()
-    |> post_traverse({@m, :mark_start, [token_type]})
+    |> post_traverse({@m, :start_mark, [token_type]})
   end
 
   # SPF
