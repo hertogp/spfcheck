@@ -115,7 +115,7 @@ defmodule Spf.Tokens do
 
   A token is three element tuple: `{token_type, token_value, range}`, where:
   - `token_type` is an atom
-  - `token_value` is a list a values and/or subtokens
+  - `token_value` is a list of values (which may include subtokens)
   - `range` is the start..stop range of this token in the SPF string
 
   """

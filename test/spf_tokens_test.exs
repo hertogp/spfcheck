@@ -376,6 +376,13 @@ defmodule Spf.TokenTest do
       result = x_a(str)
       IO.inspect(result, label: str)
     end
+
+    @str "a:l1.l2.tld.%{d}/24//64"
+    test @str do
+      # str = "a:l1.l2.tld.%{d}/24//64"
+      result = x_a(@str)
+      IO.inspect(result, label: @str)
+    end
   end
 
   describe "a() lexes" do

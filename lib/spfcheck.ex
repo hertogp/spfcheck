@@ -108,6 +108,7 @@ defmodule Spfcheck do
       |> report(3)
       |> report(4)
       |> report(5)
+      |> report(6)
     end
   end
 
@@ -290,6 +291,24 @@ defmodule Spfcheck do
 
       IO.puts("```")
     end
+
+    ctx
+  end
+
+  # Report AST
+  defp report(ctx, 6) do
+    IO.puts("\n## AST\n")
+
+    IO.puts("```")
+
+    ctx.ast
+    |> Enum.map(fn x -> inspect(x) end)
+    |> Enum.join("\n")
+    |> IO.puts()
+
+    IO.puts("```")
+
+    IO.inspect(ctx.macro, label: :macros)
   end
 
   def usage() do

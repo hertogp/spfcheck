@@ -130,8 +130,6 @@ defmodule Spf.Context do
     tstamp = DateTime.utc_now() |> DateTime.to_unix()
     {sender_local, sender_domain} = split(sender)
     {_, helo_domain} = split(helo)
-    sender_domain = sender_domain || helo_domain || ""
-    helo_domain = helo_domain || ""
 
     m = %{
       # d = <domain>
@@ -162,13 +160,20 @@ defmodule Spf.Context do
     |> Map.put(?T, tstamp)
   end
 
-  defp split(mbox) do
-    case String.split(mbox, "@", parts: 2) do
-      ["", domain] -> {"postmaster", domain}
-      [local, ""] -> {local, nil}
-      [local, domain] -> {local, domain}
-      [domain] -> {"postmaster", domain}
-    end
+  def split(mbox) do
+    # local@local@domain -> {local@local, domain}, local part is upto last `@`
+    # TODO: right now, split("domain@domain") -> {postmaster, domain} instead
+    # of {domain, domain} ... although its an edge case.
+    domain = String.replace(mbox, ~r/^.*@/, "")
+
+    local =
+      case String.replace(mbox, ~r/@[^@]*$/, "") do
+        "" -> "postmaster"
+        ^domain -> "postmaster"
+        local -> local
+      end
+
+    {local, domain}
   end
 
   @doc """
@@ -191,11 +196,14 @@ defmodule Spf.Context do
   def new(sender, opts \\ []) do
     # TODO: check validity of user supplied IP address
     ip = Keyword.get(opts, :ip, "127.0.0.1")
-    helo = Keyword.get(opts, :helo, "")
+    # Probably an error in the specs: spf's check_host(domain, ip, sender), where:
+    # ip = ip of mta client
+    # sender = MAILFROM or EHLO identity
+    # domain = SPF provider, initially domain portion of sender
+    # So .. how can you expand %{h} to the EHLO domain?  That's never given!
+    helo = Keyword.get(opts, :helo, sender)
 
-    {local, sender_domain} = split(sender)
-    {_, helo_domain} = split(helo)
-    domain = sender_domain || helo_domain || ""
+    {local, domain} = split(sender)
 
     atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
 
@@ -261,6 +269,8 @@ defmodule Spf.Context do
       num_error: 0,
       # list of terms to be evaluated to arrive at a verdict
       ast: [],
+      # list of tokens found by the lexer
+      tokens: [],
       # how long the evaluation took; warn if it took > 20 sec!
       duration: 0,
       # ip -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
