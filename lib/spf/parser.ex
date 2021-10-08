@@ -42,6 +42,16 @@ defmodule Spf.Parser do
     |> Enum.join()
   end
 
+  def domain(_ctx, {:domspec, [:einvalid], _range}),
+    do: nil
+
+  def domain(ctx, {:domspec, tokens, _range}) do
+    for {token, args, _range} <- tokens do
+      expand(ctx, token, args)
+    end
+    |> Enum.join()
+  end
+
   # transformers:
   # 1. split on "." or the delimiters provided
   # 2. reversal if requested
@@ -60,8 +70,11 @@ defmodule Spf.Parser do
     # result of expand2 token
     do: str
 
-  defp expand(_ctx, :literal, [str]),
+  defp expand(_ctx, token_type, [str]) when token_type in [:literal, :toplabel],
     do: str
+
+  # defp expand(_ctx, :literal, [str]),
+  #   do: str
 
   defp taketok(args, toktype) do
     case List.keytake(args, toktype, 0) do
@@ -108,7 +121,7 @@ defmodule Spf.Parser do
     end
   end
 
-  # Parser
+  # Parse Context
 
   def parse(%{error: error} = ctx) when error != nil,
     do: ctx
@@ -129,40 +142,12 @@ defmodule Spf.Parser do
     |> check(:no_implicit)
   end
 
-  # Checks
-  # TODO: implement a number of checks
-  # - 4.6 spf syntax is checked -> any error yields a permerror
-  # - 4.6.1 eval mechanisms left to right (default is implicit ?all = neutral)
-  # - 4.6.2 if mech matches, its qual is the result of the spf record
-  # - 4.6.3 `redirect` is evaluated after all mechanism have been exhausted
-  # - 4.6.4 spf eval overall limit of DNS mech/modifiers is 10:
-  #   -> a, mx, ptr, include, exists and redirect
-  #   + mx  -> num of mx names to resolve is included in the 10 limit
-  #         -> max 10 mx names may be resolved, the 11-th causes a permerror
-  #   + ptr -> num of ptr names resolved is included in the 10 limit
-  #         -> max 10 names may be resolved, the others are ignored (!)
-  #   + void lookups (nxdomain or 0 answers) SHOULD be max 2, exceed -> permerror
-  #         -> RCODE 0 with no answers, or RCODE 3 (nxdomain)
-  # - 4.7 no matches and no redirect -> default result is `?all`, ie neutral
-  # - 4.8 no domain-spec provided -> use <domain> of check_host() call
-  #         -> SPF result for invalid domains is unspecified
-  #         -> so simply warn, ignore and move on
-  # - 5.1 all
-  #   - mechs after all are ignored
-  #   - if all is present, redirect is ignored (regardless of ordering)
-  # - 5.5 ptr
-  #   - warn that its use is NOT recommended
-  #   - reverse lookup -> name(s) -> ip(s) (lookup all names)
-  #   - PTR RR lookup fails -> ptr fails to match
-  #   - A RR lookup fails -> name is skipped, continue with the others
-  #   - collect validated names (lookup name -> ip is <ip>, then name is validated)
-  #   - filter names, keep those equal to <target> domain or subdomain thereof
-  #   - 1+ name remains -> match, if empty -> no-match
-
   # Parse Tokens
 
   # Version
   defp parse({:version, [n], _range} = token, ctx) do
+    # TODO: DNS.grep checks for v=spf1, so we're always good here, no?
+    # And if possibly not, then put in the syntax error
     case n do
       1 -> ctx
       _ -> log(ctx, :parse, :error, "unknown SPF version #{inspect(token)}")
@@ -182,13 +167,30 @@ defmodule Spf.Parser do
   end
 
   # A, MX
-  defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
+  defp parse({atom, [qual, args], range}, ctx) when atom in [:mx] do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
 
     ast(ctx, {atom, [qual, domain(ctx, spec), cidr(dual)], range})
     |> tick(:num_dnsm)
     |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+  end
+
+  defp parse({:a, [qual, args], range}, ctx) do
+    {spec, _} = taketok(args, :domspec)
+    {dual, _} = taketok(args, :dual_cidr)
+
+    case domain(ctx, spec) do
+      nil ->
+        Map.put(ctx, :error, :syntax_error)
+        |> Map.put(:reason, "invalid term #{String.slice(ctx.spf, range)}")
+        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+
+      domain ->
+        ast(ctx, {:a, [qual, domain, cidr(dual)], range})
+        |> tick(:num_dnsm)
+        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+    end
   end
 
   # Ptr
@@ -240,8 +242,6 @@ defmodule Spf.Parser do
 
   # Unknown
   defp parse({:unknown, _tokvalue, range} = _token, ctx) do
-    # unknown term may be ignored if its a unknown modifier ...
-    # like 'moo.cow-far_out=man:dog/cat'
     log(ctx, :parse, :error, "UNKNOWN TERM \"#{String.slice(ctx.spf, range)}\"")
     |> Map.put(:error, :syntax_error)
     |> Map.put(:reason, "unknown term '#{String.slice(ctx.spf, range)}' at #{inspect(range)}")
@@ -251,8 +251,8 @@ defmodule Spf.Parser do
   defp parse(token, ctx),
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
 
-  # Checks for ast and spf
-  # Spf_length
+  # Checks
+
   defp check(ctx, :spf_length) do
     case String.length(ctx.spf) do
       len when len > 512 -> log(ctx, :parse, :warn, "SPF string length #{len} > 512 characters")
@@ -260,7 +260,6 @@ defmodule Spf.Parser do
     end
   end
 
-  # Spf_residue
   defp check(ctx, :spf_residue) do
     case String.length(ctx.spf_rest) do
       len when len > 0 -> log(ctx, :parse, :warn, "SPF string residue #{inspect(ctx.spf_rest)}")

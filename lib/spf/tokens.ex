@@ -179,7 +179,7 @@ defmodule Spf.Tokens do
   end
 
   # A/MX/PTR
-  def token(_rest, args, context, _line, offset, atom) when atom in [:a, :mx, :ptr] do
+  def token(_rest, args, context, _line, offset, atom) when atom in [:mx, :ptr, :a] do
     tokval =
       case Enum.reverse(args) do
         [{:qualifier, q, _range}] -> [q, []]
@@ -216,13 +216,8 @@ defmodule Spf.Tokens do
     {tokval, context}
   end
 
-  # Dotlabel
-  def token(_rest, args, context, _line, offset, :dotlabel) do
-    {[{:dotlabel, args, range(context, :dotlabel, offset)}], context}
-  end
-
-  def token(_rest, args, context, _line, offset, :ldhlabel) do
-    {[{:ldhlabel, args, range(context, :ldhlabel, offset)}], context}
+  def token(_rest, args, context, _line, offset, :toplabel) do
+    {[{:toplabel, args, range(context, :toplabel, offset)}], context}
   end
 
   # Expand -> {:expand, [letter, keepN, reverse?, delimiters], range}
@@ -242,42 +237,14 @@ defmodule Spf.Tokens do
     do: {[{:domspec, args, range(context, :domspec, offset)}], context}
 
   def token(_rest, args, context, _line, offset, :domspec) do
-    # Notes:
-    # - a domain spec will also always match any dual-cidr patterns, so if the
-    #   domspec's list of tokens ends with a cidr2,4,6 -> we bump that to its
-    #   own dual-cidr token outside (after) the domspec.
-    # - in remaining args' tokens -> cidr patterns are reassembled as :literal tokens
-    # - the parser needs to decide if domspec is actually valid in the context of its
-    #   parent token.
-    #   - a dotlabel (optionally followed by literal "."), or
-    #   - an expand
-    [head | tail] = args
-
-    cidr =
-      case head do
-        {:cidr2, lengths, range} -> {:dual_cidr, lengths, range}
-        {:cidr4, [len4], range} -> {:dual_cidr, [len4, 128], range}
-        {:cidr6, [len6], range} -> {:dual_cidr, [32, len6], range}
-        _ -> nil
+    args =
+      case args do
+        [{:expand, _, _} | _] -> args
+        [{:toplabel, _, _} | _] -> args
+        _ -> [:einvalid]
       end
 
-    case cidr do
-      nil ->
-        {[{:domspec, Enum.reverse(args), range(context, :domspec, offset)}], context}
-
-      cidr ->
-        tail =
-          for token <- tail do
-            case token do
-              {:cidr2, [len4, len6], range} -> {:literal, ["/#{len4}//#{len6}"], range}
-              {:cidr4, [len], range} -> {:literal, ["/#{len}"], range}
-              {:cidr6, [len], range} -> {:literal, ["//#{len}"], range}
-              token -> token
-            end
-          end
-
-        {[cidr, {:domspec, Enum.reverse(tail), range(context, :domspec, offset)}], context}
-    end
+    {[{:domspec, Enum.reverse(args), range(context, :domspec, offset)}], context}
   end
 
   # Domain_spec
@@ -315,7 +282,8 @@ defmodule Spf.Tokens do
       whitespace(),
       version(),
       all(),
-      a(),
+      x_a(),
+      # a(),
       mx(),
       ip4(),
       ip6(),
@@ -360,23 +328,6 @@ defmodule Spf.Tokens do
   # L0 TOKENS
 
   @doc """
-  Token `{:a, [q, [subtokens]], range}`
-
-  Where:
-  - `q` is a [qualifier](`t:q/0`) character code
-  - `subtokens` may include `domspec`-token and/or `cidr`-token, or neither.
-
-  """
-  def a() do
-    start(:a)
-    |> qualifier()
-    |> ignore(anycase("a"))
-    |> optional(ignore(ascii_char([?:])) |> domain_spec())
-    |> optional(dual_cidr())
-    |> post_traverse({@m, :token, [:a]})
-  end
-
-  @doc """
   Token `{:a, [`[`q`](`t:q/0`)`, domain], `[`range`](`t:range/0`)`}`.
 
   Where `domain` is a list which is either empty or contains a [`domain_spec`](`domain_spec/1`) or
@@ -384,13 +335,13 @@ defmodule Spf.Tokens do
 
   """
   def x_a() do
-    start(:x_a)
+    start(:a)
     |> qualifier()
     |> ignore(anycase("a"))
     |> optional(x_domspec())
     |> optional(dual_cidr())
     |> eoterm()
-    |> post_traverse({@m, :token, [:x_a]})
+    |> post_traverse({@m, :token, [:a]})
   end
 
   @doc """
@@ -747,20 +698,23 @@ defmodule Spf.Tokens do
   ### - terms should be lexed completely, using eoterm()
   ### MAYBE: use concat(func()) instead of having func/1 -> concat(func()) ??
 
-  def dotlabel() do
-    start(:dotlabel)
+  # def dotlabel() do
+  #   start(:dotlabel)
+  #   |> string(".")
+  #   |> choice([ldhlabel1(), ldhlabel2()])
+  #   # |> optional(string("."))
+  #   |> reduce({List, :to_string, []})
+  #   |> post_traverse({@m, :token, [:dotlabel]})
+  # end
+
+  def toplabel() do
+    start(:toplabel)
     |> string(".")
     |> choice([ldhlabel1(), ldhlabel2()])
-    # |> optional(string("."))
+    |> optional(string("."))
+    |> eoterm()
     |> reduce({List, :to_string, []})
-    |> post_traverse({@m, :token, [:dotlabel]})
-  end
-
-  def ldhlabel() do
-    start(:ldhlabel)
-    |> choice([ldhlabel1(), ldhlabel2()])
-    |> reduce({List, :to_string, []})
-    |> post_traverse({@m, :token, [:ldhlabel]})
+    |> post_traverse({@m, :token, [:toplabel]})
   end
 
   defp ldhlabel1() do
@@ -797,6 +751,7 @@ defmodule Spf.Tokens do
 
   defp mliteral() do
     start(:mliteral)
+    |> lookahead_not(dual_cidr())
     |> ascii_char([0x21..0x24, 0x26..0x7E])
     |> post_traverse({@m, :token, [:mliteral]})
   end
@@ -834,12 +789,14 @@ defmodule Spf.Tokens do
 
   """
   def x_domspec() do
-    # On each iteration, the choice tries to match longer tokens first, and a
-    # macro-literal (as a single char) last.  That way, macro-literals won't
-    # eat up toplabels and/or dual-cidrs.
+    # A sequence of :dotlabel, :ldhlabel, :expand or :literal
+    # Note: (m)literal can only match if the remaining input does NOT match a
+    # dual_cidr() followed by eoterm().  Since (m)literal() matches all visible
+    # chars (except '%'), this will consume input till either a dual_cidr() or
+    # an eoterm()
     ignore(ascii_char([?:]))
     |> concat(start(:domspec))
-    |> times(choice([cidr(), dotlabel(), ldhlabel(), expand(), mliteral()]), min: 1)
+    |> times(choice([toplabel(), expand(), mliteral()]), min: 1)
     |> post_traverse({@m, :token, [:domspec]})
   end
 end
