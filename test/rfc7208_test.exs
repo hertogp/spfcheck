@@ -26,16 +26,20 @@ defmodule SpfcheckTestSuite do
         |> Spf.Eval.evaluate()
 
       msg = "got #{ctx.verdict}, expected #{@result} - #{@info}\n"
-      msg = msg <> "#{@test}, from #{@mailfrom}, helo #{@helo}, ip #{@ip}\n"
-      msg = msg <> "#{ctx.spf}\n\n"
+      msg = msg <> "- TEST: #{@test}\n"
+      msg = msg <> "- FROM: #{@mailfrom}\n"
+      msg = msg <> "- HELO: #{@helo}\n"
+      msg = msg <> "- IP  : #{@ip} -> #{inspect(ctx.ip)}\n"
+      msg = msg <> "- SPF : #{ctx.spf}\n"
+
+      msg =
+        msg <>
+          (ctx.ast
+           |> Enum.map(fn x -> inspect(x) end)
+           |> Enum.join("\n"))
 
       msg =
         msg <> (Enum.filter(@dns, fn l -> String.contains?(l, ctx.domain) end) |> Enum.join("\n"))
-
-      msg = msg <> "\n\n" <> "#{inspect(ctx.ip)}"
-      name = "foo:bar/baz.example.com"
-      msg = msg <> "#{name} A #{inspect(ctx.dns[{name, :a}])}"
-      msg = msg <> "#{name} AAAA #{inspect(ctx.dns[{name, :aaaa}])}"
 
       assert "#{ctx.verdict}" in @result, msg
     end

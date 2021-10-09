@@ -176,7 +176,7 @@ defmodule Spf.Parser do
       |> Map.put(:reason, "invalid term #{String.slice(ctx.spf, range)}")
       |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
     else
-      ast(ctx, {:a, [qual, domain, cidr], range})
+      ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
     end
