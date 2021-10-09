@@ -28,7 +28,6 @@ defmodule Spf.Eval do
     if ctx.verdict == :fail and ctx.explain do
       {_token, [domain], _range} = ctx.explain
       {ctx, dns} = DNS.resolve(ctx, domain, :txt)
-      # dns query for an explain string does not count
       ctx = tick(ctx, :num_dnsq, -1)
 
       case dns do
@@ -52,25 +51,12 @@ defmodule Spf.Eval do
 
   defp explainp(ctx, explain) do
     case Spf.exp_tokens(explain) do
-      {:error, _, _, _, _, _} -> ""
-      {:ok, [{:exp_str, tokens, _range}], _, _, _, _} -> expand(ctx, tokens)
+      {:error, _, _, _, _, _} ->
+        ""
+
+      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
+        Spf.Parser.expand(ctx, exp_str)
     end
-  end
-
-  defp expand(ctx, {:domain_spec, _, _} = spec),
-    do: Spf.Parser.domain(ctx, spec)
-
-  defp expand(_ctx, {:whitespace, [str], _}),
-    do: str
-
-  defp expand(_ctx, {:unknown, [str], _}),
-    do: str
-
-  defp expand(ctx, tokens) when is_list(tokens) do
-    for token <- tokens do
-      expand(ctx, token)
-    end
-    |> Enum.join()
   end
 
   defp check_limits(ctx) do

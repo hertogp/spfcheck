@@ -32,20 +32,13 @@ defmodule Spf.Parser do
   defp cidr({:dual_cidr, args, _}),
     do: args
 
-  def domain(ctx, []),
+  def expand(ctx, []),
     do: ctx.domain
 
-  def domain(ctx, {:domain_spec, tokens, _range}) do
-    for {token, args, _range} <- tokens do
-      expand(ctx, token, args)
-    end
-    |> Enum.join()
-  end
-
-  def domain(_ctx, {:domspec, [:einvalid], _range}),
+  def expand(_ctx, {:domspec, [:einvalid], _range}),
     do: nil
 
-  def domain(ctx, {:domspec, tokens, _range}) do
+  def expand(ctx, {toktype, tokens, _range}) when toktype in [:domspec, :exp_str] do
     for {token, args, _range} <- tokens do
       expand(ctx, token, args)
     end
@@ -70,8 +63,9 @@ defmodule Spf.Parser do
     # result of expand2 token
     do: str
 
-  defp expand(_ctx, token_type, [str]) when token_type in [:literal, :toplabel],
-    do: str
+  defp expand(_ctx, token_type, [str])
+       when token_type in [:literal, :toplabel, :whitespace, :unknown],
+       do: str
 
   # defp expand(_ctx, :literal, [str]),
   #   do: str
@@ -171,7 +165,7 @@ defmodule Spf.Parser do
     {spec, _} = taketok(args, :domain_spec)
     {dual, _} = taketok(args, :dual_cidr)
 
-    ast(ctx, {atom, [qual, domain(ctx, spec), cidr(dual)], range})
+    ast(ctx, {atom, [qual, expand(ctx, spec), cidr(dual)], range})
     |> tick(:num_dnsm)
     |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
   end
@@ -180,7 +174,7 @@ defmodule Spf.Parser do
     {spec, _} = taketok(args, :domspec)
     {dual, _} = taketok(args, :dual_cidr)
 
-    case domain(ctx, spec) do
+    case expand(ctx, spec) do
       nil ->
         Map.put(ctx, :error, :syntax_error)
         |> Map.put(:reason, "invalid term #{String.slice(ctx.spf, range)}")
@@ -197,7 +191,7 @@ defmodule Spf.Parser do
   defp parse({:ptr, [qual, args], range} = _token, ctx) do
     {spec, _} = taketok(args, :domain_spec)
 
-    ast(ctx, {:ptr, [qual, domain(ctx, spec)], range})
+    ast(ctx, {:ptr, [qual, expand(ctx, spec)], range})
     |> tick(:num_dnsm)
     |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
     |> log(:parse, :warn, "ptr usage is not recommended")
@@ -206,7 +200,7 @@ defmodule Spf.Parser do
   # Include, Exists
   defp parse({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
     do:
-      ast(ctx, {atom, [qual, domain(ctx, domain_spec)], range})
+      ast(ctx, {atom, [qual, expand(ctx, domain_spec)], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
@@ -225,13 +219,13 @@ defmodule Spf.Parser do
   # Redirect
   defp parse({:redirect, [domain_spec], range}, ctx),
     do:
-      ast(ctx, {:redirect, [domain(ctx, domain_spec)], range})
+      ast(ctx, {:redirect, [expand(ctx, domain_spec)], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # Exp - not included in count of dns mechanisms
   defp parse({:exp, [domain_spec], range}, ctx),
-    do: ast(ctx, {:exp, [domain(ctx, domain_spec)], range})
+    do: ast(ctx, {:exp, [expand(ctx, domain_spec)], range})
 
   # Unknown_mod
   defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do

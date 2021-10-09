@@ -10,60 +10,60 @@ defmodule Spf.TokenTest do
   def charcode(charstr) when is_binary(charstr),
     do: String.to_charlist(charstr) |> List.first()
 
-  describe "domain_spec() parses" do
-    defparsecp(:domain_spec, Spf.Tokens.domain_spec())
+  describe "domspec() parses" do
+    defparsecp(:domspec, Spf.Tokens.domspec(":"))
 
     test "simple macros" do
       check = fn l, str ->
-        {:ok, [{:domain_spec, [{:expand, [mletter, 0, false, ["."]], 0..3}], 0..3}], "", _context,
-         _linepos, 4} = domain_spec(str)
+        {:ok, [{:domspec, [{:expand, [mletter, 0, false, ["."]], 1..4}], 1..4}], "", _context,
+         _linepos, 5} = domspec(str)
 
         assert charcode(l) == mletter, str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
     test "macros with keep" do
       check = fn l, str ->
-        {:ok, [{:domain_spec, [{:expand, [mletter, 3, false, ["."]], 0..4}], 0..4}], "", _context,
-         _linepos, 5} = domain_spec(str)
+        {:ok, [{:domspec, [{:expand, [mletter, 3, false, ["."]], 1..5}], 1..5}], "", _context,
+         _linepos, 6} = domspec(str)
 
         assert mletter == charcode(l), str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}3}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}3}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
     test "macros with reverse" do
       check = fn l, str ->
-        {:ok, [{:domain_spec, [{:expand, [mletter, 0, true, ["."]], 0..4}], 0..4}], "", _context,
-         _linepos, _} = domain_spec(str)
+        {:ok, [{:domspec, [{:expand, [mletter, 0, true, ["."]], 1..5}], 1..5}], "", _context,
+         _linepos, _} = domspec(str)
 
         assert charcode(l) == mletter, str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}r}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}r}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
       # also uppercase R
-      testcases = for l <- @mletters, do: {l, "%{#{l}R}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}R}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
     test "macros with keep and reverse" do
       check = fn l, str ->
-        {:ok, [{:domain_spec, [{:expand, [mletter, 9, true, ["."]], 0..5}], 0..5}], "", _context,
-         _linepos, 6} = domain_spec(str)
+        {:ok, [{:domspec, [{:expand, [mletter, 9, true, ["."]], 1..6}], 1..6}], "", _context,
+         _linepos, 7} = domspec(str)
 
         assert charcode(l) == mletter, str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}9r}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}9r}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
       # also uppercase R
-      testcases = for l <- @mletters, do: {l, "%{#{l}9R}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}9R}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
@@ -71,47 +71,47 @@ defmodule Spf.TokenTest do
       check = fn l, str ->
         {:ok,
          [
-           {:domain_spec,
+           {:domspec,
             [
-              {:expand, [mletter, 0, false, [".", "-", "+", ",", "/", "_", "="]], 0..10}
-            ], 0..10}
-         ], "", _context, _linepos, 11} = domain_spec(str)
+              {:expand, [mletter, 0, false, [".", "-", "+", ",", "/", "_", "="]], 1..11}
+            ], 1..11}
+         ], "", _context, _linepos, 12} = domspec(str)
 
         assert charcode(l) == mletter, str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}.-+,/_=}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}.-+,/_=}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
     test "macro specials" do
-      {:ok, [token], _, _, _, _} = domain_spec("%%")
-      assert token == {:domain_spec, [{:expand, ["%"], 0..1}], 0..1}
+      {:ok, [token], _, _, _, _} = domspec(":%%")
+      assert token == {:domspec, [{:expand, ["%"], 1..2}], 1..2}
 
-      {:ok, [token], _, _, _, _} = domain_spec("%-")
-      assert token == {:domain_spec, [{:expand, ["-"], 0..1}], 0..1}
+      {:ok, [token], _, _, _, _} = domspec(":%-")
+      assert token == {:domspec, [{:expand, ["-"], 1..2}], 1..2}
 
-      {:ok, [token], _, _, _, _} = domain_spec("%_")
-      assert token == {:domain_spec, [{:expand, ["_"], 0..1}], 0..1}
+      {:ok, [token], _, _, _, _} = domspec(":%_")
+      assert token == {:domspec, [{:expand, ["_"], 1..2}], 1..2}
     end
 
     test "macros with reverse and delimiters" do
       check = fn l, str ->
         {:ok,
          [
-           {:domain_spec,
+           {:domspec,
             [
-              {:expand, [mletter, 0, true, [".", "-", "+", ",", "/", "_", "="]], 0..11}
-            ], 0..11}
-         ], "", _context, _linepos, 12} = domain_spec(str)
+              {:expand, [mletter, 0, true, [".", "-", "+", ",", "/", "_", "="]], 1..12}
+            ], 1..12}
+         ], "", _context, _linepos, 13} = domspec(str)
 
         assert charcode(l) == mletter, str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}r.-+,/_=}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}r.-+,/_=}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
       # also uppercase R
-      testcases = for l <- @mletters, do: {l, "%{#{l}R.-+,/_=}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}R.-+,/_=}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
@@ -119,52 +119,81 @@ defmodule Spf.TokenTest do
       check = fn l, str ->
         {:ok,
          [
-           {:domain_spec,
+           {:domspec,
             [
-              {:expand, [mletter, 11, true, [".", "-", "+", ",", "/", "_", "="]], 0..13}
-            ], 0..13}
-         ], "", _context, _linepos, 14} = domain_spec(str)
+              {:expand, [mletter, 11, true, [".", "-", "+", ",", "/", "_", "="]], 1..14}
+            ], 1..14}
+         ], "", _context, _linepos, 15} = domspec(str)
 
         assert charcode(l) == mletter, str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}11r.-+,/_=}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}11r.-+,/_=}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
       # also uppercase R
-      testcases = for l <- @mletters, do: {l, "%{#{l}11R.-+,/_=}"}
+      testcases = for l <- @mletters, do: {l, ":%{#{l}11R.-+,/_=}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
 
     test "macros with keep, reverse, delims, literals and specials" do
-      assert {:ok, [token], rest, _, _, _} = domain_spec("%{d2R.-}%-com/24")
+      assert {:ok, [token], rest, _, _, _} = domspec(":%{d2R.-}%-.com/24")
       assert rest == "/24"
 
       assert token ==
-               {:domain_spec,
+               {:domspec,
                 [
-                  {:expand, [?d, 2, true, [".", "-"]], 0..7},
-                  {:expand, ["-"], 8..9},
-                  {:literal, ["com"], 10..12}
-                ], 0..12}
+                  {:expand, [?d, 2, true, [".", "-"]], 1..8},
+                  {:expand, ["-"], 9..10},
+                  {:toplabel, [".com"], 11..14}
+                ], 1..14}
     end
 
     test "macros but not a following dual_cidr" do
-      {:ok, [token], rest, _, _, _} = domain_spec("%{d}.com/24")
+      {:ok, [token], rest, _, _, _} = domspec(":%{d}.com/24")
 
       assert token ==
-               {:domain_spec,
-                [{:expand, [?d, 0, false, ["."]], 0..3}, {:literal, [".com"], 4..7}], 0..7}
+               {:domspec, [{:expand, [?d, 0, false, ["."]], 1..4}, {:toplabel, [".com"], 5..8}],
+                1..8}
 
       assert rest == "/24"
 
-      {:ok, [_token], rest, _, _, _} = domain_spec("%{d}.com//128")
+      {:ok, [_token], rest, _, _, _} = domspec(":%{d}.com//128")
       assert rest == "//128"
 
-      {:ok, [_token], rest, _, _, _} = domain_spec("%{d}.com/32//128")
+      {:ok, [_token], rest, _, _, _} = domspec(":%{d}.com/32//128")
       assert rest == "/32//128"
 
-      {:ok, [_token], rest, _, _, _} = domain_spec("%{d}.c%-o%_m%%/32//128")
+      {:ok, [_token], rest, _, _, _} = domspec(":%{d}.c%-o%_m%%/32//128")
       assert rest == "/32//128"
+    end
+
+    test ":.com/24//64.net/24:%{o2r+}" do
+      msg = ":.com/24//64.net/24:%{o2r+}"
+      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
+      assert rest == ""
+      assert {:expand, _, _} = List.last(list)
+    end
+
+    test ":/33//129.abc-1" do
+      msg = ":/33//129.abc-1"
+      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
+      assert rest == ""
+      assert length(list) == 9, msg <> "~>  #{inspect(list)}"
+      assert {:toplabel, [".abc-1"], _} = List.last(list)
+    end
+
+    test ":_spf.example.com" do
+      msg = ":_spf.example.com"
+      {:ok, [{:domspec, list, 1..16}], rest, _, _, _} = domspec(msg)
+      # list is a series of literals for _spf.example + a toplabel for .com
+      assert rest == ""
+      assert length(list) == 13, msg <> "~>  #{inspect(list)}"
+    end
+
+    test "empty domspec" do
+      msg = ":"
+      {:error, _, rest, _, _, _} = domspec(msg)
+      assert rest == ""
     end
   end
 
@@ -214,72 +243,45 @@ defmodule Spf.TokenTest do
     end
   end
 
-  describe "dotlabel()" do
-    defparsecp(:dotlabel, Spf.Tokens.dotlabel())
+  describe "toplabel()" do
+    defparsecp(:toplabel, Spf.Tokens.toplabel())
 
-    test "lexes LDH-label .com" do
-      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com")
+    test "lexes .com" do
+      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com")
       assert rest == ""
-      assert dotlabel == ".com"
+      assert toplabel == ".com"
     end
 
-    test "lexes LDH-label .com." do
-      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com.")
-      assert rest == "."
-      assert dotlabel == ".com"
+    test "lexes .com." do
+      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com.")
+      assert rest == ""
+      assert toplabel == ".com."
     end
 
-    test "lexes LDH-label .1-1." do
-      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".1-1.")
-      assert rest == "."
-      assert dotlabel == ".1-1"
+    test "lexes .1-1." do
+      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".1-1.")
+      assert rest == ""
+      assert toplabel == ".1-1."
     end
 
-    test "lexes until dash .com-" do
-      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com-")
-      assert rest == "-"
-      assert dotlabel == ".com"
+    test "lexes .com./24" do
+      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com./24")
+      assert rest == "/24"
+      assert toplabel == ".com."
     end
 
-    test "lexes LDH-dotlabel .com/24" do
-      {:ok, [{:dotlabel, [dotlabel], _range}], rest, _, _, _} = dotlabel(".com./24")
-      assert rest == "./24"
-      assert dotlabel == ".com"
+    test "does not match .com-" do
+      {:error, _, _, _, _, _} = toplabel(".com-")
     end
 
-    test "errors on non-LDH-dotlabel -com." do
-      result = dotlabel(".-com")
+    test "does not match -com." do
+      result = toplabel(".-com")
       assert elem(result, 0) == :error
     end
 
-    test "errors on  non-LDH-dotlabel .123" do
-      result = dotlabel(".123")
+    test "does not match .123" do
+      result = toplabel(".123")
       assert elem(result, 0) == :error
-    end
-  end
-
-  # TODO:
-  describe "x_domain_spec() lexes" do
-    defparsecp(:domspec, Spf.Tokens.x_domspec())
-
-    test ":.com/24//64.net/24:%{o2r+}" do
-      msg = ":.com/24//64.net/24:%{o2r+}"
-      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
-      assert rest == ""
-      assert length(list) == 6
-    end
-
-    test ":/33//129.abc-1" do
-      msg = ":/33//129.abc-1"
-      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
-      assert rest == ""
-      assert length(list) == 2, msg <> "~>  #{inspect(list)}"
-    end
-
-    test "empty domain_spec" do
-      msg = ":"
-      {:error, _, rest, _, _, _} = domspec(msg)
-      assert rest == ""
     end
   end
 
@@ -332,63 +334,60 @@ defmodule Spf.TokenTest do
     end
   end
 
-  describe "x_a() lexes" do
-    defparsec(:x_a, Spf.Tokens.x_a())
-
-    test "a" do
-      str = "a"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    test "a:" do
-      str = "a:"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    test "a/24" do
-      str = "a/24"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    test "a/24//64" do
-      str = "a/24//64"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    test "a:/24//64" do
-      str = "a:/24//64"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    test "a:/24//64/0//0" do
-      str = "a:/24//64/0//0"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    test "a:l1.l2.tld./24//64" do
-      str = "a:l1.l2.tld./24//64"
-      result = x_a(str)
-      IO.inspect(result, label: str)
-    end
-
-    @str "a:l1.l2.tld.%{d}/24//64"
-    test @str do
-      # str = "a:l1.l2.tld.%{d}/24//64"
-      result = x_a(@str)
-      IO.inspect(result, label: @str)
-    end
-  end
-
   describe "a() lexes" do
     defparsec(:a, Spf.Tokens.a())
 
     test "a" do
+      str = "a"
+      {:ok, [token], _, _, _, _} = a(str)
+      {:a, [?+, []], 0..0} = token
+    end
+
+    test "a:" do
+      str = "a:"
+      {:error, _, _, _, _, _} = a(str)
+    end
+
+    test "a/24" do
+      str = "a/24"
+      {:ok, [token], _, _, _, _} = a(str)
+      {:a, [?+, [{:dual_cidr, [24, 128], 1..3}]], 0..3} = token
+    end
+
+    test "a/24//64" do
+      str = "a/24//64"
+      {:ok, [token], _, _, _, _} = a(str)
+      {:a, [?+, [{:dual_cidr, [24, 64], 1..7}]], 0..7} = token
+    end
+
+    test "a:/24//64" do
+      # empty domspec is illegal
+      str = "a:/24//64"
+      {:error, _, _, _, _, _} = a(str)
+    end
+
+    test "a:/24//64/0//0" do
+      # domspec not empty, but does not end with an expand or toplabel
+      str = "a:/24//64/0//0"
+      {:ok, [token], _, _, _, _} = a(str)
+      {:a, [43, [{:domspec, [:einvalid], 2..8}, {:dual_cidr, [0, 0], 9..13}]], 0..13} = token
+    end
+
+    @str "a:l1.l2.tld./24//64"
+    test @str do
+      {:ok, [token], _, _, _, _} = a(@str)
+      {:a, [?+, [{:domspec, list, 2..11}, {:dual_cidr, [24, 64], 12..18}]], 0..18} = token
+      {:toplabel, [".tld."], _} = List.last(list)
+    end
+
+    @str "a:l1.l2.tld.%{d}/24//64"
+    test @str do
+      {:ok, [token], _, _, _, _} = a(@str)
+      {:a, [?+, [{:domspec, list, 2..15}, {:dual_cidr, [24, 64], 16..22}]], 0..22} = token
+      {:expand, [?d, 0, false, ["."]], 12..15} = List.last(list)
+    end
+
+    test "a with default qualifier" do
       {:ok, [{:a, [?+, []], 0..0}], "", _context, _linepos, 1} = a("a")
     end
 
@@ -397,18 +396,18 @@ defmodule Spf.TokenTest do
         a("a/24")
     end
 
-    test "a with domain_spec" do
+    test "a with domspec" do
       str = "a:%{d}"
 
       {:ok,
        [
-         {token, [43, [{:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}]], 0..5}
+         {token, [43, [{:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}]], 0..5}
        ], "", _context, _linepost, 6} = a(str)
 
       assert token == :a, str
     end
 
-    test "a with domain_spec and ipv4 cidr" do
+    test "a with domspec and ipv4 cidr" do
       str = "a:%{d}/24"
 
       {:ok,
@@ -417,7 +416,7 @@ defmodule Spf.TokenTest do
           [
             43,
             [
-              {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
+              {:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
               {:dual_cidr, [24, 128], 6..8}
             ]
           ], 0..8}
@@ -426,7 +425,7 @@ defmodule Spf.TokenTest do
       assert token == :a, str
     end
 
-    test "a with domain_spec and ipv6 cidr" do
+    test "a with domspec and ipv6 cidr" do
       str = "a:%{d}//64"
 
       {:ok,
@@ -435,7 +434,7 @@ defmodule Spf.TokenTest do
           [
             43,
             [
-              {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
+              {:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
               {:dual_cidr, [32, 64], 6..9}
             ]
           ], 0..9}
@@ -444,7 +443,7 @@ defmodule Spf.TokenTest do
       assert token == :a, str
     end
 
-    test "a with domain_spec and dual cidr" do
+    test "a with domspec and dual cidr" do
       str = "a:%{d}/24//64"
 
       {:ok,
@@ -453,14 +452,14 @@ defmodule Spf.TokenTest do
           [
             43,
             [
-              {:domain_spec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
+              {:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
               {:dual_cidr, [24, 64], 6..12}
             ]
           ], 0..12}
        ], "", _context, _linepos, 13} = a(str)
     end
 
-    test "a with qualifier, domain_spec and dual cidr" do
+    test "a with qualifier, domspec and dual cidr" do
       testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}a:%{d}/24//64"}
 
       check = fn q, str ->
@@ -470,7 +469,7 @@ defmodule Spf.TokenTest do
             [
               qual,
               [
-                {:domain_spec, [{:expand, [100, 0, false, ["."]], 3..6}], 3..6},
+                {:domspec, [{:expand, [100, 0, false, ["."]], 3..6}], 3..6},
                 {:dual_cidr, [24, 64], 7..13}
               ]
             ], 0..13}
@@ -512,17 +511,17 @@ defmodule Spf.TokenTest do
   describe "exists() lexes" do
     defparsec(:exists, Spf.Tokens.exists())
 
-    test "its domain_spec" do
+    test "its domspec" do
       {:ok, [token], _, _, _, _} = exists("exists:%{d1R-}.com")
 
       assert token ==
                {:exists,
                 [
                   ?+,
-                  {:domain_spec,
+                  {:domspec,
                    [
                      {:expand, [?d, 1, true, ["-"]], 7..13},
-                     {:literal, [".com"], 14..17}
+                     {:toplabel, [".com"], 14..17}
                    ], 7..17}
                 ], 0..17}
     end
@@ -539,18 +538,12 @@ defmodule Spf.TokenTest do
   describe "include() lexes" do
     defparsec(:include, Spf.Tokens.include())
 
-    test "its domain_spec" do
+    test "its domspec" do
       {:ok, [token], _, _, _, _} = include("include:spf.example.com")
 
-      assert token ==
-               {:include,
-                [
-                  ?+,
-                  {:domain_spec,
-                   [
-                     {:literal, ["spf.example.com"], 8..22}
-                   ], 8..22}
-                ], 0..22}
+      {:include, [?+, {:domspec, list, _}], _} = token
+      assert length(list) == 12
+      assert {:toplabel, [".com"], 19..22} == List.last(list)
     end
   end
 
@@ -619,7 +612,7 @@ defmodule Spf.TokenTest do
       assert token == {:mx, [?+, [{:dual_cidr, [24, 128], 2..4}]], 0..4}
     end
 
-    test "mx with domain_spec" do
+    test "mx with domspec" do
       {:ok, [token], _, _, _, _} = mx("mx:%{d}.com")
 
       assert token ==
@@ -627,16 +620,16 @@ defmodule Spf.TokenTest do
                 [
                   ?+,
                   [
-                    {:domain_spec,
+                    {:domspec,
                      [
                        {:expand, [?d, 0, false, ["."]], 3..6},
-                       {:literal, [".com"], 7..10}
+                       {:toplabel, [".com"], 7..10}
                      ], 3..10}
                   ]
                 ], 0..10}
     end
 
-    test "mx with domain_spec and dual_cidr" do
+    test "mx with domspec and dual_cidr" do
       {:ok, [token], _, _, _, _} = mx("mx:%{d}.com/24//64")
 
       assert token ==
@@ -644,10 +637,10 @@ defmodule Spf.TokenTest do
                 [
                   ?+,
                   [
-                    {:domain_spec,
+                    {:domspec,
                      [
                        {:expand, [?d, 0, false, ["."]], 3..6},
-                       {:literal, [".com"], 7..10}
+                       {:toplabel, [".com"], 7..10}
                      ], 3..10},
                     {:dual_cidr, [24, 64], 11..17}
                   ]
@@ -666,12 +659,9 @@ defmodule Spf.TokenTest do
       {:ok, [{:ptr, [??, []], 0..3}], "", _context, _linepos, 4} = ptr("?ptr")
     end
 
-    test "its domain_spec" do
+    test "its domspec" do
       {:ok, [token], _, _, _, _} = ptr("ptr:spf.example.com")
-
-      assert token ==
-               {:ptr, [?+, [{:domain_spec, [{:literal, ["spf.example.com"], 4..18}], 4..18}]],
-                0..18}
+      {:ptr, [?+, [{:domspec, _list, 4..18}]], 0..18} = token
     end
   end
 
@@ -684,10 +674,10 @@ defmodule Spf.TokenTest do
       assert token ==
                {:exp,
                 [
-                  {:domain_spec,
+                  {:domspec,
                    [
                      {:expand, [?d, 0, false, ["."]], 4..7},
-                     {:literal, [".com"], 8..11}
+                     {:toplabel, [".com"], 8..11}
                    ], 4..11}
                 ], 0..11}
     end
@@ -703,11 +693,14 @@ defmodule Spf.TokenTest do
                [
                  {:exp_str,
                   [
-                    {:domain_spec, [{:expand, [105, 0, false, ["."]], 0..3}], 0..3},
+                    {:expand, [105, 0, false, ["."]], 0..3},
                     {:whitespace, [" "], 4..4},
-                    {:domain_spec, [{:literal, ["is"], 5..6}], 5..6},
+                    {:literal, ["i"], 5..5},
+                    {:literal, ["s"], 6..6},
                     {:whitespace, [" "], 7..7},
-                    {:domain_spec, [{:literal, ["bad"], 8..10}], 8..10}
+                    {:literal, ["b"], 8..8},
+                    {:literal, ["a"], 9..9},
+                    {:literal, ["d"], 10..10}
                   ], 0..10}
                ]
     end
@@ -722,10 +715,10 @@ defmodule Spf.TokenTest do
       assert token ==
                {:redirect,
                 [
-                  {:domain_spec,
+                  {:domspec,
                    [
                      {:expand, [?d, 0, false, ["."]], 9..12},
-                     {:literal, [".com"], 13..16}
+                     {:toplabel, [".com"], 13..16}
                    ], 9..16}
                 ], 0..16}
     end
