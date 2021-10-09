@@ -337,39 +337,39 @@ defmodule Spf.TokenTest do
   describe "a() lexes" do
     defparsec(:a, Spf.Tokens.a())
 
-    test "a" do
-      str = "a"
-      {:ok, [token], _, _, _, _} = a(str)
+    @str "a"
+    test @str do
+      {:ok, [token], _, _, _, _} = a(@str)
       {:a, [?+, []], 0..0} = token
     end
 
-    test "a:" do
-      str = "a:"
-      {:error, _, _, _, _, _} = a(str)
+    @str "a:"
+    test @str do
+      {:error, _, _, _, _, _} = a(@str)
     end
 
-    test "a/24" do
-      str = "a/24"
-      {:ok, [token], _, _, _, _} = a(str)
+    @str "a/24"
+    test @str do
+      {:ok, [token], _, _, _, _} = a(@str)
       {:a, [?+, [{:dual_cidr, [24, 128], 1..3}]], 0..3} = token
     end
 
-    test "a/24//64" do
-      str = "a/24//64"
-      {:ok, [token], _, _, _, _} = a(str)
+    @str "a/24//64"
+    test @str do
+      {:ok, [token], _, _, _, _} = a(@str)
       {:a, [?+, [{:dual_cidr, [24, 64], 1..7}]], 0..7} = token
     end
 
-    test "a:/24//64" do
+    @str "a:/24//64"
+    test @str do
       # empty domspec is illegal
-      str = "a:/24//64"
-      {:error, _, _, _, _, _} = a(str)
+      {:error, _, _, _, _, _} = a(@str)
     end
 
-    test "a:/24//64/0//0" do
+    @str "a:/24//64/0//0"
+    test @str do
       # domspec not empty, but does not end with an expand or toplabel
-      str = "a:/24//64/0//0"
-      {:ok, [token], _, _, _, _} = a(str)
+      {:ok, [token], _, _, _, _} = a(@str)
       {:a, [43, [{:domspec, [:einvalid], 2..8}, {:dual_cidr, [0, 0], 9..13}]], 0..13} = token
     end
 
@@ -402,7 +402,7 @@ defmodule Spf.TokenTest do
       {:ok,
        [
          {token, [43, [{:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}]], 0..5}
-       ], "", _context, _linepost, 6} = a(str)
+       ], "", _context, _linepos, 6} = a(str)
 
       assert token == :a, str
     end

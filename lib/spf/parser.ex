@@ -29,14 +29,17 @@ defmodule Spf.Parser do
   defp cidr([]),
     do: [32, 128]
 
-  defp cidr({:dual_cidr, args, _}),
-    do: args
+  defp cidr({:dual_cidr, [len4, len6], _}) do
+    if len4 in 0..32 and len6 in 0..128,
+      do: [len4, len6],
+      else: :einvalid
+  end
 
   def expand(ctx, []),
     do: ctx.domain
 
   def expand(_ctx, {:domspec, [:einvalid], _range}),
-    do: nil
+    do: :einvalid
 
   def expand(ctx, {toktype, tokens, _range}) when toktype in [:domspec, :exp_str] do
     for {token, args, _range} <- tokens do
@@ -161,35 +164,27 @@ defmodule Spf.Parser do
   end
 
   # A, MX
-  defp parse({atom, [qual, args], range}, ctx) when atom in [:mx] do
-    {spec, _} = taketok(args, :domain_spec)
-    {dual, _} = taketok(args, :dual_cidr)
-
-    ast(ctx, {atom, [qual, expand(ctx, spec), cidr(dual)], range})
-    |> tick(:num_dnsm)
-    |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
-  end
-
-  defp parse({:a, [qual, args], range}, ctx) do
+  defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     {spec, _} = taketok(args, :domspec)
     {dual, _} = taketok(args, :dual_cidr)
 
-    case expand(ctx, spec) do
-      nil ->
-        Map.put(ctx, :error, :syntax_error)
-        |> Map.put(:reason, "invalid term #{String.slice(ctx.spf, range)}")
-        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+    domain = expand(ctx, spec)
+    cidr = cidr(dual)
 
-      domain ->
-        ast(ctx, {:a, [qual, domain, cidr(dual)], range})
-        |> tick(:num_dnsm)
-        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+    if domain == :einvalid or cidr == :einvalid do
+      Map.put(ctx, :error, :syntax_error)
+      |> Map.put(:reason, "invalid term #{String.slice(ctx.spf, range)}")
+      |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+    else
+      ast(ctx, {:a, [qual, domain, cidr], range})
+      |> tick(:num_dnsm)
+      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
     end
   end
 
   # Ptr
   defp parse({:ptr, [qual, args], range} = _token, ctx) do
-    {spec, _} = taketok(args, :domain_spec)
+    {spec, _} = taketok(args, :domspec)
 
     ast(ctx, {:ptr, [qual, expand(ctx, spec)], range})
     |> tick(:num_dnsm)
@@ -198,9 +193,9 @@ defmodule Spf.Parser do
   end
 
   # Include, Exists
-  defp parse({atom, [qual, domain_spec], range}, ctx) when atom in [:include, :exists],
+  defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists],
     do:
-      ast(ctx, {atom, [qual, expand(ctx, domain_spec)], range})
+      ast(ctx, {atom, [qual, expand(ctx, domspec)], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
@@ -209,23 +204,28 @@ defmodule Spf.Parser do
     do: ast(ctx, {:all, [qual], range})
 
   # IP4, IP6
-  defp parse({atom, [qual, ip], range} = token, ctx) when atom in [:ip4, :ip6] do
+  defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
     case pfxparse(ip) do
-      {:ok, pfx} -> ast(ctx, {atom, [qual, pfx], range})
-      {:error, _} -> log(ctx, :parse, :warn, "ignoring invalid IP in #{inspect(token)}")
+      {:ok, pfx} ->
+        ast(ctx, {atom, [qual, pfx], range})
+
+      {:error, _} ->
+        Map.put(ctx, :error, :syntax_error)
+        |> Map.put(:reason, "syntax error for IP #{String.slice(ctx.spf, range)}")
+        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
     end
   end
 
   # Redirect
-  defp parse({:redirect, [domain_spec], range}, ctx),
+  defp parse({:redirect, [domspec], range}, ctx),
     do:
-      ast(ctx, {:redirect, [expand(ctx, domain_spec)], range})
+      ast(ctx, {:redirect, [expand(ctx, domspec)], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
 
   # Exp - not included in count of dns mechanisms
-  defp parse({:exp, [domain_spec], range}, ctx),
-    do: ast(ctx, {:exp, [expand(ctx, domain_spec)], range})
+  defp parse({:exp, [domspec], range}, ctx),
+    do: ast(ctx, {:exp, [expand(ctx, domspec)], range})
 
   # Unknown_mod
   defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do

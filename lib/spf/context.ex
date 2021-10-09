@@ -195,17 +195,20 @@ defmodule Spf.Context do
   """
   def new(sender, opts \\ []) do
     # TODO: check validity of user supplied IP address
-    ip = Keyword.get(opts, :ip, "127.0.0.1")
-    # Probably an error in the specs: spf's check_host(domain, ip, sender), where:
-    # ip = ip of mta client
-    # sender = MAILFROM or EHLO identity
-    # domain = SPF provider, initially domain portion of sender
-    # So .. how can you expand %{h} to the EHLO domain?  That's never given!
     helo = Keyword.get(opts, :helo, sender)
-
     {local, domain} = split(sender)
 
-    atype = if Pfx.new(ip).maxlen == 32, do: :a, else: :aaaa
+    # IPV4-mapped IPv6 addresses are converted to the mapped IPv4 address
+    ip = Keyword.get(opts, :ip, "127.0.0.1")
+    pfx = Pfx.new(ip)
+
+    pfx =
+      if Pfx.member?(pfx, "::FFFF:0:0/96"),
+        do: Pfx.cut(pfx, -1, -32),
+        else: pfx
+
+    atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
+    ip = "#{pfx}"
 
     %{
       # the nth spf record is now current

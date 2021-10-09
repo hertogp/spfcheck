@@ -51,7 +51,6 @@ defmodule Spf do
 
     ctx
     |> Spf.Context.log(:spf, :note, "spfcheck(#{ctx.domain}, #{ctx.ip}, #{ctx.sender})")
-    |> Map.put(:num_dnsq, -1)
     |> Spf.Eval.evaluate()
   end
 end

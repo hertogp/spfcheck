@@ -17,8 +17,7 @@ defmodule SpfcheckTest do
       Spf.Context.new(domain, sender: sender, ip: ip)
       |> Map.put(:dns, zonedata)
       |> Spf.grep()
-      |> Spf.Parser.parse()
-      |> Spf.Eval.eval()
+      |> Spf.Eval.evaluate()
 
     assert String.length(domain) > 63
     assert ctx.verdict == :none
@@ -42,8 +41,7 @@ defmodule SpfcheckTest do
       Spf.Context.new(domain, sender: sender, ip: ip)
       |> Map.put(:dns, zonedata)
       |> Spf.grep()
-      |> Spf.Parser.parse()
-      |> Spf.Eval.eval()
+      |> Spf.Eval.evaluate()
 
     assert String.length(domain) > 63
     assert ctx.verdict == :fail

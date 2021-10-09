@@ -86,7 +86,7 @@ defmodule Spf.Tokens do
     do: choice([alpha(), digit()])
 
   defp dash_alphanum(),
-    do: string("-") |> concat(alphanum())
+    do: times(string("-"), min: 1) |> concat(alphanum())
 
   defp eoterm(),
     do: lookahead(choice([whitespace(), eos()]))
