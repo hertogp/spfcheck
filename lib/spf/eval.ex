@@ -142,7 +142,7 @@ defmodule Spf.Eval do
     end
   end
 
-  # validate name has an ip == <ip> and is (sub)domain of domain
+  # a name is validated iff it's ip == <ip> && name endswith? domain
   defp validate?({:error, _}, _ip, _name, _domain),
     do: false
 

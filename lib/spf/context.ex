@@ -134,8 +134,8 @@ defmodule Spf.Context do
     m = %{
       # d = <domain>
       ?d => domain,
-      # c = SMTP client IP (easily readable format)
-      ?c => "#{pfx}",
+      # h = HELO/EHLO domain (fake it with domain part of sender)
+      ?h => helo_domain,
       # i = <ip>, for ip6 this expands to dotted format
       ?i => if(pfx.maxlen == 32, do: "#{pfx}", else: Pfx.format(pfx, width: 4, base: 16)),
       # s = <sender>
@@ -149,10 +149,20 @@ defmodule Spf.Context do
       ?p => Pfx.dns_ptr(ip),
       # v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
       ?v => (pfx.maxlen == 32 && "in-addr") || "ip6",
-      # h = HELO/EHLO domain (fake it with domain part of sender)
-      ?h => helo_domain,
-      # r = domain name of host performing the check
-      ?r => "localhost"
+      #
+      # The macro letters c,r,t are only allowed in an explain-string,
+      # retrieved via the expanded target-domain of an exp modifier.  In other
+      # words: c,r,t MUST not be used in a domspec for a mechanism or modifier
+      # (including exp itself).
+      # See: https://fossies.org/linux/Mail-SPF/lib/Mail/SPF/MacroString.pm, line 360
+      #
+      # c = SMTP client IP (easily readable format)
+      ?c => "#{pfx}",
+      # r = domain name of the receiving MTA (performing the check?)
+      # should be a fqdn or "unknown" e.g., when an SPF check is done on a MUA,
+      # not MTA
+      ?r => "unknown"
+      # and `t`, see below ...
     }
 
     # add uppercase variants: they are URL escaped (except for ?t and ?T)

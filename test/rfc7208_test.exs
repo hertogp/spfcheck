@@ -30,8 +30,18 @@ defmodule SpfcheckTestSuite do
       msg = msg <> "- FROM: #{@mailfrom} -> ctx.domain: #{ctx.domain}\n"
       msg = msg <> "- HELO: #{@helo} -> ctx.helo #{ctx.helo}\n"
       msg = msg <> "- IP  : #{@ip} -> ctx.ip #{inspect(ctx.ip)}\n"
-      msg = msg <> "- SPF : ctx.spf #{ctx.spf}\n"
-      msg = msg <> "- Atyp: ctx.atype #{ctx.atype}\n"
+
+      msg = msg <> "\nCTX\n"
+      msg = msg <> "- domain : #{ctx.domain}\n"
+      msg = msg <> "- ip     : #{inspect(ctx.ip)}\n"
+      msg = msg <> "- helo   : #{ctx.helo}\n"
+      msg = msg <> "- spf    : #{inspect(ctx.spf)}\n"
+      msg = msg <> "- Atype  : #{ctx.atype}\n"
+      msg = msg <> "- verdict: #{ctx.verdict}\n"
+      msg = msg <> "- reason : #{ctx.reason}\n"
+      msg = msg <> "- error  : #{ctx.error}\n"
+      msg = msg <> "- explain: #{inspect(ctx.explain)}\n"
+      msg = msg <> "- expstr : #{ctx.explanation}\n"
 
       list = Enum.map(ctx.msg, fn x -> inspect(x) end)
       msg = msg <> "\nMSG\n"

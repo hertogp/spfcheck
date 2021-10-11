@@ -264,6 +264,7 @@ defmodule Spf.Parser do
   end
 
   # Unknown_mod
+  # TODO: unknown modifier MUST have a valid macro-string
   defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
     # unknown_mod term may be ignored
     # like 'moo.cow-far_out=man:dog/cat'

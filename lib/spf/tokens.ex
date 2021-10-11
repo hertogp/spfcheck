@@ -699,13 +699,18 @@ defmodule Spf.Tokens do
 
   # EXPLAIN
   @doc """
-  Tokenizer for an explain-string.
+  Token `{:exp_str, [tokens], range}`.
 
-  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain name,
-  its TXT RR is retrieved.  This is called the explain-string.  This function
-  tokenizes this explain-string into a list of tokens:
-  [`domspec`](`domspec/`), [`whitespace`](`whitespace/0`), and/or
-  [`unknown`](`unknown/0`).
+  Where `tokens` include:
+  - [`expand`](`expand/0`)
+  - [`literal`](`literal/0`)
+  - [`whitespace`](`whitespace/0`)
+
+  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain
+  name, its TXT RR is retrieved.  This is called the explain-string.  This
+  string is the only place where an [`expand`](`expand/0`) macro for letters
+  `c`, `r`, or `t` is allowed and these `c,r,t`-letters MUST not be used in
+  regular/other [`domspec`](`domspec\0`).
 
   The list of tokens can then be expanded into the final explanation.
 
@@ -738,25 +743,6 @@ defmodule Spf.Tokens do
     |> choice([dash_alphanum(), alpha()])
     |> times(choice([dash_alphanum(), alphanum()]), min: 0)
   end
-
-  # def cidr() do
-  #   choice([
-  #     start(:cidr2)
-  #     |> ignore(string("/"))
-  #     |> integer(min: 1)
-  #     |> ignore(string("//"))
-  #     |> integer(min: 1)
-  #     |> post_traverse({@m, :token, [:cidr2]}),
-  #     start(:cidr4)
-  #     |> ignore(string("/"))
-  #     |> integer(min: 1)
-  #     |> post_traverse({@m, :token, [:cidr4]}),
-  #     start(:cidr6)
-  #     |> ignore(string("//"))
-  #     |> integer(min: 1)
-  #     |> post_traverse({@m, :token, [:cidr6]})
-  #   ])
-  # end
 
   defp mliteral() do
     start(:mliteral)
