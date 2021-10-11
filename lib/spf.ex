@@ -40,7 +40,6 @@ defmodule Spf do
 
     ctx
     |> Spf.Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
-    |> Spf.Context.tick(:num_dnsq, -1)
   end
 
   defparsec(:tokenize, Spf.Tokens.tokenize())

@@ -8,8 +8,14 @@ defmodule Spf.Parser do
 
   # Helpers
 
-  @spec pfxparse(binary) :: {:ok, Pfx.t()} | {:error, binary}
-  defp pfxparse(pfx) do
+  @spec pfxparse(binary, atom) :: {:ok, Pfx.t()} | {:error, binary}
+  defp pfxparse(pfx, :ip4) do
+    {:ok, Pfx.new(pfx)}
+  rescue
+    _ -> {:error, pfx}
+  end
+
+  defp pfxparse(pfx, :ip6) do
     {:ok, Pfx.new(pfx)}
   rescue
     _ -> {:error, pfx}
@@ -29,7 +35,7 @@ defmodule Spf.Parser do
   defp cidr([]),
     do: [32, 128]
 
-  defp cidr({:dual_cidr, [len4, len6], _}) do
+  defp cidr({:dual_cidr, [len4, len6], _range}) do
     if len4 in 0..32 and len6 in 0..128,
       do: [len4, len6],
       else: :einvalid
@@ -62,9 +68,15 @@ defmodule Spf.Parser do
     |> Enum.join(".")
   end
 
-  defp expand(_ctx, :expand, [str]),
-    # result of expand2 token
-    do: str
+  # expand-2's %%, %-, %_
+  defp expand(_ctx, :expand, ["%"]),
+    do: "%"
+
+  defp expand(_ctx, :expand, ["-"]),
+    do: "%20"
+
+  defp expand(_ctx, :expand, ["_"]),
+    do: " "
 
   defp expand(_ctx, token_type, [str])
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
@@ -81,14 +93,18 @@ defmodule Spf.Parser do
   end
 
   defp ast(ctx, {:exp, _tokval, range} = token) do
-    # explain not added to ctx.ast but assigned to ctx.explain (only for the original SPF record)
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-6
+    # - exp can appear only once in an spf record
+    # - exp can appear after `all`
     tokstr = String.slice(ctx.spf, range)
 
     if ctx.f_include do
       log(ctx, :parse, :info, "#{tokstr} - ignoring included explain")
     else
       if ctx.explain do
-        log(ctx, :parse, :warn, "#{tokstr} - ignoring multiple explains")
+        Map.put(ctx, :error, :repeated_modifier)
+        |> Map.put(:reason, "repeated modifier: spf[#{ctx.nth}] - #{tokstr}")
+        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
       else
         Map.put(ctx, :explain, token)
       end
@@ -96,25 +112,30 @@ defmodule Spf.Parser do
   end
 
   defp ast(ctx, {_type, _tokval, _range} = token) do
-    if ctx.f_all do
-      log(ctx, :parse, :warn, "ignored #{inspect(token)}: term past `all`")
-    else
-      case token do
-        {:all, _tokval, _range} ->
-          Map.put(ctx, :f_all, true)
+    case token do
+      {:all, _tokval, _range} ->
+        Map.put(ctx, :f_all, true)
+        |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
+        |> rm_redirect()
+
+      {:redirect, _tokval, range} ->
+        if ctx.f_redirect do
+          tokstr = String.slice(ctx.spf, range)
+
+          Map.put(ctx, :error, :repeated_modifier)
+          |> Map.put(:reason, "repeated modifier: spf[#{ctx.nth}] - #{tokstr}")
+          |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+        else
+          Map.put(ctx, :f_redirect, true)
           |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
-          |> rm_redirect()
+        end
 
-        {:redirect, _tokval, _range} ->
-          if ctx.f_redirect,
-            do: log(ctx, :parse, :warn, "ignored: multiple redirects #{inspect(token)}"),
-            else:
-              Map.put(ctx, :f_redirect, true)
-              |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
-
-        _ ->
+      token ->
+        if ctx.f_all do
+          log(ctx, :parse, :warn, "ignored #{inspect(token)}: term past `all`")
+        else
           Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
-      end
+        end
     end
   end
 
@@ -205,7 +226,7 @@ defmodule Spf.Parser do
 
   # IP4, IP6
   defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
-    case pfxparse(ip) do
+    case pfxparse(ip, atom) do
       {:ok, pfx} ->
         ast(ctx, {atom, [qual, pfx], range})
 
@@ -217,15 +238,30 @@ defmodule Spf.Parser do
   end
 
   # Redirect
-  defp parse({:redirect, [domspec], range}, ctx),
-    do:
-      ast(ctx, {:redirect, [expand(ctx, domspec)], range})
-      |> tick(:num_dnsm)
-      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+  defp parse({:redirect, [{:domspec, [:einvalid], _range}], range}, ctx) do
+    Map.put(ctx, :error, :syntax_error)
+    |> Map.put(:reason, "syntax error for redirect #{String.slice(ctx.spf, range)}")
+    |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+  end
 
-  # Exp - not included in count of dns mechanisms
-  defp parse({:exp, [domspec], range}, ctx),
-    do: ast(ctx, {:exp, [expand(ctx, domspec)], range})
+  defp parse({:redirect, [domspec], range}, ctx) do
+    ast(ctx, {:redirect, [expand(ctx, domspec)], range})
+    |> tick(:num_dnsm)
+    |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+  end
+
+  # Exp
+  defp parse({:exp, [domspec], range}, ctx) do
+    case domspec do
+      {:domspec, [:einvalid], _} ->
+        Map.put(ctx, :error, :syntax_error)
+        |> Map.put(:reason, "invalid domain spec for #{String.slice(ctx.spf, range)}")
+        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+
+      domspec ->
+        ast(ctx, {:exp, [expand(ctx, domspec)], range})
+    end
+  end
 
   # Unknown_mod
   defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do

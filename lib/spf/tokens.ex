@@ -236,8 +236,6 @@ defmodule Spf.Tokens do
     do: {[{:domspec, args, range(context, :domspec, offset)}], context}
 
   def token(_rest, args, context, _line, offset, :domspec) do
-    # IO.inspect(args, label: :token_domspec_args)
-
     args =
       case args do
         [{:expand, _, _} | _] -> args
@@ -377,7 +375,9 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:ip4, [`[`q`](`t:q/0`)`,`[`Pfx`](`t:Pfx.t/0`)`], `[`range`](`t:range/0`)`}`.
+  Token `{:ip4, [q, address], range}`.
+
+  Where `address` might be an IPv4 address string in CIDR notation.
   """
   def ip4() do
     start(:ip4)
@@ -388,7 +388,9 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:ip6, [`[`q`](`t:q/0`)`,`[`Pfx`](`t:Pfx.t/0`)`], `[`range`](`t:range/0`)`}`.
+  Token `{:ip6, [q, address], range}`.
+
+  Where `address` might be an IPv6 address string.
   """
   def ip6() do
     start(:ip6)
@@ -492,26 +494,31 @@ defmodule Spf.Tokens do
   end
 
   @doc """
-  Token `{:dual_cidr, len4, len6], `[`range`](`t:range/0`)`}`.
+  Token `{:dual_cidr, [len4, len6], range}`.
 
-  Where `len4` is the ipv4 cidr length (defaults to `32`), while `len6` is
-  the ipv6 cidr lengths (defaults to `128`).  This is an intermediate token
-  used by the lexer to produce other tokens like [`a`](`a/0`) or [`mx`](`mx/0`)
-  and others.
+  Where
+  - `len4` is the ipv4 cidr length (defaults to `32`)
+  - `len6` is the ipv6 cidr lengths (defaults to `128`)
+
+  This is an intermediate token used by the lexer to produce other tokens like
+  [`a`](`a/0`) or [`mx`](`mx/0`) and others.
 
   """
+  # TODO: dual_cidr's like 0+digits are illegal
   def dual_cidr() do
     choice([
       start(:dual_cidr2)
       |> ignore(string("/"))
-      |> integer(min: 1)
+      # |> integer(min: 1)
+      |> cidrlen(2)
       |> ignore(string("//"))
       |> integer(min: 1)
       |> eoterm()
       |> post_traverse({@m, :token, [:dual_cidr2]}),
       start(:dual_cidr4)
       |> ignore(string("/"))
-      |> integer(min: 1)
+      # |> integer(min: 1)
+      |> cidrlen(2)
       |> eoterm()
       |> post_traverse({@m, :token, [:dual_cidr4]}),
       start(:dual_cidr6)
@@ -520,6 +527,16 @@ defmodule Spf.Tokens do
       |> eoterm()
       |> post_traverse({@m, :token, [:dual_cidr6]})
     ])
+  end
+
+  def cidrlen(combinator, _max) do
+    concat(
+      combinator,
+      choice([
+        lookahead(string("0")) |> integer(max: 1),
+        integer(min: 1, max: 2)
+      ])
+    )
   end
 
   @doc """
@@ -722,24 +739,24 @@ defmodule Spf.Tokens do
     |> times(choice([dash_alphanum(), alphanum()]), min: 0)
   end
 
-  def cidr() do
-    choice([
-      start(:cidr2)
-      |> ignore(string("/"))
-      |> integer(min: 1)
-      |> ignore(string("//"))
-      |> integer(min: 1)
-      |> post_traverse({@m, :token, [:cidr2]}),
-      start(:cidr4)
-      |> ignore(string("/"))
-      |> integer(min: 1)
-      |> post_traverse({@m, :token, [:cidr4]}),
-      start(:cidr6)
-      |> ignore(string("//"))
-      |> integer(min: 1)
-      |> post_traverse({@m, :token, [:cidr6]})
-    ])
-  end
+  # def cidr() do
+  #   choice([
+  #     start(:cidr2)
+  #     |> ignore(string("/"))
+  #     |> integer(min: 1)
+  #     |> ignore(string("//"))
+  #     |> integer(min: 1)
+  #     |> post_traverse({@m, :token, [:cidr2]}),
+  #     start(:cidr4)
+  #     |> ignore(string("/"))
+  #     |> integer(min: 1)
+  #     |> post_traverse({@m, :token, [:cidr4]}),
+  #     start(:cidr6)
+  #     |> ignore(string("//"))
+  #     |> integer(min: 1)
+  #     |> post_traverse({@m, :token, [:cidr6]})
+  #   ])
+  # end
 
   defp mliteral() do
     start(:mliteral)

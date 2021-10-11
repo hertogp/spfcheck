@@ -145,6 +145,7 @@ defmodule Spf.Context do
       # l = local-part of <sender> (before last @ in sender)
       ?l => sender_local,
       # p = the validated domain name of <ip> (do not use)
+      # TODO: this should actually be the/a validated domain name or "unknown"
       ?p => Pfx.dns_ptr(ip),
       # v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
       ?v => (pfx.maxlen == 32 && "in-addr") || "ip6",
@@ -197,6 +198,11 @@ defmodule Spf.Context do
     # TODO: check validity of user supplied IP address
     helo = Keyword.get(opts, :helo, sender)
     {local, domain} = split(sender)
+
+    {local, domain} =
+      if String.length(domain) < 1,
+        do: split(helo),
+        else: {local, domain}
 
     # IPV4-mapped IPv6 addresses are converted to the mapped IPv4 address
     ip = Keyword.get(opts, :ip, "127.0.0.1")
@@ -256,27 +262,22 @@ defmodule Spf.Context do
       # explain term (if any)
       explain: nil,
       explanation: "",
-      # number of dns queries
+      # stats
       num_dnsq: 0,
-      # number of void lookups (NXDOMAIN's and/or ZERO answers)
-      num_dnsv: 0,
-      # num of DNS mechanisms of modifiers seen in the SPF record
-      # (mechanisms: a, mx, ptr, exists, include & modifier: redirect)
       num_dnsm: 0,
-      max_dnsq: 10,
-      max_dnsv: 2,
       max_dnsm: 10,
-      # number of checks perform to arrive at a verdict
+      num_dnsv: 0,
+      max_dnsv: 2,
       num_checks: 0,
       num_warn: 0,
       num_error: 0,
       # list of terms to be evaluated to arrive at a verdict
       ast: [],
       # list of tokens found by the lexer
-      tokens: [],
+      spf_tokens: [],
       # how long the evaluation took; warn if it took > 20 sec!
       duration: 0,
-      # ip -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
+      # ipt.lookup(ip) -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
       ipt: Iptrie.new(),
       # report back
       report: Keyword.get(opts, :report, :short)

@@ -70,6 +70,8 @@ defmodule Spf.DNS do
     do: {:error, :invalid_fqdn}
 
   def valid?(domain) do
+    domain = normalize(domain)
+
     with {:ascii, true} <- {:ascii, validp?(domain, :ascii)},
          {:length, true} <- {:length, validp?(domain, :length)},
          {:labels, true} <- {:labels, validp?(domain, :labels)},
@@ -139,7 +141,6 @@ defmodule Spf.DNS do
       |> :inet_res.resolve(:in, type, [{:timeout, timeout}])
       |> rrentries()
       |> cache(ctx, name, type)
-      |> tick(:num_dnsq)
 
     result = from_cache(ctx, name, type)
     do_stats(ctx, name, type, result)
@@ -178,24 +179,30 @@ defmodule Spf.DNS do
 
         {update(ctx, {name, type, result})
          |> tick(:num_dnsv)
+         |> tick(:num_dnsq)
          |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :zero_answers} ->
         # result didn't include any answers
         {tick(ctx, :num_dnsv)
+         |> tick(:num_dnsq)
          |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :nxdomain} ->
         {tick(ctx, :num_dnsv)
+         |> tick(:num_dnsq)
          |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
 
       {:error, reason} ->
         # any other error, like :servfail
         err = String.upcase("#{inspect(reason)}")
-        {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}
+
+        {log(ctx, :dns, :warn, "#{qry} - #{err}")
+         |> tick(:num_dnsq), result}
 
       {:ok, res} ->
-        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}
+        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}")
+         |> tick(:num_dnsq), result}
     end
   end
 
@@ -285,11 +292,8 @@ defmodule Spf.DNS do
     do: Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
   defp update(ctx, {domain, type, data}) do
-    # update ctx.dns with a (single) `data` for given `domain` and `type`
     # note: donot use from_cache since that unrolls cnames
     domain = normalize(domain)
-    # charlists_tostr(domain) |> String.trim() |> String.trim_trailing(".") |> String.downcase()
-
     cache = Map.get(ctx, :dns, %{})
     cached = cache[{domain, type}] || []
     data = charlists_tostr(data, type)
@@ -419,12 +423,20 @@ defmodule Spf.DNS do
     do: ctx
 
   defp rr_fromstrp(str, ctx) do
-    case String.split(str, ~r/\s+/, parts: 3) do
+    case String.split(str, ~r/\s+(A|AAAA|MX|PTR|TXT|SPF|SOA|CNAME)\s+/i,
+           parts: 2,
+           include_captures: true
+         ) do
+      # Nb: included capture(s) are NOT counted agains the limit set by parts:
       [domain, type, data] ->
         type = rr_type(type)
         update(ctx, {domain, type, rr_data_fromstr(type, data)})
 
-      [domain, data] ->
+      [unsplit] ->
+        words = String.split(unsplit, ~r/\s+/)
+        data = List.last(words)
+        domain = List.delete_at(words, -1) |> Enum.join("") |> normalize()
+
         Enum.reduce(@rrtypes, ctx, fn {_name, type}, ctx ->
           update(ctx, {domain, type, {:error, rr_error(data)}})
         end)
@@ -545,8 +557,10 @@ defmodule Spf.DNS do
     |> Enum.reduce(ctx, &rr_fromstr/2)
   end
 
-  defp rr_type(type),
-    do: @rrtypes[String.downcase(type)] || String.upcase(type)
+  defp rr_type(type) do
+    type = String.trim(type) |> String.downcase()
+    @rrtypes[type] || String.upcase(type)
+  end
 
   defp rr_error(error),
     do: @rrerrors[String.downcase(error)] || String.upcase(error)

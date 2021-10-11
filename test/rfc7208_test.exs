@@ -25,12 +25,28 @@ defmodule SpfcheckTestSuite do
         |> Spf.DNS.load_lines(@dns)
         |> Spf.Eval.evaluate()
 
-      msg = "got #{ctx.verdict}, expected #{@result} - #{@info}\n"
+      msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n"
       msg = msg <> "- TEST: #{@test}\n"
-      msg = msg <> "- FROM: #{@mailfrom}\n"
-      msg = msg <> "- HELO: #{@helo}\n"
-      msg = msg <> "- IP  : #{@ip} -> #{inspect(ctx.ip)}\n"
-      msg = msg <> "- SPF : #{ctx.spf}\n"
+      msg = msg <> "- FROM: #{@mailfrom} -> ctx.domain: #{ctx.domain}\n"
+      msg = msg <> "- HELO: #{@helo} -> ctx.helo #{ctx.helo}\n"
+      msg = msg <> "- IP  : #{@ip} -> ctx.ip #{inspect(ctx.ip)}\n"
+      msg = msg <> "- SPF : ctx.spf #{ctx.spf}\n"
+      msg = msg <> "- Atyp: ctx.atype #{ctx.atype}\n"
+
+      list = Enum.map(ctx.msg, fn x -> inspect(x) end)
+      msg = msg <> "\nMSG\n"
+
+      msg = msg <> (Enum.reverse(list) |> Enum.join("\n"))
+
+      msg = msg <> "\n\nTOKENS\n"
+
+      msg =
+        msg <>
+          (ctx.spf_tokens
+           |> Enum.map(fn x -> inspect(x) end)
+           |> Enum.join("\n"))
+
+      msg = msg <> "\n\nAST\n"
 
       msg =
         msg <>
@@ -38,8 +54,18 @@ defmodule SpfcheckTestSuite do
            |> Enum.map(fn x -> inspect(x) end)
            |> Enum.join("\n"))
 
+      msg = msg <> "\n\nDNS\n"
+
       msg =
         msg <> (Enum.filter(@dns, fn l -> String.contains?(l, ctx.domain) end) |> Enum.join("\n"))
+
+      # msg <> (Enum.sort(@dns) |> Enum.join("\n"))
+
+      msg = msg <> "\n\nMAP\n"
+
+      msg =
+        msg <>
+          (Enum.map(ctx.map, fn {d, n} -> "#{n} - #{d}" end) |> Enum.sort() |> Enum.join("\n"))
 
       assert "#{ctx.verdict}" in @result, msg
     end
