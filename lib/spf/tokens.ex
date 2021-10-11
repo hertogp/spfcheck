@@ -236,12 +236,16 @@ defmodule Spf.Tokens do
     do: {[{:domspec, args, range(context, :domspec, offset)}], context}
 
   def token(_rest, args, context, _line, offset, :domspec) do
-    args =
-      case args do
-        [{:expand, _, _} | _] -> args
-        [{:toplabel, _, _} | _] -> args
-        _ -> [:einvalid]
-      end
+    # A legal domspec:
+    # - MUST end in an :expand macro or a :toplabel, and
+    # - MUST NOT have macroletters ?c, ?r, ?t
+    letters = for {token, args, _} <- args, token == :expand, do: List.first(args)
+    lasttok = List.first(args) |> elem(0)
+
+    invalid =
+      ?c in letters or ?r in letters or ?t in letters or lasttok not in [:expand, :toplabel]
+
+    args = if invalid, do: [:einvalid], else: args
 
     {[{:domspec, Enum.reverse(args), range(context, :domspec, offset)}], context}
   end

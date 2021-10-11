@@ -82,9 +82,6 @@ defmodule Spf.Parser do
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
        do: str
 
-  # defp expand(_ctx, :literal, [str]),
-  #   do: str
-
   defp taketok(args, toktype) do
     case List.keytake(args, toktype, 0) do
       nil -> {[], args}
