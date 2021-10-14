@@ -144,9 +144,32 @@ defmodule Spf.Context do
       ?o => sender_domain,
       # l = local-part of <sender> (before last @ in sender)
       ?l => sender_local,
+
       # p = the validated domain name of <ip> (do not use)
       # TODO: this should actually be the/a validated domain name or "unknown"
-      ?p => Pfx.dns_ptr(ip),
+      # The "p" macro expands to the validated domain name of <ip>.  The
+      # procedure for finding the validated domain name is defined in Section
+      # 5.5.  Note:
+      # - If the <domain> is present in the list of validated domains, it SHOULD be used.
+      # - Otherwise, if a subdomain of the <domain> is present, it SHOULD be used.
+      # - Otherwise, any name from the list can be used.
+      # - If there are no validated domain names or if a DNS error occurs, use "unknown"
+      #
+      # 5.5 - validated domain name:
+      # 1. PTR lookup <ip> -> names
+      # 2. A lookup for each name
+      # 3. if <ip> is among the ip's -> name is validated
+      # 4. keep validated names iff they endwith? <target-name> domain
+      #
+      #   When evaluating the "ptr" mechanism or the %{p} macro, the number of
+      # "PTR" resource records queried is included in the overall limit of 10
+      # mechanisms/modifiers that cause DNS lookups as described above.  In
+      # addition to that limit, the evaluation of each "PTR" record MUST NOT
+      # result in querying more than 10 address records -- either "A" or
+      # "AAAA" resource records.  If this limit is exceeded, all records
+      # other than the first 10 MUST be ignored.
+
+      ?p => "unknown",
       # v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
       ?v => (pfx.maxlen == 32 && "in-addr") || "ip6",
       #
@@ -260,6 +283,12 @@ defmodule Spf.Context do
       # no dns error seen (yet)
       error: nil,
       # how macro letters expand for current domain
+      # TODO: move macro expansion out of new, since some macro's like ?p
+      # can only properly resolved if the cache is prefilled.  This hinders
+      # passing tst:13.16, since the test suite puts in a new dns cache after
+      # creating a new context.
+      # Besides, macro evaluation is usually not needed, so we're spending cpu
+      # cycles on something that might not get used at all ...
       macro: macros(domain, ip, sender, helo),
       # output errors (1), warnings (2), notes (3), info (4) or debug (5) messages (quiet=0)
       verbosity: Keyword.get(opts, :verbosity, 4),

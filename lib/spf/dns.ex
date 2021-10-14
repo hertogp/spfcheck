@@ -24,15 +24,12 @@ defmodule Spf.DNS do
     "zero_answers" => :zero_answers
   }
 
+  # DNS
   # https://www.rfc-editor.org/rfc/rfc6895.html
   # https://erlang.org/doc/man/inet_res.html
-
-  ## DNS cache
+  #
+  # Local cache
   # {domain, type} -> [{:error, reason}] | [{:ok, :nodata}] | [rrdata, rrdata, ..]
-  # - Cache & Timeout
-  #   if http://www.open-spf.org/svn/project/test-suite/ (the rfc7208 suite) is
-  #   to be used to its fullest extend, the cache needs to be able to handle 
-  ##  timeout's of a DNS server or the records sought after
 
   # Helpers
 
@@ -111,27 +108,29 @@ defmodule Spf.DNS do
   will be reported as `{:error, :zero_answers}`.
 
   """
-  @spec resolve(map, binary, atom) :: {map, any}
-  def resolve(ctx, name, type \\ :a) when is_map(ctx) do
+  @spec resolve(map, binary, list) :: {map, any}
+  def resolve(ctx, name, opts \\ []) when is_map(ctx) do
     name = normalize(name)
+    stats = Keyword.get(opts, :stats, true)
+    type = Keyword.get(opts, :type, :a)
 
     case valid?(name) do
-      {:ok, name} -> resolvep(ctx, name, type)
+      {:ok, name} -> resolvep(ctx, name, type, stats)
       {:error, reason} -> {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
     end
   end
 
-  defp resolvep(ctx, name, type) do
+  defp resolvep(ctx, name, type, stats) do
     case from_cache(ctx, name, type) do
       {:error, :cache_miss} ->
-        query(ctx, name, type)
+        query(ctx, name, type, stats)
 
       result ->
-        do_stats(ctx, name, type, result, cached: true)
+        do_stats(ctx, name, type, result, stats, cached: true)
     end
   end
 
-  defp query(ctx, name, type) do
+  defp query(ctx, name, type, stats) do
     # returns either {ctx, {:error, reason}} or {ctx, {:ok, [rrs]}}
     timeout = Map.get(ctx, :dns_timeout, 2000)
 
@@ -143,7 +142,7 @@ defmodule Spf.DNS do
       |> cache(ctx, name, type)
 
     result = from_cache(ctx, name, type)
-    do_stats(ctx, name, type, result)
+    do_stats(ctx, name, type, result, stats)
   rescue
     x in CaseClauseError ->
       error = {:error, Exception.message(x)}
@@ -164,8 +163,8 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  defp do_stats(ctx, name, type, result, opts \\ []) do
-    # return ctx with updated stats and possibly updated result
+  defp do_stats(ctx, name, type, result, stats, opts \\ []) do
+    # return {ctx, result}, possibly  update stats
     qry =
       case Keyword.get(opts, :cached, false) do
         true -> "DNS QUERY (#{ctx.num_dnsq}) [cache] #{type} #{name}"
@@ -178,19 +177,19 @@ defmodule Spf.DNS do
         result = {:error, :zero_answers}
 
         {update(ctx, {name, type, result})
-         |> tick(:num_dnsv)
+         |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
          |> tick(:num_dnsq)
          |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :zero_answers} ->
         # result didn't include any answers
-        {tick(ctx, :num_dnsv)
-         |> tick(:num_dnsq)
+        {tick(ctx, :num_dnsq)
+         |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
          |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :nxdomain} ->
-        {tick(ctx, :num_dnsv)
-         |> tick(:num_dnsq)
+        {tick(ctx, :num_dnsq)
+         |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
          |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
 
       {:error, reason} ->

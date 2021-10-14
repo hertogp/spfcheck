@@ -26,7 +26,7 @@ defmodule Spf do
     do: false
 
   def grep(ctx) when is_map(ctx) do
-    {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, :txt)
+    {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, type: :txt, stats: false)
 
     ctx =
       case Spf.DNS.grep(result, &spf?/1) do

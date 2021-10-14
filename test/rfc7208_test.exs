@@ -23,6 +23,7 @@ defmodule SpfcheckTestSuite do
       ctx =
         Spf.Context.new(@mailfrom, helo: @helo, ip: @ip)
         |> Spf.DNS.load_lines(@dns)
+        |> Spf.Eval.set_p_macro()
         |> Spf.Eval.evaluate()
 
       msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n"

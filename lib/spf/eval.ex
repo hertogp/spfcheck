@@ -9,7 +9,7 @@ defmodule Spf.Eval do
   # Helpers
 
   defp evalname(ctx, domain, dual, value) do
-    {ctx, dns} = DNS.resolve(ctx, domain, ctx.atype)
+    {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
 
     case dns do
       {:error, reason} ->
@@ -27,7 +27,7 @@ defmodule Spf.Eval do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.2
     if ctx.verdict == :fail and ctx.explain do
       {_token, [domain], _range} = ctx.explain
-      {ctx, dns} = DNS.resolve(ctx, domain, :txt)
+      {ctx, dns} = DNS.resolve(ctx, domain, type: :txt, stats: false)
       ctx = tick(ctx, :num_dnsq, -1)
 
       case dns do
@@ -130,7 +130,7 @@ defmodule Spf.Eval do
   end
 
   defp validate(name, ctx, {:ptr, [q, domain], _} = term) do
-    {ctx, dns} = DNS.resolve(ctx, name, ctx.atype)
+    {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
 
     case validate?(dns, ctx.ip, name, domain) do
       true ->
@@ -155,6 +155,40 @@ defmodule Spf.Eval do
     else
       false
     end
+  end
+
+  def set_p_macro(ctx) do
+    # ctx.macro[?p] = shortest validated name possible, or "unknown"
+    # TODO: refactor this abomination!
+    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr, stats: false)
+
+    domain = Spf.DNS.normalize(ctx.domain)
+
+    pvalue =
+      case dns do
+        {:error, _reason} ->
+          "unknown"
+
+        {:ok, rrs} ->
+          Enum.take(rrs, 10)
+          |> Enum.map(fn name -> Spf.DNS.normalize(name) end)
+          |> Enum.filter(fn name -> String.ends_with?(name, domain) end)
+          |> Enum.map(fn name ->
+            {name, Spf.DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
+          end)
+          |> Enum.filter(fn {name, dns} -> validate?(dns, ctx.ip, name, domain) end)
+          |> Enum.map(fn {name, _dns} -> name end)
+          |> Enum.sort(&(byte_size(&1) <= byte_size(&2)))
+          |> List.first()
+      end
+
+    pvalue =
+      case pvalue do
+        nil -> "unknown"
+        str -> str
+      end
+
+    put_in(ctx, [:macro, ?p], pvalue)
   end
 
   defp verdict(qualifier) do
@@ -273,8 +307,14 @@ defmodule Spf.Eval do
 
   # HELPERS
 
+  # NOMORE TERMs
+  defp evalp(ctx, []),
+    do: ctx
+
   # A
-  # TODO: check if we've seen {domain, dual} before
+  # TODO:
+  # - check if we've seen {domain, dual} before
+  # - permerror is domain is invalid
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
     evalname(ctx, domain, dual, {q, ctx.nth, term})
     |> match(term, tail)
@@ -283,10 +323,13 @@ defmodule Spf.Eval do
   # EXISTS
   # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
   defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
+    # TODO: 
+    # - domain should be normalized when checking
+    # - skipping evaluation is probably not correct!
     if ctx.map[domain] do
       log(ctx, :eval, :warn, "domain '#{domain}' seen before")
     else
-      {ctx, dns} = DNS.resolve(ctx, domain, :a)
+      {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
 
       ctx =
         case dns do
@@ -312,25 +355,21 @@ defmodule Spf.Eval do
 
   # All
   defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
-    if ctx.f_include do
-      evalp(ctx, tail)
-    else
-      log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
-      |> tick(:num_checks)
-      |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-      |> match(term, tail)
-    end
+    log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
+    |> tick(:num_checks)
+    |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    |> match(term, tail)
   end
 
   # MX
-  # TODO: check if we've seen {domain, dual} before
   defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
+    # TODO: check if we've seen {domain, dual} before
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.4
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
     # - lookup MX <target-name> -> list of MTA names
     # - lookup A/AAAA for MTA names (max 10 A/AAAA lookups -> otherwise permerror)
     # - <ip> matches an MTA's ip -> match, otherwise no match
-    {ctx, dns} = DNS.resolve(ctx, domain, :mx)
+    {ctx, dns} = DNS.resolve(ctx, domain, type: :mx)
 
     case dns do
       {:error, :timeout} ->
@@ -366,7 +405,7 @@ defmodule Spf.Eval do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     # - see also Errata, 
     # - limit to the first 10 names ...
-    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), :ptr)
+    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
 
     validated(ctx, term, dns)
     |> match(term, tail)
@@ -470,8 +509,4 @@ defmodule Spf.Eval do
     log(ctx, :eval, :error, "internal error, eval is missing a handler for #{inspect(term)}")
     |> evalp(tail)
   end
-
-  # NO AST due to no SPF
-  defp evalp(ctx, []),
-    do: ctx
 end
