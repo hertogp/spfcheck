@@ -26,11 +26,12 @@ defmodule SpfcheckTestSuite do
         |> Spf.Eval.set_p_macro()
         |> Spf.Eval.evaluate()
 
-      msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n"
+      msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n\n"
+      msg = msg <> "TEST\n"
       msg = msg <> "- TEST: #{@test}\n"
-      msg = msg <> "- FROM: #{@mailfrom} -> ctx.domain: #{ctx.domain}\n"
-      msg = msg <> "- HELO: #{@helo} -> ctx.helo #{ctx.helo}\n"
-      msg = msg <> "- IP  : #{@ip} -> ctx.ip #{inspect(ctx.ip)}\n"
+      msg = msg <> "- FROM: #{@mailfrom}\n"
+      msg = msg <> "- HELO: #{@helo}\n"
+      msg = msg <> "- IP  : #{@ip}\n"
 
       msg = msg <> "\nCTX\n"
       msg = msg <> "- domain : #{ctx.domain}\n"
@@ -66,11 +67,8 @@ defmodule SpfcheckTestSuite do
            |> Enum.join("\n"))
 
       msg = msg <> "\n\nDNS\n"
-
-      msg =
-        msg <> (Enum.filter(@dns, fn l -> String.contains?(l, ctx.domain) end) |> Enum.join("\n"))
-
-      # msg <> (Enum.sort(@dns) |> Enum.join("\n"))
+      want = fn l -> String.contains?(l, ctx.domain) or String.contains?(l, ctx.ip) end
+      msg = msg <> (Enum.filter(@dns, fn l -> want.(l) end) |> Enum.join("\n"))
 
       msg = msg <> "\n\nMAP\n"
 

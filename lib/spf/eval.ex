@@ -114,22 +114,8 @@ defmodule Spf.Eval do
     end
   end
 
-  # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
-  # ptr - mechanism
-  # 1. resolve PTR RR for <ip> -> names
-  # 2. resolve names -> their ip's
-  # 3. keep names that have <ip> among their ip's
-  # 4. add <ip> if such a (validated) name is (sub)domain of <domain>
-  defp validated(ctx, {:ptr, [_, domain], _} = _term, {:error, reason}),
-    do: log(ctx, :eval, :warn, "DNS error for #{domain}: #{inspect(reason)}")
-
-  defp validated(ctx, term, {:ok, rrs}) do
-    # limit to the first 10 rrs, ignore the rest
-    Enum.take(rrs, 10)
-    |> Enum.reduce(ctx, fn name, acc -> validate(name, acc, term) end)
-  end
-
   defp validate(name, ctx, {:ptr, [q, domain], _} = term) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
 
     case validate?(dns, ctx.ip, name, domain) do
@@ -394,14 +380,6 @@ defmodule Spf.Eval do
         |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
         |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
 
-      # {:error, :timeout} ->
-      #   Map.put(ctx, :error, :timeout)
-      #   |> Map.put(:reason, "DNS error #{domain} TIMEOUT")
-      #   |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
-
-      # {:error, reason} ->
-      #   log(ctx, :eval, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
-
       {:ok, rrs} ->
         ctx =
           Enum.map(rrs, fn {_pref, name} -> name end)
@@ -428,14 +406,37 @@ defmodule Spf.Eval do
   end
 
   # PTR
-  # TODO: check is we've seen domain before
-  defp evalp(ctx, [{:ptr, [_q, _domain], _range} = term | tail]) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
-    # - see also Errata, 
-    # - limit to the first 10 names ...
-    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
+  # defp evalp(ctx, [{:ptr, [_q, _domain], _range} = term | tail]) do
+  #   # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
+  #   # https://www.rfc-editor.org/errata/eid4751
+  #   {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
 
-    validated(ctx, term, dns)
+  #   validated(ctx, term, dns)
+  #   |> match(term, tail)
+  # end
+
+  defp evalp(ctx, [{:ptr, [_q, domain], _range} = term | tail]) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
+    # https://www.rfc-editor.org/errata/eid4751
+    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
+    domain = Spf.DNS.normalize(domain)
+
+    case dns do
+      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+        ctx
+
+      {:error, reason} ->
+        Map.put(ctx, :error, reason)
+        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
+        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+
+      {:ok, rrs} ->
+        # https://www.rfc-editor.org/errata/eid5227
+        Enum.map(rrs, fn name -> Spf.DNS.normalize(name) end)
+        |> Enum.filter(fn name -> String.ends_with?(name, domain) end)
+        |> Enum.take(10)
+        |> Enum.reduce(ctx, fn name, acc -> validate(name, acc, term) end)
+    end
     |> match(term, tail)
   end
 
