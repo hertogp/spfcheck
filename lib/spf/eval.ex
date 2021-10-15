@@ -289,6 +289,7 @@ defmodule Spf.Eval do
       :timeout -> Map.put(ctx, :verdict, :temperror)
       :too_many_dnsm -> Map.put(ctx, :verdict, :permerror)
       :too_many_dnsv -> Map.put(ctx, :verdict, :permerror)
+      :too_many_mtas -> Map.put(ctx, :verdict, :permerror)
       :zero_answers -> Map.put(ctx, :verdict, :none)
     end
   end
@@ -366,13 +367,12 @@ defmodule Spf.Eval do
   end
 
   # MX
-  defp evalp(ctx, [{:mx, [q, domain, dual], _range} = term | tail]) do
+  defp evalp(ctx, [{:mx, [q, domain, dual], range} = term | tail]) do
     # TODO: check if we've seen {domain, dual} before
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.4
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
-    # - lookup MX <target-name> -> list of MTA names
-    # - lookup A/AAAA for MTA names (max 10 A/AAAA lookups -> otherwise permerror)
-    # - <ip> matches an MTA's ip -> match, otherwise no match
+    # - only lookup max 10 MTA names, if no match and we got more
+    # - if PTR query yields more than 10 mta names -> permerror
     {ctx, dns} = DNS.resolve(ctx, domain, type: :mx)
 
     case dns do
@@ -384,15 +384,25 @@ defmodule Spf.Eval do
       {:error, reason} ->
         log(ctx, :eval, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
 
-      {:ok, []} ->
-        log(ctx, :eval, :warn, "mx #{domain} - ZERO answers")
+      # {:ok, []} ->
+      #   log(ctx, :eval, :warn, "mx #{domain} - ZERO answers")
 
       {:ok, rrs} ->
         # TODO: change logic so we impose a max of 10 A/AAAA lookups and error
         # out if we need to do more that 10 ...
-        Enum.map(rrs, fn {_pref, name} -> name end)
-        |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, term}) end)
-        |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
+        ctx =
+          Enum.map(rrs, fn {_pref, name} -> name end)
+          |> Enum.take(10)
+          |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, term}) end)
+          |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
+
+        if length(rrs) > 10 do
+          Map.put(ctx, :error, :too_many_mtas)
+          |> Map.put(:reason, "too many mta's for #{String.slice(ctx.spf, range)}")
+          |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
+        else
+          ctx
+        end
     end
     |> match(term, tail)
   end
