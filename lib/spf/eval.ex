@@ -67,8 +67,7 @@ defmodule Spf.Eval do
   end
 
   defp check_limits(ctx) do
-    # only check for original SPF record, so we donot prematurely stop
-    # processing
+    # only check for original SPF record, so we donot prematurely stop processing
     if ctx.nth == 0 do
       ctx =
         if ctx.num_dnsm > ctx.max_dnsm do
@@ -79,11 +78,6 @@ defmodule Spf.Eval do
         else
           ctx
         end
-
-      # NB: there is no overall limit on actual DNS lookups, just on:
-      # - DNS mechanisms: max 10 of a, mx, ptr, include, redirect or exists
-      # - DNS lookup per mx record (max again 10, else permerror)
-      # - DNS lookup per ptr mech (max again 10, else ignore 11+ names)
 
       if ctx.num_dnsv > ctx.max_dnsv do
         Map.put(ctx, :error, :too_many_dnsv)
@@ -99,23 +93,21 @@ defmodule Spf.Eval do
   end
 
   defp match(%{error: error} = ctx, _term, _tail) when error != nil,
-    # do: eval(ctx)
+    # a fatal error was record, so bailout
     do: bailout(ctx)
 
   defp match(ctx, {_m, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
-    # see if ctx's current state is a match (i.e. <ip> is a match now)
-    # TODO:
-    # - add prechecks, such as ctx.num_dnsv <= ctx.max_dnsv etc..
-    # - store matching term in ctx as :matched_term {term, ctx.nth}
     {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     if qlist do
+      # ctx.ip has a match, so set corresponding result
       log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict(qlist, ctx.nth))
       |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
     else
+      # no match, continue evaluation
       log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
       |> tick(:num_checks)
       |> evalp(tail)
@@ -215,7 +207,8 @@ defmodule Spf.Eval do
   end
 
   defp check_domain(ctx) do
-    # check validity of domain
+    # check domain, if not a legal fqdn -> evaluation result is :none
+    # since there is no domain to actually check
     if ctx.error do
       ctx
     else
@@ -225,7 +218,7 @@ defmodule Spf.Eval do
 
         {:error, reason} ->
           log(ctx, :name, :error, "domain error: #{reason}")
-          |> Map.put(:error, :illegal_name)
+          |> Map.put(:error, :illegal_domain)
           |> Map.put(:reason, reason)
       end
     end
@@ -280,6 +273,8 @@ defmodule Spf.Eval do
     # - servfail (or any RCODE not in [0, 3]) -> temperror
     # - nxdomain -> none
     case error do
+      :illegal_domain -> Map.put(ctx, :verdict, :none)
+      # TODO: this should be handled by case dns of ...
       :illegal_name -> Map.put(ctx, :verdict, :none)
       :include_loop -> Map.put(ctx, :verdict, :permerror)
       :many_spf -> Map.put(ctx, :verdict, :permerror)
@@ -316,9 +311,13 @@ defmodule Spf.Eval do
   defp evalp(ctx, []),
     do: ctx
 
+  # Apparently, this requirement only holds true if the domain
+  # if a proper fqdn.  An illegal fqdn (eg after an expansion)
+  # should be ignored.
+  #
   # Several mechanisms rely on information fetched from the DNS.  For
   # these DNS queries, except where noted, if the DNS server returns:
-  # - an error other than 0 (NOERROR) or 3 (NXDOMAIN)), or
+  # - an error (other than 0 (NOERROR) or 3 (NXDOMAIN)), or
   # - the query times out,
   # the mechanism stops and the topmost check_host() returns "temperror".
   #
@@ -330,12 +329,26 @@ defmodule Spf.Eval do
   # zero answer records
 
   # A
-  # TODO:
-  # - check if we've seen {domain, dual} before
-  # - permerror is domain is invalid
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
-    evalname(ctx, domain, dual, {q, ctx.nth, term})
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.3
+    {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
+
+    case dns do
+      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+        ctx
+
+      {:error, reason} ->
+        Map.put(ctx, :error, reason)
+        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
+        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+
+      {:ok, rrs} ->
+        addip(ctx, rrs, dual, {q, ctx.nth, term})
+    end
     |> match(term, tail)
+
+    # evalname(ctx, domain, dual, {q, ctx.nth, term})
+    # |> match(term, tail)
   end
 
   # EXISTS
@@ -343,25 +356,20 @@ defmodule Spf.Eval do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
     {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
 
-    ctx =
-      case dns do
-        {:error, :timeout} ->
-          Map.put(ctx, :error, :timeout)
-          |> Map.put(:reason, "DNS error #{domain} TIMEOUT")
-          |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
+    case dns do
+      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+        ctx
 
-        {:error, reason} ->
-          log(ctx, :eval, :warn, "DNS error #{domain} #{reason}")
+      {:error, reason} ->
+        Map.put(ctx, :error, reason)
+        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
+        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
 
-        # {:ok, []} ->
-        #   log(ctx, :dns, :warn, "A #{domain} - ZERO answers")
-
-        {:ok, rrs} ->
-          log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
-          |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-      end
-
-    match(ctx, term, tail)
+      {:ok, rrs} ->
+        log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
+        |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    end
+    |> match(term, tail)
   end
 
   # All
@@ -378,13 +386,21 @@ defmodule Spf.Eval do
     {ctx, dns} = DNS.resolve(ctx, domain, type: :mx)
 
     case dns do
-      {:error, :timeout} ->
-        Map.put(ctx, :error, :timeout)
-        |> Map.put(:reason, "DNS error #{domain} TIMEOUT")
-        |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
+      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+        ctx
 
       {:error, reason} ->
-        log(ctx, :eval, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
+        Map.put(ctx, :error, reason)
+        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
+        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+
+      # {:error, :timeout} ->
+      #   Map.put(ctx, :error, :timeout)
+      #   |> Map.put(:reason, "DNS error #{domain} TIMEOUT")
+      #   |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
+
+      # {:error, reason} ->
+      #   log(ctx, :eval, :warn, "mx #{domain} - DNS error #{inspect(reason)}")
 
       {:ok, rrs} ->
         ctx =

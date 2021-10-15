@@ -473,7 +473,7 @@ defmodule Spf.DNS do
         {pref, charlists_tostr(name)}
 
       [err] ->
-        {:error, @rrerrors[err] || err}
+        {:error, @rrerrors[err] || :illegal_name}
     end
   end
 
