@@ -10,7 +10,13 @@ defmodule Spf.Parser do
 
   @spec pfxparse(binary, atom) :: {:ok, Pfx.t()} | {:error, binary}
   defp pfxparse(pfx, :ip4) do
-    {:ok, Pfx.new(pfx)}
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.6
+    leadzero = String.match?(pfx, ~r/(^|[\.\/])0[1-9]/)
+    fournums = String.match?(pfx, ~r/^\d+\.\d+\.\d+\.\d+/)
+
+    if fournums and not leadzero,
+      do: {:ok, Pfx.new(pfx)},
+      else: {:error, pfx}
   rescue
     _ -> {:error, pfx}
   end

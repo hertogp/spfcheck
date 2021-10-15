@@ -179,7 +179,7 @@ defmodule Spf.DNS do
         {update(ctx, {name, type, result})
          |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
          |> tick(:num_dnsq)
-         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
+         |> log(:dns, :warn, "#{qry} - ZERO answers!"), result}
 
       {:error, :zero_answers} ->
         # result didn't include any answers
