@@ -5,13 +5,15 @@ defmodule Spf.TokenTest do
   # assertions
   # from https://elixirforum.com/t/trying-to-write-a-simple-nimble-parsec-parser/41344/4
 
-  @mletters String.split("slodiphcrtvSLODIPHCRTV", "", trim: true)
+  @mletters String.split("slodiphvSLODIPHCRTV", "", trim: true)
+  # omitting mletters crt here, since that's only valid in an exp string
 
   def charcode(charstr) when is_binary(charstr),
     do: String.to_charlist(charstr) |> List.first()
 
   describe "domspec() parses" do
     defparsecp(:domspec, Spf.Tokens.domspec(":"))
+    # defparsecp(:expand, Spf.Tokens.expand())
 
     test "simple macros" do
       check = fn l, str ->

@@ -1,6 +1,12 @@
 defmodule Spf.Eval do
   @moduledoc """
   Functions to evaluate an SPF context
+
+  TODO
+  [ ] expand macro's on demand, not beforehand
+  [ ] fix dns stats, make it public and call when needed
+      - DNS.resolve MUST always count the dnsq's since there is no limit
+  [ ] rename tokens.ex to lexer.ex
   """
 
   alias Spf.DNS
