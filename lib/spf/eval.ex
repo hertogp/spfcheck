@@ -21,9 +21,6 @@ defmodule Spf.Eval do
       {:error, reason} ->
         log(ctx, :eval, :warn, "#{ctx.atype} #{domain} - DNS error #{inspect(reason)}")
 
-      {:ok, []} ->
-        log(ctx, :eval, :warn, "#{ctx.atype} #{domain} - ZERO answers")
-
       {:ok, rrs} ->
         addip(ctx, rrs, dual, value)
     end
@@ -35,14 +32,10 @@ defmodule Spf.Eval do
     if ctx.verdict == :fail and ctx.explain do
       {_token, [domain], _range} = ctx.explain
       {ctx, dns} = DNS.resolve(ctx, domain, type: :txt, stats: false)
-      ctx = tick(ctx, :num_dnsq, -1)
 
       case dns do
         {:error, reason} ->
           log(ctx, :dns, :warn, "txt #{domain} - DNS error #{reason}")
-
-        {:ok, []} ->
-          log(ctx, :dns, :warn, "txt #{domain} - DNS void lookup (0 answers)")
 
         {:ok, list} when length(list) > 1 ->
           log(ctx, :dns, :error, "txt #{domain} - too many explain txt records #{inspect(list)}")
@@ -93,18 +86,20 @@ defmodule Spf.Eval do
   end
 
   defp match(%{error: error} = ctx, _term, _tail) when error != nil,
-    # a fatal error was record, so bailout
+    # a fatal error was recorded, so bailout
     do: bailout(ctx)
 
   defp match(ctx, {_m, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
-    {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
+    # {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
-    if qlist do
+    verdict = verdict(ctx)
+
+    if verdict do
       # ctx.ip has a match, so set corresponding result
       log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - matches #{ctx.ip}")
       |> tick(:num_checks)
-      |> Map.put(:verdict, verdict(qlist, ctx.nth))
+      |> Map.put(:verdict, verdict)
       |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
     else
       # no match, continue evaluation
@@ -177,7 +172,17 @@ defmodule Spf.Eval do
     put_in(ctx, [:macro, ?p], pvalue)
   end
 
-  defp verdict(qualifier) do
+  defp verdict(ctx) when is_map(ctx) do
+    with {_pfx, qlist} <- Iptrie.lookup(ctx.ipt, ctx.ip),
+         {term, _} <- List.keytake(qlist, ctx.nth, 1),
+         q <- elem(term, 0) do
+      qualify(q)
+    else
+      _ -> nil
+    end
+  end
+
+  defp qualify(qualifier) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     case qualifier do
       ?+ -> :pass
@@ -185,11 +190,6 @@ defmodule Spf.Eval do
       ?~ -> :softfail
       ?? -> :neutral
     end
-  end
-
-  defp verdict(qlist, nth) do
-    {{qualifier, _nth, _term}, _} = List.keytake(qlist, nth, 1) || {{:error, nth, nil}, qlist}
-    verdict(qualifier)
   end
 
   defp check_domain(ctx) do
@@ -252,12 +252,7 @@ defmodule Spf.Eval do
 
   defp bailout(%{error: error} = ctx) when error != nil do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
-    # - malformed domain -> none
-    # - result is nxdomain -> none
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
-    # - timeout -> temperror
-    # - servfail (or any RCODE not in [0, 3]) -> temperror
-    # - nxdomain -> none
     case error do
       :illegal_domain -> Map.put(ctx, :verdict, :none)
       # TODO: this should be handled by case dns of ...
@@ -291,28 +286,11 @@ defmodule Spf.Eval do
     |> check_limits()
   end
 
-  # HELPERS
+  # Eval Terms
 
-  # NOMORE TERMs
+  # Nomore TermS
   defp evalp(ctx, []),
     do: ctx
-
-  # Apparently, this requirement only holds true if the domain
-  # if a proper fqdn.  An illegal fqdn (eg after an expansion)
-  # should be ignored.
-  #
-  # Several mechanisms rely on information fetched from the DNS.  For
-  # these DNS queries, except where noted, if the DNS server returns:
-  # - an error (other than 0 (NOERROR) or 3 (NXDOMAIN)), or
-  # - the query times out,
-  # the mechanism stops and the topmost check_host() returns "temperror".
-  #
-  # o-> ignore :error, :zero_answers
-  # o-> all other errors, including :timeout -> bailout with :temperror
-  #
-  # If the server returns "Name Error" (RCODE 3), then evaluation of the
-  # mechanism continues as if the server returned no error (RCODE 0) and
-  # zero answer records
 
   # A
   defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
@@ -331,38 +309,6 @@ defmodule Spf.Eval do
       {:ok, rrs} ->
         addip(ctx, rrs, dual, {q, ctx.nth, term})
     end
-    |> match(term, tail)
-
-    # evalname(ctx, domain, dual, {q, ctx.nth, term})
-    # |> match(term, tail)
-  end
-
-  # EXISTS
-  defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
-    {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
-
-    case dns do
-      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
-        ctx
-
-      {:error, reason} ->
-        Map.put(ctx, :error, reason)
-        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
-        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
-
-      {:ok, rrs} ->
-        log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
-        |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-    end
-    |> match(term, tail)
-  end
-
-  # All
-  defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
-    log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
-    |> tick(:num_checks)
-    |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
     |> match(term, tail)
   end
 
@@ -399,27 +345,12 @@ defmodule Spf.Eval do
     |> match(term, tail)
   end
 
-  # IP4/6
-  defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
-    addip(ctx, [pfx], [32, 128], {q, ctx.nth, term})
-    |> match(term, tail)
-  end
-
   # PTR
-  # defp evalp(ctx, [{:ptr, [_q, _domain], _range} = term | tail]) do
-  #   # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
-  #   # https://www.rfc-editor.org/errata/eid4751
-  #   {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
-
-  #   validated(ctx, term, dns)
-  #   |> match(term, tail)
-  # end
-
   defp evalp(ctx, [{:ptr, [_q, domain], _range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     # https://www.rfc-editor.org/errata/eid4751
-    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
     domain = Spf.DNS.normalize(domain)
+    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
 
     case dns do
       {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
@@ -437,6 +368,33 @@ defmodule Spf.Eval do
         |> Enum.take(10)
         |> Enum.reduce(ctx, fn name, acc -> validate(name, acc, term) end)
     end
+    |> match(term, tail)
+  end
+
+  # EXISTS
+  defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
+    {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
+
+    case dns do
+      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+        ctx
+
+      {:error, reason} ->
+        Map.put(ctx, :error, reason)
+        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
+        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+
+      {:ok, rrs} ->
+        log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
+        |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    end
+    |> match(term, tail)
+  end
+
+  # IP4/6
+  defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
+    addip(ctx, [pfx], [32, 128], {q, ctx.nth, term})
     |> match(term, tail)
   end
 
@@ -464,7 +422,7 @@ defmodule Spf.Eval do
           ctx = pop(ctx)
 
           ctx
-          |> Map.put(:verdict, verdict(q))
+          |> Map.put(:verdict, qualify(q))
           |> log(:eval, :info, "#{String.slice(ctx.spf, range)} - match")
           |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)} - matched")
 
@@ -483,6 +441,14 @@ defmodule Spf.Eval do
           |> log(:eval, :warn, "#{String.slice(ctx.spf, range)} - temp error")
       end
     end
+  end
+
+  # All
+  defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
+    log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
+    |> tick(:num_checks)
+    |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    |> match(term, tail)
   end
 
   # REDIRECT

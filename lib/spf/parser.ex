@@ -11,7 +11,7 @@ defmodule Spf.Parser do
   @spec pfxparse(binary, atom) :: {:ok, Pfx.t()} | {:error, binary}
   defp pfxparse(pfx, :ip4) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.6
-    leadzero = String.match?(pfx, ~r/(^|[\.\/])0[1-9]/)
+    leadzero = String.match?(pfx, ~r/(^|[\.\/])0[0-9]/)
     fournums = String.match?(pfx, ~r/^\d+\.\d+\.\d+\.\d+/)
 
     if fournums and not leadzero,
@@ -58,15 +58,10 @@ defmodule Spf.Parser do
       expand(ctx, token, args)
     end
     |> Enum.join()
+    |> Spf.DNS.normalize()
   end
 
-  # transformers:
-  # 1. split on "." or the delimiters provided
-  # 2. reversal if requested
-  # 3. keep (max) N last elements if requested
-  # 4. join with "."
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
-    # result of expand1 token
     ctx.macro[ltr]
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
@@ -74,7 +69,6 @@ defmodule Spf.Parser do
     |> Enum.join(".")
   end
 
-  # expand-2's %%, %-, %_
   defp expand(_ctx, :expand, ["%"]),
     do: "%"
 
@@ -166,17 +160,17 @@ defmodule Spf.Parser do
   # Parse Tokens
 
   # Version
-  defp parse({:version, [n], _range} = token, ctx) do
+  defp parse({:version, [n], range} = _token, ctx) do
     # TODO: DNS.grep checks for v=spf1, so we're always good here, no?
     # And if possibly not, then put in the syntax error
     case n do
       1 -> ctx
-      _ -> log(ctx, :parse, :error, "unknown SPF version #{inspect(token)}")
+      _ -> log(ctx, :parse, :error, "unknown SPF version #{String.slice(ctx.spf, range)}")
     end
   end
 
   # Whitespace
-  defp parse({:whitespace, [wspace], range} = _token, ctx) do
+  defp parse({:whitespace, [wspace], range}, ctx) do
     ctx =
       if String.length(wspace) > 1,
         do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
@@ -207,7 +201,7 @@ defmodule Spf.Parser do
   end
 
   # Ptr
-  defp parse({:ptr, [qual, args], range} = _token, ctx) do
+  defp parse({:ptr, [qual, args], range}, ctx) do
     {spec, _} = taketok(args, :domspec)
 
     ast(ctx, {:ptr, [qual, expand(ctx, spec)], range})

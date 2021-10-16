@@ -6,24 +6,37 @@ defmodule Spf.Context do
   # Helpers
 
   defp ipt_update({k, v}, ctx) do
-    ctx =
-      case Iptrie.lookup(ctx.ipt, k) do
-        {k2, v2} ->
-          log(
-            ctx,
-            :ipt,
-            :warn,
-            "#{k} covered by #{k2} from #{inspect(v2)}"
-          )
-
-        nil ->
-          ctx
-      end
-
+    data = Iptrie.lookup(ctx.ipt, k)
     ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
+
+    seen_before =
+      case data do
+        nil -> false
+        {k2, _v} -> not Pfx.member?(ctx.ip, k2)
+      end
 
     Map.put(ctx, :ipt, ipt)
     |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
+    |> test(:ipt, :warn, seen_before, "#{k} seen before: #{inspect(data)}")
+
+    # ctx =
+    #   case Iptrie.lookup(ctx.ipt, k) do
+    #     {k2, v2} ->
+    #       log(
+    #         ctx,
+    #         :ipt,
+    #         :warn,
+    #         "#{k} covered by #{k2} from #{inspect(v2)}"
+    #       )
+
+    #     nil ->
+    #       ctx
+    #   end
+
+    # ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
+
+    # Map.put(ctx, :ipt, ipt)
+    # |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
   end
 
   defp prefix(ip, [len4, len6]) do
