@@ -47,14 +47,21 @@ defmodule Spf.Parser do
       else: :einvalid
   end
 
-  defp drop_labels([_head | tail] = labels) do
+  defp drop_labels(domain) do
     # drop leftmost labels if name exceeds 253 characters
-    name = Enum.join(labels, ".")
+    case String.split_at(domain, -253) do
+      {"", name} -> name
+      {_, name} -> String.replace(name, ~r/^[^.]*./, "")
+    end
 
-    if String.length(name) > 253,
-      do: drop_labels(tail),
-      else: name
+    # case String.split(domain, ".") do
+    #   [name] -> name
+    #   [_head | tail] -> Enum.join(tail, ".") |> drop_labels()
+    # end
   end
+
+  # defp drop_labels(domain),
+  #   do: domain
 
   def expand(ctx, []),
     do: ctx.domain
@@ -67,6 +74,7 @@ defmodule Spf.Parser do
       expand(ctx, token, args)
     end
     |> Enum.join()
+    |> drop_labels()
   end
 
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
@@ -75,7 +83,7 @@ defmodule Spf.Parser do
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
     |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
-    |> drop_labels()
+    |> Enum.join(".")
   end
 
   defp expand(_ctx, :expand, ["%"]),
@@ -103,9 +111,29 @@ defmodule Spf.Parser do
       ?o -> split(ctx.sender) |> elem(1)
       ?v -> if ctx.atype == :a, do: "in-addr", else: "ip6"
       ?r -> "unknown"
-      ?c -> "#{Pfx.new(ctx.ip)}"
-      ?i -> (ctx.atype == :a && "#{Pfx.new(ctx.ip)}") || Pfx.format(ctx.ip, width: 4, base: 16)
+      ?c -> macro_c(ctx.ip)
+      ?i -> macro_i(ctx.ip)
       ?p -> Spf.Eval.validated_name(ctx)
+    end
+  end
+
+  defp macro_c(ip) do
+    # basically to appease v-macro-ip6 test from the rfc7208 test suite:
+    # which insists on shorthand notation for ip6 addresses
+    addr = Pfx.new(ip) |> Pfx.marshall({1, 2, 3, 4, 5, 6, 7, 8})
+
+    :inet.ntoa(addr)
+    |> List.to_string()
+  end
+
+  defp macro_i(ip) do
+    # basically to appease v-macro-ip6 test from the rfc7208 test suite
+    # which insists on the i-macro to expand to uppercase for ip6
+    pfx = Pfx.new(ip)
+
+    case pfx.maxlen do
+      32 -> "#{pfx}"
+      _ -> Pfx.format(pfx, width: 4, base: 16) |> String.upcase()
     end
   end
 
