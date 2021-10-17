@@ -263,8 +263,13 @@ defmodule Spf.Tokens do
     do: {[{:unknown, Enum.reverse(args), range(context, :unknown, offset)}], context}
 
   # Exp_str
-  def token(_rest, args, context, _line, offset, :exp_str),
-    do: {[{:exp_str, Enum.reverse(args), range(context, :exp_str, offset)}], context}
+  def token(rest, args, context, _line, offset, :exp_str) do
+    if String.length(rest) > 0 do
+      {[{:exp_str, [], range(context, :exp_str, offset)}], context}
+    else
+      {[{:exp_str, Enum.reverse(args), range(context, :exp_str, offset)}], context}
+    end
+  end
 
   # CatchAll
   def token(_rest, args, context, _line, offset, atom),

@@ -47,6 +47,15 @@ defmodule Spf.Parser do
       else: :einvalid
   end
 
+  defp drop_labels([_head | tail] = labels) do
+    # drop leftmost labels if name exceeds 253 characters
+    name = Enum.join(labels, ".")
+
+    if String.length(name) > 253,
+      do: drop_labels(tail),
+      else: name
+  end
+
   def expand(ctx, []),
     do: ctx.domain
 
@@ -66,7 +75,7 @@ defmodule Spf.Parser do
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
     |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
-    |> Enum.join(".")
+    |> drop_labels()
   end
 
   defp expand(_ctx, :expand, ["%"]),
@@ -83,7 +92,7 @@ defmodule Spf.Parser do
        do: str
 
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
-    do: macro(ctx, letter + 32) |> URI.encode()
+    do: macro(ctx, letter + 32) |> URI.encode_www_form()
 
   defp macro(ctx, letter) do
     case letter do

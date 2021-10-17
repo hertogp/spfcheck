@@ -292,24 +292,16 @@ defmodule Spf.Context do
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
-
-    # |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
   end
 
   @doc """
   Reinitializes current `ctx` for given `domain` of a redirect modifier.
 
-  This permanently clears the details of the current SPF record under
-  evaluation, including its stack.
-
   """
   @spec redirect(map, binary) :: map
   def redirect(ctx, domain) do
-    # nth = ctx.num_spf
-
     tick(ctx, :num_spf)
     |> Map.put(:depth, 0)
-    |> Map.put(:stack, [])
     |> Map.put(:nth, ctx.num_spf)
     |> Map.put(:map, Map.merge(ctx.map, %{ctx.num_spf => domain, domain => ctx.num_spf}))
     |> Map.put(:domain, domain)

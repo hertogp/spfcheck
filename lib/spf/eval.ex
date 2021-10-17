@@ -113,7 +113,7 @@ defmodule Spf.Eval do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
 
-    case validate?(dns, ctx.ip, name, domain) do
+    case validate?(dns, ctx.ip, name, domain, true) do
       true ->
         addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, term})
         |> log(:eval, :info, "validated: #{name}, #{ctx.ip} for #{domain}")
@@ -123,16 +123,20 @@ defmodule Spf.Eval do
     end
   end
 
-  # a name is validated iff it's ip == <ip> && name endswith? domain
-  defp validate?({:error, _}, _ip, _name, _domain),
+  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
+  defp validate?({:error, _}, _ip, _name, _domain, _exact),
     do: false
 
-  defp validate?({:ok, rrs}, ip, name, domain) do
+  defp validate?({:ok, rrs}, ip, name, domain, exact) do
     pfx = Pfx.new(ip)
 
     if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
-      String.downcase(name)
-      |> String.ends_with?(String.downcase(domain))
+      if exact do
+        String.downcase(name)
+        |> String.ends_with?(String.downcase(domain))
+      else
+        true
+      end
     else
       false
     end
@@ -140,6 +144,17 @@ defmodule Spf.Eval do
 
   def validated_name(ctx) do
     # ctx.macro[?p] = shortest validated name possible, or "unknown"
+    # The "p" macro expands to the validated domain name of <ip>.
+    # - The procedure for finding the validated domain name is defined in Section 5.5.
+    #   o Perform a DNS reverse-mapping for <ip>
+    #   o For each record returned, validate the domain name by looking up its IP addresses.
+    #   o If <ip> is among the returned IP addresses, then that domain name is validated.
+    #
+    # - If the <domain> is present in the list of validated domains, it SHOULD be used. 
+    # - Otherwise, if a subdomain of the <domain> is present, it SHOULD be used.
+    # - Otherwise, any name from the list can be used.
+    # - If there are no validated domain names use "unknown"
+    # - If a DNS error occurs, the string "unknown" is used.
     {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr, stats: false)
 
     domain = Spf.DNS.normalize(ctx.domain)
@@ -152,19 +167,18 @@ defmodule Spf.Eval do
         {:ok, rrs} ->
           Enum.take(rrs, 10)
           |> Enum.map(fn name -> Spf.DNS.normalize(name) end)
-          |> Enum.filter(fn name -> String.ends_with?(name, domain) end)
           |> Enum.map(fn name ->
             {name, Spf.DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
           end)
-          |> Enum.filter(fn {name, dns} -> validate?(dns, ctx.ip, name, domain) end)
-          |> Enum.map(fn {name, _dns} -> name end)
-          |> Enum.sort(&(byte_size(&1) <= byte_size(&2)))
+          |> Enum.filter(fn {name, dns} -> validate?(dns, ctx.ip, name, domain, false) end)
+          |> Enum.map(fn {name, _dns} -> {-String.jaro_distance(name, domain), name} end)
+          |> Enum.sort()
           |> List.first()
       end
 
     case pvalue do
       nil -> "unknown"
-      str -> str
+      {_, str} -> str
     end
   end
 
