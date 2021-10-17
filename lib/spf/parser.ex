@@ -58,11 +58,11 @@ defmodule Spf.Parser do
       expand(ctx, token, args)
     end
     |> Enum.join()
-    |> Spf.DNS.normalize()
   end
 
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
-    ctx.macro[ltr]
+    # ctx.macro[ltr]
+    macro(ctx, ltr)
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
     |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
@@ -81,6 +81,24 @@ defmodule Spf.Parser do
   defp expand(_ctx, token_type, [str])
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
        do: str
+
+  defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
+    do: macro(ctx, letter + 32) |> URI.encode()
+
+  defp macro(ctx, letter) do
+    case letter do
+      ?d -> ctx.domain
+      ?h -> ctx.helo
+      ?s -> ctx.sender
+      ?l -> split(ctx.sender) |> elem(0)
+      ?o -> split(ctx.sender) |> elem(1)
+      ?v -> if ctx.atype == :a, do: "in-addr", else: "ip6"
+      ?r -> "unknown"
+      ?c -> "#{Pfx.new(ctx.ip)}"
+      ?i -> (ctx.atype == :a && "#{Pfx.new(ctx.ip)}") || Pfx.format(ctx.ip, width: 4, base: 16)
+      ?p -> Spf.Eval.validated_name(ctx)
+    end
+  end
 
   defp taketok(args, toktype) do
     case List.keytake(args, toktype, 0) do

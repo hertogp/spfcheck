@@ -292,8 +292,8 @@ defmodule Spf.DNS do
 
   defp update(ctx, {domain, type, data}) do
     # note: donot use from_cache since that unrolls cnames
-    domain = normalize(domain)
     cache = Map.get(ctx, :dns, %{})
+    domain = normalize(domain)
     cached = cache[{domain, type}] || []
     data = charlists_tostr(data, type)
 

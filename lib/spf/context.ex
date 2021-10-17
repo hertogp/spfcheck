@@ -113,100 +113,6 @@ defmodule Spf.Context do
     end
   end
 
-  @doc """
-  Returns a map with macroletters expansions for given `domain`, `ip` and `sender`.
-
-  Uppercase macro letters expand as their lowercase variants, but are URL escaped.
-
-  The following macro letters are expanded in term arguments:
-
-  - s = <sender>
-  - l = local-part of <sender>
-  - o = domain of <sender>
-  - d = <domain>
-  - i = <ip>
-  - p = the validated domain name of <ip> (do not use)
-  - v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
-  - h = HELO/EHLO domain
-
-   <domain>, <sender>, and <ip> are defined in Section 4.1.
-
-   The following macro letters are allowed only in "exp" text:
-
-   - c = SMTP client IP (easily readable format)
-   - r = domain name of host performing the check
-   - t = current timestamp
-  """
-  @spec macros(binary, binary, binary, binary) :: map
-  def macros(domain, ip, sender, helo) do
-    pfx = Pfx.new(ip)
-    tstamp = DateTime.utc_now() |> DateTime.to_unix()
-    {sender_local, sender_domain} = split(sender)
-    {_, helo_domain} = split(helo)
-
-    m = %{
-      # d = <domain>
-      ?d => domain,
-      # h = HELO/EHLO domain (fake it with domain part of sender)
-      ?h => helo_domain,
-      # i = <ip>, for ip6 this expands to dotted format
-      ?i => if(pfx.maxlen == 32, do: "#{pfx}", else: Pfx.format(pfx, width: 4, base: 16)),
-      # s = <sender>
-      ?s => sender,
-      # o = domain of <sender> (after last @ in sender)
-      ?o => sender_domain,
-      # l = local-part of <sender> (before last @ in sender)
-      ?l => sender_local,
-
-      # p = the validated domain name of <ip> (do not use)
-      # TODO: this should actually be the/a validated domain name or "unknown"
-      # The "p" macro expands to the validated domain name of <ip>.  The
-      # procedure for finding the validated domain name is defined in Section
-      # 5.5.  Note:
-      # - If the <domain> is present in the list of validated domains, it SHOULD be used.
-      # - Otherwise, if a subdomain of the <domain> is present, it SHOULD be used.
-      # - Otherwise, any name from the list can be used.
-      # - If there are no validated domain names or if a DNS error occurs, use "unknown"
-      #
-      # 5.5 - validated domain name:
-      # 1. PTR lookup <ip> -> names
-      # 2. A lookup for each name
-      # 3. if <ip> is among the ip's -> name is validated
-      # 4. keep validated names iff they endwith? <target-name> domain
-      #
-      #   When evaluating the "ptr" mechanism or the %{p} macro, the number of
-      # "PTR" resource records queried is included in the overall limit of 10
-      # mechanisms/modifiers that cause DNS lookups as described above.  In
-      # addition to that limit, the evaluation of each "PTR" record MUST NOT
-      # result in querying more than 10 address records -- either "A" or
-      # "AAAA" resource records.  If this limit is exceeded, all records
-      # other than the first 10 MUST be ignored.
-
-      ?p => "unknown",
-      # v = the string "in-addr" if <ip> is ipv4, or "ip6" if <ip> is ipv6
-      ?v => (pfx.maxlen == 32 && "in-addr") || "ip6",
-      #
-      # The macro letters c,r,t are only allowed in an explain-string,
-      # retrieved via the expanded target-domain of an exp modifier.  In other
-      # words: c,r,t MUST not be used in a domspec for a mechanism or modifier
-      # (including exp itself).
-      # See: https://fossies.org/linux/Mail-SPF/lib/Mail/SPF/MacroString.pm, line 360
-      #
-      # c = SMTP client IP (easily readable format)
-      ?c => "#{pfx}",
-      # r = domain name of the receiving MTA (performing the check?)
-      # should be a fqdn or "unknown" e.g., when an SPF check is done on a MUA,
-      # not MTA
-      ?r => "unknown"
-      # and `t`, see below ...
-    }
-
-    # add uppercase variants: they are URL escaped (except for ?t and ?T)
-    Enum.reduce(m, m, fn {k, v}, m -> Map.put(m, k - 32, URI.encode(v)) end)
-    |> Map.put(?t, tstamp)
-    |> Map.put(?T, tstamp)
-  end
-
   def split(mbox) do
     # local@local@domain -> {local@local, domain}, local part is upto last `@`
     # TODO: right now, split("domain@domain") -> {postmaster, domain} instead
@@ -295,15 +201,6 @@ defmodule Spf.Context do
       dns: %{},
       # no dns error seen (yet)
       error: nil,
-      # how macro letters expand for current domain
-      # TODO: move macro expansion out of new, since some macro's like ?p
-      # can only properly resolved if the cache is prefilled.  This hinders
-      # passing tst:13.16, since the test suite puts in a new dns cache after
-      # creating a new context.
-      # Besides, macro evaluation is usually not needed, so we're spending cpu
-      # cycles on something that might not get used at all ...
-      macro: macros(domain, ip, sender, helo),
-      # output errors (1), warnings (2), notes (3), info (4) or debug (5) messages (quiet=0)
       verbosity: Keyword.get(opts, :verbosity, 4),
       # log of messages, whether outputted or not
       msg: [],
@@ -332,7 +229,8 @@ defmodule Spf.Context do
       # ipt.lookup(ip) -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
       ipt: Iptrie.new(),
       # report back
-      report: Keyword.get(opts, :report, :short)
+      report: Keyword.get(opts, :report, :short),
+      t0: DateTime.utc_now() |> DateTime.to_unix()
     }
     |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
     |> log(:ctx, :debug, "created context for #{domain}")
@@ -375,7 +273,6 @@ defmodule Spf.Context do
       f_redirect: ctx.f_redirect,
       f_all: ctx.f_all,
       nth: ctx.nth,
-      macro: ctx.macro,
       ast: ctx.ast,
       spf: ctx.spf,
       explain: ctx.explain
@@ -392,10 +289,11 @@ defmodule Spf.Context do
     |> Map.put(:f_redirect, false)
     |> Map.put(:f_all, false)
     |> Map.put(:nth, nth)
-    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
+
+    # |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
   end
 
   @doc """
@@ -407,19 +305,18 @@ defmodule Spf.Context do
   """
   @spec redirect(map, binary) :: map
   def redirect(ctx, domain) do
-    nth = ctx.num_spf
+    # nth = ctx.num_spf
 
     tick(ctx, :num_spf)
     |> Map.put(:depth, 0)
     |> Map.put(:stack, [])
-    |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
+    |> Map.put(:nth, ctx.num_spf)
+    |> Map.put(:map, Map.merge(ctx.map, %{ctx.num_spf => domain, domain => ctx.num_spf}))
     |> Map.put(:domain, domain)
     |> Map.put(:error, nil)
     |> Map.put(:f_include, false)
     |> Map.put(:f_redirect, false)
     |> Map.put(:f_all, false)
-    |> Map.put(:nth, nth)
-    |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)

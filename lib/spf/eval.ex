@@ -138,9 +138,8 @@ defmodule Spf.Eval do
     end
   end
 
-  def set_p_macro(ctx) do
+  def validated_name(ctx) do
     # ctx.macro[?p] = shortest validated name possible, or "unknown"
-    # TODO: refactor this abomination!
     {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr, stats: false)
 
     domain = Spf.DNS.normalize(ctx.domain)
@@ -163,13 +162,10 @@ defmodule Spf.Eval do
           |> List.first()
       end
 
-    pvalue =
-      case pvalue do
-        nil -> "unknown"
-        str -> str
-      end
-
-    put_in(ctx, [:macro, ?p], pvalue)
+    case pvalue do
+      nil -> "unknown"
+      str -> str
+    end
   end
 
   defp verdict(ctx) when is_map(ctx) do
@@ -282,7 +278,7 @@ defmodule Spf.Eval do
   defp eval(ctx) do
     evalp(ctx, ctx.ast)
     |> explain()
-    |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.macro[?t])
+    |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.t0)
     |> check_limits()
   end
 
@@ -445,6 +441,7 @@ defmodule Spf.Eval do
 
   # All
   defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
     log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
     |> tick(:num_checks)
     |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
@@ -453,6 +450,7 @@ defmodule Spf.Eval do
 
   # REDIRECT
   defp evalp(ctx, [{:redirect, [:einvalid], range} | _tail]) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
     Map.put(ctx, :error, :no_redir_domain)
     |> Map.put(:reason, "invalid domain in #{String.slice(ctx.spf, range)}")
     |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
@@ -460,7 +458,7 @@ defmodule Spf.Eval do
   end
 
   defp evalp(ctx, [{:redirect, [domain], _range} = term | tail]) do
-    # spec 6.1
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
     # - if redirect domain has no SPF -> permerror
     # - if redirect domain is mailformed -> permerror
     # - otherwise its result is the result for this SPF
@@ -470,23 +468,25 @@ defmodule Spf.Eval do
       |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
       |> bailout()
     else
-      nth = ctx.num_spf
+      # nth = ctx.num_spf
 
       ctx =
         test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
         |> log(:eval, :note, "redirecting to #{domain}")
-        |> tick(:num_spf)
-        |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
-        |> Map.put(:domain, domain)
-        |> Map.put(:f_include, ctx.f_include)
-        |> Map.put(:f_redirect, false)
-        |> Map.put(:f_all, false)
-        |> Map.put(:nth, nth)
-        |> Map.put(:macro, macros(domain, ctx.ip, ctx.sender, ctx.helo))
-        |> Map.put(:ast, [])
-        |> Map.put(:spf, "")
-        |> Map.put(:explain, nil)
+        |> redirect(domain)
         |> evaluate()
+
+      # |> tick(:num_spf)
+      # |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
+      # |> Map.put(:domain, domain)
+      # |> Map.put(:f_include, ctx.f_include)
+      # |> Map.put(:f_redirect, false)
+      # |> Map.put(:f_all, false)
+      # |> Map.put(:nth, nth)
+      # |> Map.put(:ast, [])
+      # |> Map.put(:spf, "")
+      # |> Map.put(:explain, nil)
+      # |> evaluate()
 
       if ctx.error in [:no_spf, :nxdomain] do
         Map.put(ctx, :error, :no_redir_spf)

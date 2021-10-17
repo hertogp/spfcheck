@@ -628,7 +628,9 @@ defmodule Spf.Tokens do
   split   = list of splitting characters (".", "-", "+", ",", "/", "_", and/or "=")
 
   string  = "%" / "-" / "_"
-  ```
+
+  Note that this lexes the c,r,t-macro letters, so creating a :domspec-token
+  will fail if any of these three macro letters are present.
 
   """
   @spec expand() :: t

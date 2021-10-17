@@ -109,6 +109,7 @@ defmodule Spfcheck do
       |> report(4)
       |> report(5)
       |> report(6)
+      |> report(7)
     end
   end
 
@@ -307,8 +308,22 @@ defmodule Spfcheck do
     |> IO.puts()
 
     IO.puts("```")
+    IO.puts("\nexplain: #{inspect(ctx.explain)}")
+    ctx
+  end
 
-    IO.inspect(ctx.macro, label: :macros)
+  defp report(ctx, 7) do
+    IO.puts("\n## TOKENS\n")
+
+    IO.puts("```")
+
+    ctx.spf_tokens
+    |> Enum.map(fn x -> inspect(x) end)
+    |> Enum.join("\n")
+    |> IO.puts()
+
+    IO.puts("```")
+    ctx
   end
 
   def usage() do

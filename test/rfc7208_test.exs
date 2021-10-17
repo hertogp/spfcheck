@@ -6,7 +6,7 @@ defmodule SpfcheckTestSuite do
   # mix test --only s:n, where n in 0..14
   # mix test --only t:x.y where x.y is a specific test in the test suite
 
-  Enum.each(TestSuite.all(), fn {test, mailfrom, helo, ip, result, dns, info} ->
+  Enum.each(TestSuite.all(), fn {test, mailfrom, helo, ip, result, dns, info, explanation} ->
     @test test
     @mailfrom mailfrom
     @helo helo
@@ -14,6 +14,7 @@ defmodule SpfcheckTestSuite do
     @result result
     @dns dns
     @info info
+    @explanation explanation
     @test_set String.split(test, ".") |> List.first()
     @test_tag String.split(test, " ") |> List.first()
 
@@ -23,10 +24,10 @@ defmodule SpfcheckTestSuite do
       ctx =
         Spf.Context.new(@mailfrom, helo: @helo, ip: @ip)
         |> Spf.DNS.load_lines(@dns)
-        |> Spf.Eval.set_p_macro()
         |> Spf.Eval.evaluate()
 
-      msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n\n"
+      msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n"
+      msg = msg <> "got #{ctx.explanation}, expected #{@explanation}\n\n"
       msg = msg <> "TEST\n"
       msg = msg <> "- TEST: #{@test}\n"
       msg = msg <> "- FROM: #{@mailfrom}\n"
@@ -77,6 +78,7 @@ defmodule SpfcheckTestSuite do
           (Enum.map(ctx.map, fn {d, n} -> "#{n} - #{d}" end) |> Enum.sort() |> Enum.join("\n"))
 
       assert "#{ctx.verdict}" in @result, msg
+      assert ctx.explanation == @explanation, msg
     end
   end)
 end

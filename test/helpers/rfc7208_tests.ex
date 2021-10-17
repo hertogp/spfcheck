@@ -86,9 +86,12 @@ defmodule Rfc7208.TestSuite do
     ip = test["host"]
     mailfrom = test["mailfrom"]
     result = test["result"] |> List.wrap() |> Enum.map(&String.downcase/1)
+    explanation = test["explanation"] || ""
+    # set DEFAULT explanation to ""
+    explanation = if explanation == "DEFAULT", do: "", else: explanation
 
     info = Enum.join(["spec #{spec}", desc, name], " - ")
-    {"#{nth}.#{mth} #{name}", mailfrom, helo, ip, result, dns, info}
+    {"#{nth}.#{mth} #{name}", mailfrom, helo, ip, result, dns, info, explanation}
   end
 
   def to_dns_lines(zdata) do
