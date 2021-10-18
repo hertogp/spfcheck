@@ -27,17 +27,6 @@ defmodule Spf.Parser do
     _ -> {:error, pfx}
   end
 
-  defp rm_redirect(ctx) do
-    case List.keytake(ctx[:ast], :redirect, 0) do
-      nil ->
-        ctx
-
-      {redir, ast} ->
-        log(ctx, :parse, :warn, "redirect #{inspect(redir)} ignored: `all` is present")
-        |> Map.put(:ast, ast)
-    end
-  end
-
   defp cidr([]),
     do: [32, 128]
 
@@ -53,15 +42,7 @@ defmodule Spf.Parser do
       {"", name} -> name
       {_, name} -> String.replace(name, ~r/^[^.]*./, "")
     end
-
-    # case String.split(domain, ".") do
-    #   [name] -> name
-    #   [_head | tail] -> Enum.join(tail, ".") |> drop_labels()
-    # end
   end
-
-  # defp drop_labels(domain),
-  #   do: domain
 
   def expand(ctx, []),
     do: ctx.domain
@@ -78,7 +59,6 @@ defmodule Spf.Parser do
   end
 
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
-    # ctx.macro[ltr]
     macro(ctx, ltr)
     |> String.split(delimiters)
     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
@@ -144,50 +124,35 @@ defmodule Spf.Parser do
     end
   end
 
-  defp ast(ctx, {:exp, _tokval, range} = token) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-6
-    # - exp can appear only once in an spf record
-    # - exp can appear after `all`
-    tokstr = String.slice(ctx.spf, range)
-
-    if ctx.f_include do
-      log(ctx, :parse, :info, "#{tokstr} - ignoring included explain")
-    else
-      if ctx.explain do
-        Map.put(ctx, :error, :repeated_modifier)
-        |> Map.put(:reason, "repeated modifier: spf[#{ctx.nth}] - #{tokstr}")
-        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
-      else
-        Map.put(ctx, :explain, token)
-      end
-    end
-  end
-
   defp ast(ctx, {_type, _tokval, _range} = token) do
+    # add a token to the AST if possible, otherwise put in an :error
     case token do
       {:all, _tokval, _range} ->
-        Map.put(ctx, :f_all, true)
-        |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
-        |> rm_redirect()
+        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
 
-      {:redirect, _tokval, range} ->
-        if ctx.f_redirect do
-          tokstr = String.slice(ctx.spf, range)
+      # Map.put(ctx, :f_all, true)
 
-          Map.put(ctx, :error, :repeated_modifier)
-          |> Map.put(:reason, "repeated modifier: spf[#{ctx.nth}] - #{tokstr}")
-          |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+      {:redirect, _tokval, _range} ->
+        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
+
+      {:exp, _tokval, range} ->
+        tokstr = String.slice(ctx.spf, range)
+
+        # if ctx.f_include do
+        if length(ctx.stack) > 0 do
+          log(ctx, :parse, :info, "#{tokstr} - ignoring included explain")
         else
-          Map.put(ctx, :f_redirect, true)
-          |> Map.update(:ast, [token], fn tokens -> tokens ++ [token] end)
+          if ctx.explain do
+            Map.put(ctx, :error, :repeated_modifier)
+            |> Map.put(:reason, "repeated modifier: spf[#{ctx.nth}] - #{tokstr}")
+            |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+          else
+            Map.put(ctx, :explain, token)
+          end
         end
 
       token ->
-        if ctx.f_all do
-          log(ctx, :parse, :warn, "ignored #{inspect(token)}: term past `all`")
-        else
-          Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
-        end
+        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
     end
   end
 
@@ -210,6 +175,9 @@ defmodule Spf.Parser do
     Enum.reduce(tokens, ctx, &parse/2)
     |> check(:explain_reachable)
     |> check(:no_implicit)
+    |> check(:max_redirect)
+    |> check(:all_no_redirect)
+    |> check(:all_last)
   end
 
   # Parse Tokens
@@ -374,6 +342,54 @@ defmodule Spf.Parser do
     case explicit do
       [] -> log(ctx, :parse, :warn, "SPF record has implicit end (?all)")
       _ -> ctx
+    end
+  end
+
+  defp check(ctx, :max_redirect) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5
+    # redirect modifier is allowed only once
+    redirs = Enum.filter(ctx.ast, fn {type, _tokal, _range} -> type == :redirect end)
+
+    if length(redirs) > 1 do
+      Map.put(ctx, :error, :repeated_modifier)
+      |> Map.put(:reason, "redirect modifier is allowed only once")
+      |> then(fn ctx -> log(ctx, :error, :parse, ctx.reason) end)
+    else
+      ctx
+    end
+  end
+
+  defp check(ctx, :all_no_redirect) do
+    all = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type == :all end)
+
+    if length(all) > 0 do
+      case List.keytake(ctx[:ast], :redirect, 0) do
+        nil ->
+          ctx
+
+        {redir, ast} ->
+          log(ctx, :parse, :warn, "redirect #{inspect(redir)} ignored: `all` is present")
+          |> Map.put(:ast, ast)
+      end
+    else
+      ctx
+    end
+  end
+
+  defp check(ctx, :all_last) do
+    # terms after all are ignored
+    # - exp is actually part of the context and does not appear in the ast
+    # - redirect is removed from ast if all is present
+    rest = Enum.drop_while(ctx.ast, fn {t, _, _} -> t != :all end)
+
+    case rest do
+      [_head | tail] when tail != [] ->
+        Enum.reduce(tail, ctx, fn tok, ctx ->
+          log(ctx, :parse, :warn, "term after all ignored: #{inspect(tok)}")
+        end)
+
+      _ ->
+        ctx
     end
   end
 end

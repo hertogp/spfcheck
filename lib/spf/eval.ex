@@ -482,25 +482,11 @@ defmodule Spf.Eval do
       |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
       |> bailout()
     else
-      # nth = ctx.num_spf
-
       ctx =
         test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
         |> log(:eval, :note, "redirecting to #{domain}")
         |> redirect(domain)
         |> evaluate()
-
-      # |> tick(:num_spf)
-      # |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
-      # |> Map.put(:domain, domain)
-      # |> Map.put(:f_include, ctx.f_include)
-      # |> Map.put(:f_redirect, false)
-      # |> Map.put(:f_all, false)
-      # |> Map.put(:nth, nth)
-      # |> Map.put(:ast, [])
-      # |> Map.put(:spf, "")
-      # |> Map.put(:explain, nil)
-      # |> evaluate()
 
       if ctx.error in [:no_spf, :nxdomain] do
         Map.put(ctx, :error, :no_redir_spf)

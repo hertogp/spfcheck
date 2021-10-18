@@ -18,25 +18,6 @@ defmodule Spf.Context do
     Map.put(ctx, :ipt, ipt)
     |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
     |> test(:ipt, :warn, seen_before, "#{k} seen before: #{inspect(data)}")
-
-    # ctx =
-    #   case Iptrie.lookup(ctx.ipt, k) do
-    #     {k2, v2} ->
-    #       log(
-    #         ctx,
-    #         :ipt,
-    #         :warn,
-    #         "#{k} covered by #{k2} from #{inspect(v2)}"
-    #       )
-
-    #     nil ->
-    #       ctx
-    #   end
-
-    # ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
-
-    # Map.put(ctx, :ipt, ipt)
-    # |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
   end
 
   defp prefix(ip, [len4, len6]) do
@@ -205,9 +186,6 @@ defmodule Spf.Context do
       # log of messages, whether outputted or not
       msg: [],
       # parser state flags
-      f_include: false,
-      f_all: false,
-      f_redirect: false,
       # explain term (if any)
       explain: nil,
       explanation: "",
@@ -269,9 +247,6 @@ defmodule Spf.Context do
     state = %{
       depth: ctx.depth,
       domain: ctx.domain,
-      f_include: ctx.f_include,
-      f_redirect: ctx.f_redirect,
-      f_all: ctx.f_all,
       nth: ctx.nth,
       ast: ctx.ast,
       spf: ctx.spf,
@@ -285,9 +260,6 @@ defmodule Spf.Context do
     |> Map.put(:stack, [state | ctx.stack])
     |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
     |> Map.put(:domain, domain)
-    |> Map.put(:f_include, true)
-    |> Map.put(:f_redirect, false)
-    |> Map.put(:f_all, false)
     |> Map.put(:nth, nth)
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
@@ -306,9 +278,6 @@ defmodule Spf.Context do
     |> Map.put(:map, Map.merge(ctx.map, %{ctx.num_spf => domain, domain => ctx.num_spf}))
     |> Map.put(:domain, domain)
     |> Map.put(:error, nil)
-    |> Map.put(:f_include, false)
-    |> Map.put(:f_redirect, false)
-    |> Map.put(:f_all, false)
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
