@@ -171,15 +171,12 @@ defmodule Spf.Parser do
       {:all, _tokval, _range} ->
         Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
 
-      # Map.put(ctx, :f_all, true)
-
       {:redirect, _tokval, _range} ->
         Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
 
       {:exp, _tokval, range} ->
         tokstr = String.slice(ctx.spf, range)
 
-        # if ctx.f_include do
         if length(ctx.stack) > 0 do
           log(ctx, :parse, :info, "#{tokstr} - ignoring included explain")
         else
@@ -255,7 +252,7 @@ defmodule Spf.Parser do
 
     if domain == :einvalid or cidr == :einvalid do
       Map.put(ctx, :error, :syntax_error)
-      |> Map.put(:reason, "invalid term #{String.slice(ctx.spf, range)}")
+      |> Map.put(:reason, "invalid term spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
       |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
