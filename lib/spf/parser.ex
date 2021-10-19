@@ -5,6 +5,8 @@ defmodule Spf.Parser do
 
   """
   import Spf.Context
+  alias Spf.DNS
+  alias Spf.Eval
 
   # Helpers
 
@@ -83,6 +85,7 @@ defmodule Spf.Parser do
     do: macro(ctx, letter + 32) |> URI.encode_www_form()
 
   defp macro(ctx, letter) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
     case letter do
       ?d -> ctx.domain
       ?h -> ctx.helo
@@ -93,13 +96,13 @@ defmodule Spf.Parser do
       ?r -> "unknown"
       ?c -> macro_c(ctx.ip)
       ?i -> macro_i(ctx.ip)
-      ?p -> Spf.Eval.validated_name(ctx)
+      ?p -> macro_p(ctx)
     end
   end
 
   defp macro_c(ip) do
-    # basically to appease v-macro-ip6 test from the rfc7208 test suite:
-    # which insists on shorthand notation for ip6 addresses
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
+    # - use inet.ntoa to get shorthand ip6 (appease v-macro-ip6 test)
     addr = Pfx.new(ip) |> Pfx.marshall({1, 2, 3, 4, 5, 6, 7, 8})
 
     :inet.ntoa(addr)
@@ -107,13 +110,51 @@ defmodule Spf.Parser do
   end
 
   defp macro_i(ip) do
-    # basically to appease v-macro-ip6 test from the rfc7208 test suite
-    # which insists on the i-macro to expand to uppercase for ip6
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
+    # - upcase reversed ip address (appease v-macro-ip6 test)
     pfx = Pfx.new(ip)
 
     case pfx.maxlen do
       32 -> "#{pfx}"
       _ -> Pfx.format(pfx, width: 4, base: 16) |> String.upcase()
+    end
+  end
+
+  defp macro_p(ctx) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
+    # "p" macro expands to the validated domain name of <ip>
+    # - perform a DNS reverse-mapping for <ip>
+    # - for name returned lookup its IP addresses
+    # - if <ip> is among the IP addresses, then that domain name is validated
+    # - if the <domain> is present as a validated domain, it SHOULD be used
+    # - otherwise, if a subdomain of the <domain> is present, it SHOULD be used
+    # - otherwise, *any* name from the list can be used
+    # - if there are no validated domain names use "unknown"
+    # - if a DNS error occurs, the string "unknown" is used.
+    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr, stats: false)
+
+    domain = DNS.normalize(ctx.domain)
+
+    pvalue =
+      case dns do
+        {:error, _reason} ->
+          "unknown"
+
+        {:ok, rrs} ->
+          Enum.take(rrs, 10)
+          |> Enum.map(fn name -> DNS.normalize(name) end)
+          |> Enum.map(fn name ->
+            {name, DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
+          end)
+          |> Enum.filter(fn {name, dns} -> Eval.validate?(dns, ctx.ip, name, domain, false) end)
+          |> Enum.map(fn {name, _dns} -> {-String.jaro_distance(name, domain), name} end)
+          |> Enum.sort()
+          |> List.first()
+      end
+
+    case pvalue do
+      nil -> "unknown"
+      {_, str} -> str
     end
   end
 

@@ -518,7 +518,7 @@ defmodule Spf.DNS do
   ## Example
 
       iex> DNS.resolve("www.example.com", :txt)
-      ...> |> DNS.grep(fn x -> String.lower(x) |> String.contains?("v=spf1") end)
+      ...> |> DNS.grep(fn x -> String.lower(x) |> String.contains?("v=spf1 ") end)
       ["v=spf1 -all"]
 
   """

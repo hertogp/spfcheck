@@ -6,13 +6,18 @@ defmodule Spf.Eval do
   [ ] expand macro's on demand, not beforehand
   [ ] fix dns stats, make it public and call when needed
       - DNS.resolve MUST always count the dnsq's since there is no limit
-  [ ] rename tokens.ex to lexer.ex
   """
 
   alias Spf.DNS
   import Spf.Context
 
   # Helpers
+
+  defp ascii?(string) when is_binary(string),
+    do: string == for(<<c <- string>>, c in 0..127, into: "", do: <<c>>)
+
+  defp ascii?(_string),
+    do: false
 
   defp evalname(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
@@ -124,10 +129,10 @@ defmodule Spf.Eval do
   end
 
   # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
-  defp validate?({:error, _}, _ip, _name, _domain, _exact),
+  def validate?({:error, _}, _ip, _name, _domain, _exact),
     do: false
 
-  defp validate?({:ok, rrs}, ip, name, domain, exact) do
+  def validate?({:ok, rrs}, ip, name, domain, exact) do
     pfx = Pfx.new(ip)
 
     if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
@@ -139,46 +144,6 @@ defmodule Spf.Eval do
       end
     else
       false
-    end
-  end
-
-  def validated_name(ctx) do
-    # ctx.macro[?p] = shortest validated name possible, or "unknown"
-    # The "p" macro expands to the validated domain name of <ip>.
-    # - The procedure for finding the validated domain name is defined in Section 5.5.
-    #   o Perform a DNS reverse-mapping for <ip>
-    #   o For each record returned, validate the domain name by looking up its IP addresses.
-    #   o If <ip> is among the returned IP addresses, then that domain name is validated.
-    #
-    # - If the <domain> is present in the list of validated domains, it SHOULD be used. 
-    # - Otherwise, if a subdomain of the <domain> is present, it SHOULD be used.
-    # - Otherwise, any name from the list can be used.
-    # - If there are no validated domain names use "unknown"
-    # - If a DNS error occurs, the string "unknown" is used.
-    {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr, stats: false)
-
-    domain = Spf.DNS.normalize(ctx.domain)
-
-    pvalue =
-      case dns do
-        {:error, _reason} ->
-          "unknown"
-
-        {:ok, rrs} ->
-          Enum.take(rrs, 10)
-          |> Enum.map(fn name -> Spf.DNS.normalize(name) end)
-          |> Enum.map(fn name ->
-            {name, Spf.DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
-          end)
-          |> Enum.filter(fn {name, dns} -> validate?(dns, ctx.ip, name, domain, false) end)
-          |> Enum.map(fn {name, _dns} -> {-String.jaro_distance(name, domain), name} end)
-          |> Enum.sort()
-          |> List.first()
-      end
-
-    case pvalue do
-      nil -> "unknown"
-      {_, str} -> str
     end
   end
 
@@ -233,7 +198,7 @@ defmodule Spf.Eval do
           |> then(fn ctx -> log(ctx, :check, :note, "no SPF record found") end)
 
         [spf] ->
-          if Spf.is_ascii?(spf) do
+          if ascii?(spf) do
             Map.put(ctx, :spf, spf)
           else
             Map.put(ctx, :error, :non_ascii_spf)
@@ -298,7 +263,13 @@ defmodule Spf.Eval do
 
   # Eval Terms
 
-  # Nomore TermS
+  defp error(ctx, error, reason) do
+    Map.put(ctx, :error, error)
+    |> Map.put(:reason, reason)
+    |> log(:eval, :error, reason)
+  end
+
+  # Nomore Terms
   defp evalp(ctx, []),
     do: ctx
 
@@ -312,9 +283,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        Map.put(ctx, :error, reason)
-        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
-        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+        error(ctx, reason, "DNS error #{domain} - #{reason}")
 
       {:ok, rrs} ->
         addip(ctx, rrs, dual, {q, ctx.nth, term})
@@ -332,9 +301,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        Map.put(ctx, :error, reason)
-        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
-        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+        error(ctx, reason, "DNS error #{domain} - #{reason}")
 
       {:ok, rrs} ->
         ctx =
@@ -367,9 +334,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        Map.put(ctx, :error, reason)
-        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
-        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+        error(ctx, reason, "DNS error #{domain} - #{reason}")
 
       {:ok, rrs} ->
         # https://www.rfc-editor.org/errata/eid5227
@@ -391,9 +356,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        Map.put(ctx, :error, reason)
-        |> Map.put(:reason, "DNS error #{domain} - #{reason}}")
-        |> then(fn ctx -> log(ctx, :error, :warn, ctx.reason) end)
+        error(ctx, reason, "DNS error #{domain} - #{reason}")
 
       {:ok, rrs} ->
         log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
@@ -411,9 +374,7 @@ defmodule Spf.Eval do
   # INCLUDE
   defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
     if ctx.map[domain] do
-      Map.put(ctx, :error, :include_loop)
-      |> Map.put(:reason, "included #{domain} seen before in spf #{ctx.map[domain]}")
-      |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
+      error(ctx, :include_loop, "included #{domain} seen before in spf #{ctx.map[domain]}")
       |> bailout()
     else
       ctx =
@@ -465,9 +426,7 @@ defmodule Spf.Eval do
   # REDIRECT
   defp evalp(ctx, [{:redirect, [:einvalid], range} | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
-    Map.put(ctx, :error, :no_redir_domain)
-    |> Map.put(:reason, "invalid domain in #{String.slice(ctx.spf, range)}")
-    |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
+    error(ctx, :no_redir_domain, "invalid domain in #{String.slice(ctx.spf, range)}")
     |> bailout()
   end
 
@@ -477,9 +436,7 @@ defmodule Spf.Eval do
     # - if redirect domain is mailformed -> permerror
     # - otherwise its result is the result for this SPF
     if ctx.map[domain] do
-      Map.put(ctx, :error, :redirect_loop)
-      |> Map.put(:reason, "redirect #{domain} seen before in spf #{ctx.map[domain]}")
-      |> then(fn ctx -> log(ctx, :eval, :warn, ctx.reason) end)
+      error(ctx, :redirect_loop, "redirect #{domain} seen before in spf #{ctx.map[domain]}")
       |> bailout()
     else
       ctx =
@@ -489,9 +446,7 @@ defmodule Spf.Eval do
         |> evaluate()
 
       if ctx.error in [:no_spf, :nxdomain] do
-        Map.put(ctx, :error, :no_redir_spf)
-        |> Map.put(:reason, "no SPF found for #{domain}")
-        |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
+        error(ctx, :no_redir_spf, "no SPF found for redirected #{domain}")
         |> bailout()
       else
         ctx

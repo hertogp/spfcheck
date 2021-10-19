@@ -7,12 +7,6 @@ defmodule Spf do
 
   # Helpers
 
-  def is_ascii?(string) when is_binary(string),
-    do: string == for(<<c <- string>>, c in 0..127, into: "", do: <<c>>)
-
-  def is_ascii?(_string),
-    do: false
-
   @doc """
   Returns true if `str` looks like an SPF record, false otherwise.
 
