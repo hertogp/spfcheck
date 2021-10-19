@@ -304,19 +304,12 @@ defmodule Spf.Eval do
         error(ctx, reason, "DNS error #{domain} - #{reason}")
 
       {:ok, rrs} ->
-        # ctx =
-        #   Enum.map(rrs, fn {_pref, name} -> name end)
-        #   |> Enum.take(10)
-        #   |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, term}) end)
-        #   |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
-
         if length(rrs) > 10 do
           # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
           Map.put(ctx, :error, :too_many_mtas)
           |> Map.put(:reason, "too many mta's for #{String.slice(ctx.spf, range)}")
           |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
         else
-          # ctx
           Enum.map(rrs, fn {_pref, name} -> name end)
           |> Enum.take(10)
           |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, term}) end)
