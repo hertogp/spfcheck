@@ -2,8 +2,7 @@ defmodule Spf.TokenTest do
   use ExUnit.Case
   import NimbleParsec
 
-  # assertions
-  # from https://elixirforum.com/t/trying-to-write-a-simple-nimble-parsec-parser/41344/4
+  @moduletag :tokens
 
   @mletters String.split("slodiphvSLODIPHCRTV", "", trim: true)
   # omitting mletters crt here, since that's only valid in an exp string
@@ -11,9 +10,20 @@ defmodule Spf.TokenTest do
   def charcode(charstr) when is_binary(charstr),
     do: String.to_charlist(charstr) |> List.first()
 
+  describe "domain specification" do
+    @describetag :tokens_domspec
+
+    test "001 - simple macros" do
+      IO.inspect(Spf.Parser.tokenize_spf("a:%{d}"), label: :domspec_tokenize)
+    end
+
+    test "002 - simple macros" do
+      IO.inspect(Spf.Parser.tokenize_spf("a:%{d}"), label: :domspec_tokenize)
+    end
+  end
+
   describe "domspec() parses" do
     defparsecp(:domspec, Spf.Tokens.domspec(":"))
-    # defparsecp(:expand, Spf.Tokens.expand())
 
     test "simple macros" do
       check = fn l, str ->
@@ -257,19 +267,22 @@ defmodule Spf.TokenTest do
     test "lexes .com." do
       {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com.")
       assert rest == ""
-      assert toplabel == ".com."
+      # all domspec's are relative to root, so toplabel drops the root-dot
+      assert toplabel == ".com"
     end
 
     test "lexes .1-1." do
       {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".1-1.")
       assert rest == ""
-      assert toplabel == ".1-1."
+      # all domspec's are relative to root, so toplabel drops the root-dot
+      assert toplabel == ".1-1"
     end
 
     test "lexes .com./24" do
       {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com./24")
       assert rest == "/24"
-      assert toplabel == ".com."
+      # all domspec's are relative to root, so toplabel drops the root-dot
+      assert toplabel == ".com"
     end
 
     test "does not match .com-" do
@@ -379,7 +392,7 @@ defmodule Spf.TokenTest do
     test @str do
       {:ok, [token], _, _, _, _} = a(@str)
       {:a, [?+, [{:domspec, list, 2..11}, {:dual_cidr, [24, 64], 12..18}]], 0..18} = token
-      {:toplabel, [".tld."], _} = List.last(list)
+      {:toplabel, [".tld"], _} = List.last(list)
     end
 
     @str "a:l1.l2.tld.%{d}/24//64"
@@ -686,10 +699,10 @@ defmodule Spf.TokenTest do
   end
 
   describe "explain() lexes" do
-    defparsec(:explain, Spf.Tokens.exp_str())
+    defparsec(:tokenize_exp, Spf.Tokens.tokenize_exp())
 
     test "an explain-string" do
-      {:ok, tokens, _, _, _, _} = explain("%{i} is bad")
+      {:ok, tokens, _, _, _, _} = tokenize_exp("%{i} is bad")
 
       assert tokens ==
                [

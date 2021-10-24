@@ -24,14 +24,80 @@ defmodule Spf.DNS do
     "zero_answers" => :zero_answers
   }
 
-  # DNS
-  # https://www.rfc-editor.org/rfc/rfc6895.html
-  # https://erlang.org/doc/man/inet_res.html
+  # See also:
+  # - https://www.rfc-editor.org/rfc/rfc6895.html
+  # - https://erlang.org/doc/man/inet_res.html
   #
   # Local cache
   # {domain, type} -> [{:error, reason}] | [{:ok, :nodata}] | [rrdata, rrdata, ..]
 
-  # Helpers
+  # API
+
+  @doc """
+  Returns a cache hit or miss for given `name` and `type` from cache `ctx.dns`.
+
+  - `{:ok, []}` is a cache miss.
+  - `{:error, reason}` is a cache hit for a previous negative result
+  - `{:ok, rrs}` is a cache hit where `rrs` is a list of rrdata's.
+
+  """
+  @spec from_cache(map, binary, atom) :: {:error, atom} | {:ok, list}
+  def from_cache(ctx, name, type) do
+    # returns either {:error, reason} or {:ok, [rrs]}
+    {ctx, name} = cname(ctx, name)
+    cache = Map.get(ctx, :dns, %{})
+
+    case cache[{name, type}] do
+      nil -> {:error, :cache_miss}
+      [{:error, reason}] -> {:error, reason}
+      res -> {:ok, res}
+    end
+  end
+
+  @doc """
+  Keep only the rrdata from `rrdatas` where `fun` returns truthy.
+
+  ## Example
+
+      iex> DNS.resolve("www.example.com", :txt)
+      ...> |> DNS.grep(fn x -> String.lower(x) |> String.contains?("v=spf1 ") end)
+      ["v=spf1 -all"]
+
+  """
+  def grep({:ok, rrdatas}, fun),
+    do: grep(rrdatas, fun)
+
+  def grep({:error, reason}, _fun),
+    do: {:error, reason}
+
+  def grep(rrdatas, fun) when is_function(fun, 1),
+    do: {:ok, Enum.filter(rrdatas, fn rrdata -> fun.(rrdata) end)}
+
+  def load_file(ctx, nil), do: ctx
+
+  def load_file(ctx, fpath) when is_binary(fpath) do
+    ctx =
+      case File.read(fpath) do
+        {:ok, binary} ->
+          load_lines(ctx, String.split(binary, "\n"))
+
+        {:error, reason} ->
+          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
+      end
+
+    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
+  rescue
+    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
+  end
+
+  def load_lines(ctx, lines) when is_binary(lines),
+    do: load_lines(ctx, String.split(lines, "\n"))
+
+  def load_lines(ctx, lines) when is_list(lines) do
+    lines
+    |> Enum.map(&String.trim/1)
+    |> Enum.reduce(ctx, &rr_fromstr/2)
+  end
 
   @doc """
   Normalize a domain name: lowercase and no trailing dot.
@@ -50,6 +116,49 @@ defmodule Spf.DNS do
 
   def normalize(domain) when is_list(domain),
     do: List.to_string(domain) |> normalize()
+
+  @doc """
+  Resolves a query and returns a {`ctx`, results}-tuple.
+
+  Returns:
+  - `{ctx, {:error, reason}}` if a DNS error occurred, or
+  - `{ctx, {:ok, [rrs]}}` where rrs is a list of rrdata's
+
+  Although, technically a result with ZERO answers is not a DNS error, it
+  will be reported as `{:error, :zero_answers}`.
+
+  """
+  @spec resolve(map, binary, list) :: {map, any}
+  def resolve(ctx, name, opts \\ []) when is_map(ctx) do
+    name = normalize(name)
+    stats = Keyword.get(opts, :stats, true)
+    type = Keyword.get(opts, :type, :a)
+
+    case valid?(name) do
+      {:ok, name} -> resolvep(ctx, name, type, stats)
+      {:error, reason} -> {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+    end
+  end
+
+  @doc """
+  Return all acquired DNS RR's in a flat list of printable lines.
+
+  Note that RR's with multiple entries in their rrdata are listed individually,
+  so the output can be copy/paste'd into a local dns.txt pre-cache to facilitate
+  experimentation with RR records.
+
+  """
+  def to_list(ctx, opts \\ []) do
+    valid = Keyword.get(opts, :valid, true)
+    cache = Map.get(ctx, :dns, %{})
+
+    cache
+    |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
+    |> List.flatten()
+    |> rrs_sort()
+    |> Enum.filter(fn {_domain, _type, data} -> valid != rr_is_error(data) end)
+    |> Enum.map(fn {domain, type, data} -> rr_tostr(domain, type, data) end)
+  end
 
   @doc """
   Checks validity of a domain name, Returns {:ok, name} or {:error, reason}
@@ -83,6 +192,8 @@ defmodule Spf.DNS do
     end
   end
 
+  # Helpers
+
   defp validp?(domain, :length),
     do: String.length(domain) < 254
 
@@ -94,41 +205,6 @@ defmodule Spf.DNS do
 
   defp validp?(domain, :ascii),
     do: domain == for(<<c <- domain>>, c in 0..127, into: "", do: <<c>>)
-
-  # Resolve
-
-  @doc """
-  Resolves a query and returns a {`ctx`, results}-tuple.
-
-  Returns:
-  - `{ctx, {:error, reason}}` if a DNS error occurred, or
-  - `{ctx, {:ok, [rrs]}}` where rrs is a list of rrdata's
-
-  Although, technically a result with ZERO answers is not a DNS error, it
-  will be reported as `{:error, :zero_answers}`.
-
-  """
-  @spec resolve(map, binary, list) :: {map, any}
-  def resolve(ctx, name, opts \\ []) when is_map(ctx) do
-    name = normalize(name)
-    stats = Keyword.get(opts, :stats, true)
-    type = Keyword.get(opts, :type, :a)
-
-    case valid?(name) do
-      {:ok, name} -> resolvep(ctx, name, type, stats)
-      {:error, reason} -> {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
-    end
-  end
-
-  defp resolvep(ctx, name, type, stats) do
-    case from_cache(ctx, name, type) do
-      {:error, :cache_miss} ->
-        query(ctx, name, type, stats)
-
-      result ->
-        do_stats(ctx, name, type, result, stats, cached: true)
-    end
-  end
 
   defp query(ctx, name, type, stats) do
     # returns either {ctx, {:error, reason}} or {ctx, {:ok, [rrs]}}
@@ -205,6 +281,16 @@ defmodule Spf.DNS do
     end
   end
 
+  defp resolvep(ctx, name, type, stats) do
+    case from_cache(ctx, name, type) do
+      {:error, :cache_miss} ->
+        query(ctx, name, type, stats)
+
+      result ->
+        do_stats(ctx, name, type, result, stats, cached: true)
+    end
+  end
+
   defp rrentries(msg) do
     # given a dns_msg {:dns_rec, ...} or error-tuple
     # -> return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
@@ -233,27 +319,6 @@ defmodule Spf.DNS do
   end
 
   # Cache
-
-  @doc """
-  Returns a cache hit or miss for given `name` and `type` from cache `ctx.dns`.
-
-  - `{:ok, []}` is a cache miss.
-  - `{:error, reason}` is a cache hit for a previous negative result
-  - `{:ok, rrs}` is a cache hit where `rrs` is a list of rrdata's.
-
-  """
-  @spec from_cache(map, binary, atom) :: {:error, atom} | {:ok, list}
-  def from_cache(ctx, name, type) do
-    # returns either {:error, reason} or {:ok, [rrs]}
-    {ctx, name} = cname(ctx, name)
-    cache = Map.get(ctx, :dns, %{})
-
-    case cache[{name, type}] do
-      nil -> {:error, :cache_miss}
-      [{:error, reason}] -> {:error, reason}
-      res -> {:ok, res}
-    end
-  end
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
@@ -362,26 +427,6 @@ defmodule Spf.DNS do
   defp charlists_tostr(data, _),
     do: data
 
-  @doc """
-  Return all acquired DNS RR's in a flat list of printable lines.
-
-  Note that RR's with multiple entries in their rrdata are listed individually,
-  so the output can be copy/paste'd into a local dns.txt pre-cache to facilitate
-  experimentation with RR records.
-
-  """
-  def to_list(ctx, opts \\ []) do
-    valid = Keyword.get(opts, :valid, true)
-    cache = Map.get(ctx, :dns, %{})
-
-    cache
-    |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
-    |> List.flatten()
-    |> rrs_sort()
-    |> Enum.filter(fn {_domain, _type, data} -> valid != rr_is_error(data) end)
-    |> Enum.map(fn {domain, type, data} -> rr_tostr(domain, type, data) end)
-  end
-
   defp rr_flatten(domain, type, data) do
     for rrdata <- data do
       {domain, type, rrdata}
@@ -411,8 +456,9 @@ defmodule Spf.DNS do
     end
   end
 
-  def rr_fromstr(str, ctx),
-    do: String.trim(str) |> rr_fromstrp(ctx)
+  defp rr_fromstr(str, ctx) do
+    String.trim(str) |> rr_fromstrp(ctx)
+  end
 
   defp rr_fromstrp("#" <> _, ctx),
     # this is why str must be trimmed already
@@ -440,9 +486,9 @@ defmodule Spf.DNS do
           update(ctx, {domain, type, {:error, rr_error(data)}})
         end)
 
-      _ ->
+      rr ->
         # ignore malformed, TODO: log this as error/warning
-        ctx
+        Spf.Context.log(ctx, :dns, :warn, "ignoring invalid RR #{inspect(rr)}")
     end
   end
 
@@ -512,49 +558,7 @@ defmodule Spf.DNS do
     "#{inspect(data)}" |> no_quotes()
   end
 
-  @doc """
-  Keep only the rrdata from `rrdatas` where `fun` returns truthy.
-
-  ## Example
-
-      iex> DNS.resolve("www.example.com", :txt)
-      ...> |> DNS.grep(fn x -> String.lower(x) |> String.contains?("v=spf1 ") end)
-      ["v=spf1 -all"]
-
-  """
-  def grep({:ok, rrdatas}, fun),
-    do: grep(rrdatas, fun)
-
-  def grep({:error, reason}, _fun),
-    do: {:error, reason}
-
-  def grep(rrdatas, fun) when is_function(fun, 1),
-    do: {:ok, Enum.filter(rrdatas, fn rrdata -> fun.(rrdata) end)}
-
   # From File/Strings
-
-  def load_file(ctx, nil), do: ctx
-
-  def load_file(ctx, fpath) when is_binary(fpath) do
-    ctx =
-      case File.read(fpath) do
-        {:ok, binary} ->
-          load_lines(ctx, String.split(binary, "\n"))
-
-        {:error, reason} ->
-          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
-      end
-
-    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
-  rescue
-    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
-  end
-
-  def load_lines(ctx, lines) when is_list(lines) do
-    lines
-    |> Enum.map(&String.trim/1)
-    |> Enum.reduce(ctx, &rr_fromstr/2)
-  end
 
   defp rr_type(type) do
     type = String.trim(type) |> String.downcase()

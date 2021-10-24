@@ -3,7 +3,7 @@ defmodule Spfcheck do
   @moduledoc File.read!("README.md")
              |> String.split("<!-- @MODULEDOC -->")
              |> Enum.fetch!(1)
-  alias Spf
+
   alias Spf.Context
   alias IO.ANSI
 
@@ -40,7 +40,6 @@ defmodule Spfcheck do
     :sender,
     :verdict,
     :reason,
-    :explanation,
     :num_spf,
     :num_dnsm,
     :num_dnsq,
@@ -48,7 +47,8 @@ defmodule Spfcheck do
     :num_checks,
     :num_warn,
     :num_error,
-    :duration
+    :duration,
+    :explanation
   ]
 
   # Helpers
@@ -101,7 +101,7 @@ defmodule Spfcheck do
       do: do_stdin(parsed)
 
     for sender <- senders do
-      Spf.check(sender, parsed)
+      Spf.Eval.check(sender, parsed)
       |> report(0)
       |> report(1)
       |> report(2)
@@ -130,7 +130,7 @@ defmodule Spfcheck do
     opts = Keyword.merge(opts, parsed)
 
     for domain <- domains do
-      Spf.check(domain, opts)
+      Spf.Eval.check(domain, opts)
       |> csv_result()
     end
   end

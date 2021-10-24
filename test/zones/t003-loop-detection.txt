@@ -1,0 +1,6 @@
+# loop detection is case insensitive
+# d redirects to B.%{d2} aka B.example.com and thats a loop
+example.com TXT v=spf1 redirect=b.example.com
+b.example.com TXT v=spf1 redirect=c.%{d2}
+c.example.com TXT v=spf1 include:d.example.com.
+d.example.com TXT v=spf1 redirect=B.%{d2}

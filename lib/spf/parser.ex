@@ -4,9 +4,15 @@ defmodule Spf.Parser do
 
 
   """
+  import NimbleParsec
   import Spf.Context
   alias Spf.DNS
   alias Spf.Eval
+
+  # Lexer
+
+  defparsec(:tokenize_spf, Spf.Tokens.tokenize_spf())
+  defparsec(:tokenize_exp, Spf.Tokens.tokenize_exp())
 
   # Helpers
 
@@ -46,18 +52,20 @@ defmodule Spf.Parser do
     end
   end
 
-  def expand(ctx, []),
+  defp expand(ctx, []),
     do: ctx.domain
 
-  def expand(_ctx, {:domspec, [:einvalid], _range}),
+  defp expand(_ctx, {:domspec, [:einvalid], _range}),
     do: :einvalid
 
-  def expand(ctx, {toktype, tokens, _range}) when toktype in [:domspec, :exp_str] do
+  defp expand(ctx, {toktype, tokens, _range}) when toktype in [:domspec, :exp_str] do
     for {token, args, _range} <- tokens do
       expand(ctx, token, args)
     end
     |> Enum.join()
     |> drop_labels()
+
+    # |> DNS.normalize()
   end
 
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
@@ -80,6 +88,16 @@ defmodule Spf.Parser do
   defp expand(_ctx, token_type, [str])
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
        do: str
+
+  def explain(ctx, explain) do
+    case tokenize_exp(explain) do
+      {:error, _, _, _, _, _} ->
+        ""
+
+      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
+        expand(ctx, exp_str)
+    end
+  end
 
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
     do: macro(ctx, letter + 32) |> URI.encode_www_form()
@@ -138,7 +156,7 @@ defmodule Spf.Parser do
     pvalue =
       case dns do
         {:error, _reason} ->
-          "unknown"
+          {:ok, "unknown"}
 
         {:ok, rrs} ->
           Enum.take(rrs, 10)
@@ -147,8 +165,8 @@ defmodule Spf.Parser do
             {name, DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
           end)
           |> Enum.filter(fn {name, dns} -> Eval.validate?(dns, ctx.ip, name, domain, false) end)
-          |> Enum.map(fn {name, _dns} -> {-String.jaro_distance(name, domain), name} end)
-          |> Enum.sort()
+          |> Enum.map(fn {name, _dns} -> {String.bag_distance(name, domain), name} end)
+          |> Enum.sort(fn {x0, s0}, {x1, s1} -> x0 > x1 || s0 < s1 end)
           |> List.first()
       end
 
@@ -175,15 +193,13 @@ defmodule Spf.Parser do
         Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
 
       {:exp, _tokval, range} ->
-        tokstr = String.slice(ctx.spf, range)
+        term = spf_term(ctx, range)
 
         if length(ctx.stack) > 0 do
-          log(ctx, :parse, :info, "#{tokstr} - ignoring included explain")
+          log(ctx, :parse, :info, "#{term} - ignored (included explain)")
         else
           if ctx.explain do
-            Map.put(ctx, :error, :repeated_modifier)
-            |> Map.put(:reason, "repeated modifier: spf[#{ctx.nth}] - #{tokstr}")
-            |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+            error(ctx, :repeated_modifier, "repeated modifier #{term}", :permerror)
           else
             Map.put(ctx, :explain, token)
           end
@@ -200,7 +216,7 @@ defmodule Spf.Parser do
     do: ctx
 
   def parse(%{spf: spf} = ctx) do
-    {:ok, tokens, rest, _, _, _} = Spf.tokenize(spf)
+    {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
 
     ctx =
       Map.put(ctx, :spf, spf)
@@ -222,11 +238,12 @@ defmodule Spf.Parser do
 
   # Version
   defp parse({:version, [n], range} = _token, ctx) do
-    # TODO: DNS.grep checks for v=spf1, so we're always good here, no?
-    # And if possibly not, then put in the syntax error
     case n do
-      1 -> ctx
-      _ -> log(ctx, :parse, :error, "unknown SPF version #{String.slice(ctx.spf, range)}")
+      1 ->
+        ctx
+
+      _ ->
+        error(ctx, :syntax_error, "Unknown SPF version #{spf_term(ctx, range)}", :permerror)
     end
   end
 
@@ -249,34 +266,51 @@ defmodule Spf.Parser do
 
     domain = expand(ctx, spec)
     cidr = cidr(dual)
+    term = spf_term(ctx, range)
 
     if domain == :einvalid or cidr == :einvalid do
-      Map.put(ctx, :error, :syntax_error)
-      |> Map.put(:reason, "invalid term spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
-      |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+      error(ctx, :syntax_error, "invalid term #{term}", :permerror)
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
-      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+      |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
     end
   end
 
   # Ptr
   defp parse({:ptr, [qual, args], range}, ctx) do
     {spec, _} = taketok(args, :domspec)
+    term = spf_term(ctx, range)
 
-    ast(ctx, {:ptr, [qual, expand(ctx, spec)], range})
-    |> tick(:num_dnsm)
-    |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
-    |> log(:parse, :warn, "ptr usage is not recommended")
+    case expand(ctx, spec) do
+      :einvalid ->
+        error(ctx, :syntax_error, "syntax error #{term}", :permerror)
+
+      domain ->
+        ast(ctx, {:ptr, [qual, domain], range})
+        |> tick(:num_dnsm)
+        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+        |> log(:parse, :warn, "#{term} ** usage is not recommended")
+        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+    end
   end
 
   # Include, Exists
-  defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists],
-    do:
-      ast(ctx, {atom, [qual, expand(ctx, domspec)], range})
-      |> tick(:num_dnsm)
-      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+  defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
+    term = spf_term(ctx, range)
+
+    case(expand(ctx, domspec)) do
+      :einvalid ->
+        error(ctx, :syntax_error, "syntax error #{term}", :permerror)
+
+      domain ->
+        ast(ctx, {atom, [qual, domain], range})
+        |> tick(:num_dnsm)
+        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+    end
+  end
 
   # All
   defp parse({:all, [qual], range}, ctx),
@@ -289,51 +323,48 @@ defmodule Spf.Parser do
         ast(ctx, {atom, [qual, pfx], range})
 
       {:error, _} ->
-        Map.put(ctx, :error, :syntax_error)
-        |> Map.put(:reason, "syntax error for IP #{String.slice(ctx.spf, range)}")
-        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+        error(ctx, :syntax_error, "syntax error for #{spf_term(ctx, range)}", :permerror)
     end
   end
 
   # Redirect
-  defp parse({:redirect, [{:domspec, [:einvalid], _range}], range}, ctx) do
-    Map.put(ctx, :error, :syntax_error)
-    |> Map.put(:reason, "syntax error for redirect #{String.slice(ctx.spf, range)}")
-    |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
-  end
-
   defp parse({:redirect, [domspec], range}, ctx) do
-    ast(ctx, {:redirect, [expand(ctx, domspec)], range})
-    |> tick(:num_dnsm)
-    |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{String.slice(ctx.spf, range)}")
+    term = spf_term(ctx, range)
+
+    case expand(ctx, domspec) do
+      :einvalid ->
+        error(ctx, :syntax_error, "syntax error for #{term}", :permerror)
+
+      domain ->
+        ast(ctx, {:redirect, [domain], range})
+        |> tick(:num_dnsm)
+        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+    end
   end
 
   # Exp
   defp parse({:exp, [domspec], range}, ctx) do
-    case domspec do
-      {:domspec, [:einvalid], _} ->
-        Map.put(ctx, :error, :syntax_error)
-        |> Map.put(:reason, "invalid domain spec for #{String.slice(ctx.spf, range)}")
-        |> then(fn ctx -> log(ctx, :parse, :error, ctx.reason) end)
+    term = spf_term(ctx, range)
 
-      domspec ->
-        ast(ctx, {:exp, [expand(ctx, domspec)], range})
+    case expand(ctx, domspec) do
+      :einvalid ->
+        error(ctx, :syntax_error, "syntax error for #{term}", :permerror)
+
+      domain ->
+        ast(ctx, {:exp, [domain], range})
+        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
     end
   end
 
   # Unknown_mod
-  # TODO: unknown modifier MUST have a valid macro-string
   defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
-    # unknown_mod term may be ignored
-    # like 'moo.cow-far_out=man:dog/cat'
-    log(ctx, :parse, :warn, "ignored UNKNOWN MODIFIER \"#{String.slice(ctx.spf, range)}\"")
+    log(ctx, :parse, :warn, "ignored unknown modifier '#{spf_term(ctx, range)}'")
   end
 
   # Unknown
   defp parse({:unknown, _tokvalue, range} = _token, ctx) do
-    log(ctx, :parse, :error, "UNKNOWN TERM \"#{String.slice(ctx.spf, range)}\"")
-    |> Map.put(:error, :syntax_error)
-    |> Map.put(:reason, "unknown term '#{String.slice(ctx.spf, range)}' at #{inspect(range)}")
+    error(ctx, :syntax_error, "syntax error for '#{spf_term(ctx, range)}'", :permerror)
   end
 
   # CatchAll
@@ -389,9 +420,14 @@ defmodule Spf.Parser do
     redirs = Enum.filter(ctx.ast, fn {type, _tokal, _range} -> type == :redirect end)
 
     if length(redirs) > 1 do
-      Map.put(ctx, :error, :repeated_modifier)
-      |> Map.put(:reason, "redirect modifier is allowed only once")
-      |> then(fn ctx -> log(ctx, :error, :parse, ctx.reason) end)
+      [_, {_, _, range} | _] = redirs
+
+      error(
+        ctx,
+        :repeated_modifier,
+        "#{spf_term(ctx, range)} - redirect is allowed only once",
+        :permerror
+      )
     else
       ctx
     end

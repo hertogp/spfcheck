@@ -31,7 +31,7 @@ defmodule Spf.Context do
     _ -> :error
   end
 
-  # CONTEXT
+  # API CONTEXT
 
   @doc """
   Update `ctx.ipt` with one or more ip,value-pairs.
@@ -53,6 +53,13 @@ defmodule Spf.Context do
     ipt_update({prefix(ip, dual), value}, ctx)
   end
 
+  def error(ctx, error, reason, verdict \\ nil) do
+    Map.put(ctx, :error, error)
+    |> Map.put(:reason, reason)
+    |> Map.put(:verdict, verdict || ctx.verdict)
+    |> log(:eval, :error, reason)
+  end
+
   @doc """
   Returns the SPF string for `nth` domain if available, nil otherwise.
 
@@ -62,18 +69,20 @@ defmodule Spf.Context do
     with domain when is_binary(domain) <- ctx.map[nth] do
       get_spf(ctx, domain)
     else
-      # TODO: better error handling here!
-      _ -> "ERROR SPF [#{nth}] NOT FOUND"
+      _ -> "ERROR SPF[#{nth}] NOT FOUND"
     end
   end
 
   def get_spf(ctx, domain) when is_binary(domain) do
     case Spf.DNS.from_cache(ctx, domain, :txt) do
       {:ok, []} -> "ERROR SPF NOT FOUND"
-      {:ok, rrs} -> Enum.find(rrs, "ERROR SPF NOT FOUND", &Spf.spf?/1)
+      {:ok, rrs} -> Enum.find(rrs, "ERROR SPF NOT FOUND", &Spf.Eval.spf?/1)
       {:error, _} -> "ERROR SPF NOT FOUND"
     end
   end
+
+  def spf_term(ctx, range),
+    do: "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}"
 
   @spec log(map, atom, atom, binary) :: map
   def log(ctx, facility, severity, msg) do
@@ -92,6 +101,21 @@ defmodule Spf.Context do
       :error -> tick(ctx, :num_error)
       _ -> ctx
     end
+  end
+
+  def loop?(ctx, new_domain) do
+    new_domain = String.downcase(new_domain)
+    cur_domain = String.downcase(ctx.domain)
+    cur_domain in Map.get(ctx.traces, new_domain, [])
+  end
+
+  defp trace(ctx, new_domain) do
+    new_domain = String.downcase(new_domain)
+    cur_domain = String.downcase(ctx.domain)
+
+    Map.update(ctx.traces, cur_domain, [], fn v -> v end)
+    |> Enum.reduce(%{}, fn {k, v}, acc -> Map.put(acc, k, [new_domain | v]) end)
+    |> then(fn traces -> Map.put(ctx, :traces, traces) end)
   end
 
   def split(mbox) do
@@ -162,6 +186,8 @@ defmodule Spf.Context do
       helo: helo,
       # tracks what was seen before: nth=>domain, domain=>nth; for reporting
       map: %{0 => domain, domain => 0},
+      # traces records series of domains seen, for tracking loops
+      traces: %{},
       # push state (part of ctx) when recursing on include'd domains
       stack: [],
       # <ip> for which authorization is sought
@@ -212,13 +238,11 @@ defmodule Spf.Context do
     }
     |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
     |> log(:ctx, :debug, "created context for #{domain}")
+    |> log(:spf, :note, "spfcheck(#{domain}, #{ip}, #{sender})")
   end
 
   @doc """
   Pop the previous state of given `ctx` from its stack.
-
-  This function restores the details of a previous SPF record, whose evaluation
-  encountered an `include` mechanism.
 
   """
   @spec pop(map) :: map
@@ -257,6 +281,7 @@ defmodule Spf.Context do
 
     tick(ctx, :num_spf)
     |> tick(:depth)
+    |> trace(domain)
     |> Map.put(:stack, [state | ctx.stack])
     |> Map.put(:map, Map.merge(ctx.map, %{nth => domain, domain => nth}))
     |> Map.put(:domain, domain)
@@ -273,6 +298,7 @@ defmodule Spf.Context do
   @spec redirect(map, binary) :: map
   def redirect(ctx, domain) do
     tick(ctx, :num_spf)
+    |> trace(domain)
     |> Map.put(:depth, 0)
     |> Map.put(:nth, ctx.num_spf)
     |> Map.put(:map, Map.merge(ctx.map, %{ctx.num_spf => domain, domain => ctx.num_spf}))
@@ -291,7 +317,8 @@ defmodule Spf.Context do
   def test(ctx, facility, severity, true, msg),
     do: log(ctx, facility, severity, msg)
 
-  def test(ctx, _, _, false, _),
+  def test(ctx, _, _, _, _),
+    # nil is also false
     do: ctx
 
   @doc """

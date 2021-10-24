@@ -303,7 +303,7 @@ defmodule Spf.Tokens do
   @doc """
   Combinator that creates a list of tokens for the SPF terms found in an input string.
   """
-  def tokenize(),
+  def tokenize_spf(),
     do: term() |> repeat()
 
   # TOKENS
@@ -478,20 +478,12 @@ defmodule Spf.Tokens do
 
   # L1 TOKENS
 
-  @doc """
-  Token `{:domspec, [token], range}`
-
-  Where `token`'s include:
-  - [`expand`](`expand/0`)
-  - [`literal`](`literal/0`)
-  - [`toplabel`](`toplabel/0`)
-
-  Nb: a domain-spec is preceeded either by a `:` or an `=`, so higher level
-  tokens need to match that themselves.
-
-  """
   @spec domspec() :: t
-  def domspec() do
+  defp domspec() do
+    # {:domspec, [token], range}
+    # tokens include: :expand, :literal, :toplabel
+    # Nb: a domain-spec is preceeded either by a `:` or an `=`, so higher level
+    # tokens need to match that themselves.
     start(:domspec)
     |> times(choice([toplabel(), expand(), mliteral()]), min: 1)
     |> post_traverse({@m, :token, [:domspec]})
@@ -726,7 +718,7 @@ defmodule Spf.Tokens do
   The list of tokens can then be expanded into the final explanation.
 
   """
-  def exp_str() do
+  def tokenize_exp() do
     start(:exp_str)
     |> times(choice([expand(), mliteral(), whitespace()]), min: 1)
     |> post_traverse({@m, :token, [:exp_str]})
@@ -736,7 +728,7 @@ defmodule Spf.Tokens do
     start(:toplabel)
     |> string(".")
     |> choice([ldhlabel1(), ldhlabel2()])
-    |> optional(string("."))
+    |> optional(ignore(string(".")))
     |> choice([eoterm(), lookahead(dual_cidr())])
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:toplabel]})

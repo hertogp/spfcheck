@@ -47,20 +47,10 @@ defmodule Spf.Eval do
 
         {:ok, [explain]} ->
           log(ctx, :dns, :info, "txt #{domain} -> '#{explain}'")
-          |> Map.put(:explanation, explainp(ctx, explain))
+          |> Map.put(:explanation, Spf.Parser.explain(ctx, explain))
       end
     else
       ctx
-    end
-  end
-
-  defp explainp(ctx, explain) do
-    case Spf.exp_tokens(explain) do
-      {:error, _, _, _, _, _} ->
-        ""
-
-      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
-        Spf.Parser.expand(ctx, exp_str)
     end
   end
 
@@ -69,19 +59,13 @@ defmodule Spf.Eval do
     if ctx.nth == 0 do
       ctx =
         if ctx.num_dnsm > ctx.max_dnsm do
-          Map.put(ctx, :error, :too_many_dnsm)
-          |> Map.put(:reason, "too many DNS mechanisms used #{ctx.num_dnsm}")
-          |> Map.put(:verdict, :permerror)
-          |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
+          error(ctx, :too_many_dnsm, "too many DNS mechanisms used (#{ctx.num_dnsm})", :permerror)
         else
           ctx
         end
 
       if ctx.num_dnsv > ctx.max_dnsv do
-        Map.put(ctx, :error, :too_many_dnsv)
-        |> Map.put(:reason, "too many VOID DNS queries seen #{ctx.num_dnsv}")
-        |> Map.put(:verdict, :permerror)
-        |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
+        error(ctx, :too_many_dnsv, "too many VOID DNS queries seen (#{ctx.num_dnsv})", :permerror)
       else
         ctx
       end
@@ -92,23 +76,23 @@ defmodule Spf.Eval do
 
   defp match(%{error: error} = ctx, _term, _tail) when error != nil,
     # a fatal error was recorded, so bailout
-    do: bailout(ctx)
+    do: ctx
 
-  defp match(ctx, {_m, _token, range} = _term, tail) do
+  defp match(ctx, {_q, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     # {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     verdict = verdict(ctx)
 
     if verdict do
-      # ctx.ip has a match, so set corresponding result
-      log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - matches #{ctx.ip}")
+      # ctx.ip has a match, so set corresponding result and we're done
+      log(ctx, :eval, :note, "#{spf_term(ctx, range)} - matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict)
-      |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}")
+      |> Map.put(:reason, "#{spf_term(ctx, range)}")
     else
-      # no match, continue evaluation
-      log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
+      # no match, so continue evaluation
+      log(ctx, :eval, :info, "#{spf_term(ctx, range)} - no match")
       |> tick(:num_checks)
       |> evalp(tail)
     end
@@ -125,25 +109,6 @@ defmodule Spf.Eval do
 
       false ->
         log(ctx, :eval, :info, "not validated: #{name}, #{ctx.ip} for #{domain}")
-    end
-  end
-
-  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
-  def validate?({:error, _}, _ip, _name, _domain, _exact),
-    do: false
-
-  def validate?({:ok, rrs}, ip, name, domain, exact) do
-    pfx = Pfx.new(ip)
-
-    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
-      if exact do
-        String.downcase(name)
-        |> String.ends_with?(String.downcase(domain))
-      else
-        true
-      end
-    else
-      false
     end
   end
 
@@ -178,9 +143,7 @@ defmodule Spf.Eval do
           ctx
 
         {:error, reason} ->
-          log(ctx, :name, :error, "domain error: #{reason}")
-          |> Map.put(:error, :illegal_domain)
-          |> Map.put(:reason, reason)
+          error(ctx, :illegal_domain, "domain error (#{reason})", :none)
       end
     end
   end
@@ -193,80 +156,101 @@ defmodule Spf.Eval do
     else
       case ctx.spf do
         [] ->
-          Map.put(ctx, :error, :no_spf)
-          |> Map.put(:reason, "no SPF record found")
-          |> then(fn ctx -> log(ctx, :check, :note, "no SPF record found") end)
+          error(ctx, :no_spf, "no SPF record found", :none)
 
         [spf] ->
           if ascii?(spf) do
             Map.put(ctx, :spf, spf)
           else
-            Map.put(ctx, :error, :non_ascii_spf)
-            |> Map.put(:reason, "SPF contains non-ascii characters")
-            |> then(fn ctx -> log(ctx, :error, :check, ctx.reason) end)
+            error(ctx, :non_ascii_spf, "SPF contains non-ascii characters", :permerror)
           end
 
         list ->
-          Map.put(ctx, :error, :many_spf)
-          |> Map.put(:reason, "too many SPF records found (#{length(list)})")
-          |> then(fn ctx -> log(ctx, :check, :error, ctx.reason) end)
+          error(ctx, :too_many_spf, "too many SPF records found (#{length(list)})", :permerror)
       end
     end
   end
 
+  defp grep_spf(ctx) when is_map(ctx) do
+    {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, type: :txt, stats: false)
+
+    ctx =
+      case Spf.DNS.grep(result, &spf?/1) do
+        {:ok, spf} ->
+          Map.put(ctx, :spf, spf)
+
+        {:error, :timeout} ->
+          error(ctx, :timeout, "DNS error (timeout)", :temperror)
+          |> Map.put(:spf, [])
+
+        {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+          error(ctx, reason, "DNS error (#{reason})", :none)
+          |> Map.put(:spf, [])
+
+        {:error, reason} ->
+          IO.inspect(reason, label: :grep_spf_reason)
+
+          Map.put(ctx, :error, reason)
+          |> Map.put(:spf, [])
+      end
+
+    ctx
+    |> Spf.Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
+  end
+
   # API
+
+  @spec spf?(binary) :: boolean
+  def spf?(str) when is_binary(str),
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
+    do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
+
+  def spf?(_),
+    do: false
+
+  def check(sender, opts \\ []) do
+    Spf.Context.new(sender, opts)
+    |> Spf.Eval.evaluate()
+  end
 
   def evaluate(ctx) do
     ctx
     |> check_domain()
-    |> Spf.grep()
+    |> grep_spf()
     |> check_spf()
     |> Spf.Parser.parse()
     |> eval()
   end
 
-  defp bailout(%{error: error} = ctx) when error != nil do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
-    case error do
-      :illegal_domain -> Map.put(ctx, :verdict, :none)
-      # TODO: this should be handled by case dns of ...
-      :illegal_name -> Map.put(ctx, :verdict, :none)
-      :include_loop -> Map.put(ctx, :verdict, :permerror)
-      :many_spf -> Map.put(ctx, :verdict, :permerror)
-      :no_redir_domain -> Map.put(ctx, :verdict, :permerror)
-      :no_redir_spf -> Map.put(ctx, :verdict, :permerror)
-      :no_spf -> Map.put(ctx, :verdict, :none)
-      :non_ascii_spf -> Map.put(ctx, :verdict, :permerror)
-      :nxdomain -> Map.put(ctx, :verdict, :none)
-      :redirect_loop -> Map.put(ctx, :verdict, :permerror)
-      :repeated_modifier -> Map.put(ctx, :verdict, :permerror)
-      :servfail -> Map.put(ctx, :verdict, :temperror)
-      :syntax_error -> Map.put(ctx, :verdict, :permerror)
-      :timeout -> Map.put(ctx, :verdict, :temperror)
-      :too_many_dnsm -> Map.put(ctx, :verdict, :permerror)
-      :too_many_dnsv -> Map.put(ctx, :verdict, :permerror)
-      :too_many_mtas -> Map.put(ctx, :verdict, :permerror)
-      :zero_answers -> Map.put(ctx, :verdict, :none)
+  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
+  def validate?({:error, _}, _ip, _name, _domain, _exact),
+    do: false
+
+  def validate?({:ok, rrs}, ip, name, domain, exact) do
+    pfx = Pfx.new(ip)
+
+    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
+      if exact do
+        String.downcase(name)
+        |> String.ends_with?(String.downcase(domain))
+      else
+        true
+      end
+    else
+      false
     end
   end
 
+  # Eval Terms
+
   defp eval(%{error: error} = ctx) when error != nil,
-    do: bailout(ctx)
+    do: ctx
 
   defp eval(ctx) do
     evalp(ctx, ctx.ast)
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.t0)
     |> check_limits()
-  end
-
-  # Eval Terms
-
-  defp error(ctx, error, reason) do
-    Map.put(ctx, :error, error)
-    |> Map.put(:reason, reason)
-    |> log(:eval, :error, reason)
   end
 
   # Nomore Terms
@@ -283,7 +267,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}")
+        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         addip(ctx, rrs, dual, {q, ctx.nth, term})
@@ -301,14 +285,12 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}")
+        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         if length(rrs) > 10 do
           # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
-          Map.put(ctx, :error, :too_many_mtas)
-          |> Map.put(:reason, "too many mta's for #{String.slice(ctx.spf, range)}")
-          |> then(fn ctx -> log(ctx, :eval, :error, ctx.reason) end)
+          error(ctx, :too_many_mtas, "too many mta's for #{spf_term(ctx, range)}", :permerror)
         else
           Enum.map(rrs, fn {_pref, name} -> name end)
           |> Enum.take(10)
@@ -331,7 +313,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}")
+        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         # https://www.rfc-editor.org/errata/eid5227
@@ -353,7 +335,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}")
+        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
@@ -370,12 +352,17 @@ defmodule Spf.Eval do
 
   # INCLUDE
   defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
-    if ctx.map[domain] do
-      error(ctx, :include_loop, "included #{domain} seen before in spf #{ctx.map[domain]}")
-      |> bailout()
+    # if ctx.map[domain] do
+    if loop?(ctx, domain) do
+      error(
+        ctx,
+        :loop,
+        "loop detected: #{ctx.domain} cannot include #{domain}",
+        :permerror
+      )
     else
       ctx =
-        log(ctx, :eval, :note, "#{String.slice(ctx.spf, range)} - recurse")
+        log(ctx, :eval, :note, "#{spf_term(ctx, range)} - recurse")
         |> push(domain)
         |> evaluate()
 
@@ -383,7 +370,7 @@ defmodule Spf.Eval do
         v when v in [:neutral, :fail, :softfail] ->
           ctx = pop(ctx)
 
-          log(ctx, :eval, :info, "#{String.slice(ctx.spf, range)} - no match")
+          log(ctx, :eval, :info, "#{spf_term(ctx, range)} - no match")
           |> evalp(tail)
 
         :pass ->
@@ -391,30 +378,26 @@ defmodule Spf.Eval do
 
           ctx
           |> Map.put(:verdict, qualify(q))
-          |> log(:eval, :info, "#{String.slice(ctx.spf, range)} - match")
-          |> Map.put(:reason, "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)} - matched")
+          |> log(:eval, :info, "#{spf_term(ctx, range)} - match")
+          |> Map.put(:reason, "#{spf_term(ctx, range)} - matched")
 
         v when v in [:none, :permerror] ->
           ctx = pop(ctx)
-
-          ctx
-          |> Map.put(:verdict, :permerror)
-          |> log(:eval, :error, "#{String.slice(ctx.spf, range)} - permanent error")
-          |> Map.put(:reason, "#{String.slice(ctx.spf, range)} - permerror")
+          error(ctx, :include, "#{spf_term(ctx, range)} - permanent error", :permerror)
 
         :temperror ->
           ctx = pop(ctx)
 
           ctx
-          |> log(:eval, :warn, "#{String.slice(ctx.spf, range)} - temp error")
+          |> log(:eval, :warn, "#{spf_term(ctx, range)} - temp error")
       end
     end
   end
 
   # All
-  defp evalp(ctx, [{:all, [q], _range} = term | tail]) do
+  defp evalp(ctx, [{:all, [q], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
-    log(ctx, :eval, :info, "SPF match by #{List.to_string([q])}all")
+    log(ctx, :eval, :info, "#{spf_term(ctx, range)} - matches")
     |> tick(:num_checks)
     |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
     |> match(term, tail)
@@ -423,28 +406,31 @@ defmodule Spf.Eval do
   # REDIRECT
   defp evalp(ctx, [{:redirect, [:einvalid], range} | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
-    error(ctx, :no_redir_domain, "invalid domain in #{String.slice(ctx.spf, range)}")
-    |> bailout()
+    error(ctx, :no_redir_domain, "#{spf_term(ctx, range)} - invalid domain", :permerror)
   end
 
-  defp evalp(ctx, [{:redirect, [domain], _range} = term | tail]) do
+  defp evalp(ctx, [{:redirect, [domain], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
     # - if redirect domain has no SPF -> permerror
     # - if redirect domain is mailformed -> permerror
     # - otherwise its result is the result for this SPF
-    if ctx.map[domain] do
-      error(ctx, :redirect_loop, "redirect #{domain} seen before in spf #{ctx.map[domain]}")
-      |> bailout()
+    # if ctx.map[domain] do
+    if loop?(ctx, domain) do
+      error(
+        ctx,
+        :loop,
+        "loop detected: #{ctx.domain} cannot redirect to #{domain}",
+        :permerror
+      )
     else
       ctx =
-        test(ctx, :error, term, length(tail) > 0, "terms after redirect?")
-        |> log(:eval, :note, "redirecting to #{domain}")
+        test(ctx, :error, term, length(tail) > 0, "terms after #{spf_term(ctx, range)}?")
+        |> log(:eval, :note, "#{spf_term(ctx, range)} - redirecting to #{domain}")
         |> redirect(domain)
         |> evaluate()
 
       if ctx.error in [:no_spf, :nxdomain] do
-        error(ctx, :no_redir_spf, "no SPF found for redirected #{domain}")
-        |> bailout()
+        error(ctx, :no_redir_spf, "no SPF found for #{domain}", :permerror)
       else
         ctx
       end

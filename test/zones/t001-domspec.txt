@@ -1,0 +1,7 @@
+# redirect requires a valid domain spec
+# - toplevel cannot be all numeric
+
+example.com TXT spfcheck verdict=permerror, ip=1.2.3.4, sender=someone@example.com
+
+example.com TXT v=spf1 redirect:example.123
+example.123 A 1.2.3.4

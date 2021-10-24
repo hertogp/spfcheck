@@ -1,0 +1,5 @@
+# d.example.com cannot include b.example.com
+example.com TXT v=spf1 redirect=b.example.com
+b.example.com TXT v=spf1 redirect=c.%{d2}
+c.example.com TXT v=spf1 include:d.example.com
+d.example.com TXT v=spf1 redirect=b.%{d2}
