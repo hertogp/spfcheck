@@ -7,296 +7,349 @@ defmodule Spf.TokenTest do
   @mletters String.split("slodiphvSLODIPHCRTV", "", trim: true)
   # omitting mletters crt here, since that's only valid in an exp string
 
-  def charcode(charstr) when is_binary(charstr),
+  defp charcode(charstr) when is_binary(charstr),
     do: String.to_charlist(charstr) |> List.first()
 
   describe "domain specification" do
     @describetag :tokens_domspec
 
     test "001 - simple macros" do
-      IO.inspect(Spf.Parser.tokenize_spf("a:%{d}"), label: :domspec_tokenize)
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}}"}
+
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..5}] = tokens
+        [{:domspec, expand, 2..5}] = domspec
+        msg = "001 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 0, false, ["."]], 2..5}] == expand, msg
+      end
+
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
     end
 
-    test "002 - simple macros" do
-      IO.inspect(Spf.Parser.tokenize_spf("a:%{d}"), label: :domspec_tokenize)
+    test "002 - macros with keep" do
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}3}"}
+
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..6}] = tokens
+        [{:domspec, expand, 2..6}] = domspec
+        msg = "002 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 3, false, ["."]], 2..6}] == expand, msg
+      end
+
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+    end
+
+    test "003 - macros with reverse" do
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..6}] = tokens
+        [{:domspec, expand, 2..6}] = domspec
+        msg = "003 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 0, true, ["."]], 2..6}] == expand, msg
+      end
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}r}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}R}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+    end
+
+    test "004 - macros with keep & reverse" do
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..7}] = tokens
+        [{:domspec, expand, 2..7}] = domspec
+        msg = "004 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 9, true, ["."]], 2..7}] == expand, msg
+      end
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}9r}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}9R}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+    end
+
+    test "005 - macros with delimiters" do
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..12}] = tokens
+        [{:domspec, expand, 2..12}] = domspec
+        msg = "005 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 0, false, [".", "-", "+", ",", "/", "_", "="]], 2..12}] ==
+                 expand,
+               msg
+      end
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}.-+,/_=}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+    end
+
+    test "006 - macro special letters" do
+      # note that Spf.Parser.expand expands these to their final values
+      spf = "a:%%"
+      {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, domspec], 0..3}] = tokens
+      [{:domspec, expand, 2..3}] = domspec
+      msg = "006 - macros, testing #{spf}"
+      assert [{:expand, ["%"], 2..3}] = expand, msg
+
+      spf = "a:%-"
+      {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, domspec], 0..3}] = tokens
+      [{:domspec, expand, 2..3}] = domspec
+      msg = "006 - macros, testing #{spf}"
+      assert [{:expand, ["-"], 2..3}] = expand, msg
+
+      spf = "a:%_"
+      {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, domspec], 0..3}] = tokens
+      [{:domspec, expand, 2..3}] = domspec
+      msg = "006 - macros, testing #{spf}"
+      assert [{:expand, ["_"], 2..3}] = expand, msg
+    end
+
+    test "007 - macros with reverse and delimiters" do
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..13}] = tokens
+        [{:domspec, expand, 2..13}] = domspec
+        msg = "007 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 0, true, [".", "-", "+", ",", "/", "_", "="]], 2..13}] ==
+                 expand,
+               msg
+      end
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}r.-+,/_=}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}R.-+,/_=}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+    end
+
+    test "008 - macros with keep, reverse and delimiters" do
+      check = fn l, spf ->
+        {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+        [{:a, [_q, domspec], 0..14}] = tokens
+        [{:domspec, expand, 2..14}] = domspec
+        msg = "008 - macros, testing #{spf}"
+
+        assert [{:expand, [charcode(l), 9, true, [".", "-", "+", ",", "/", "_", "="]], 2..14}] ==
+                 expand,
+               msg
+      end
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}9r.-+,/_=}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}9R.-+,/_=}"}
+      Enum.map(testcases, fn {l, spf} -> check.(l, spf) end)
+    end
+
+    test "009 - macros with keep, reverse, delimiters, literals and specials" do
+      spf = "a:%{d2r.-}%-.com"
+      {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, domspec], 0..15}] = tokens
+      [{:domspec, expand, 2..15}] = domspec
+      msg = "009 - macros, testing #{spf} -> #{inspect(expand)}"
+
+      assert [
+               {:expand, [?d, 2, true, [".", "-"]], 2..9},
+               {:expand, ["-"], 10..11},
+               {:toplabel, [".com"], 12..15}
+             ] ==
+               expand,
+             msg
+    end
+
+    test "010 - macros followed by dual cidr" do
+      spf = "a:%{d}/24"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+
+      # [{:a, [43, [{:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}, {:dual_cidr, [24, 128], 6..8}]], 0..8}]
+      [{:a, [_q, [domspec, cidr]], 0..8}] = tokens
+      {:domspec, [expand], 2..5} = domspec
+      {:dual_cidr, [24, 128], 6..8} = cidr
+      msg = "010 - macros, testing #{spf}"
+      assert {:expand, [?d, 0, false, ["."]], 2..5} == expand, msg
+    end
+
+    test "011 - macros followed by dual cidr" do
+      spf = "a:%{d}//64"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+
+      # [{:a, [43, [{:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}, {:dual_cidr, [24, 128], 6..8}]], 0..8}]
+      [{:a, [_q, [domspec, cidr]], 0..9}] = tokens
+      {:domspec, [expand], 2..5} = domspec
+      {:dual_cidr, [32, 64], 6..9} = cidr
+      msg = "011 - macros, testing #{spf}"
+      assert {:expand, [?d, 0, false, ["."]], 2..5} == expand, msg
+    end
+
+    test "012 - macros followed by dual cidr" do
+      spf = "a:%{d}/24//64"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [domspec, cidr]], 0..12}] = tokens
+      {:domspec, [expand], 2..5} = domspec
+      {:dual_cidr, [24, 64], 6..12} = cidr
+      msg = "012 - macros, testing #{spf}"
+      assert {:expand, [?d, 0, false, ["."]], 2..5} == expand, msg
+    end
+
+    test "013 - macros followd by dual cidr" do
+      spf = "a:%{d}.com/24"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [domspec, cidr]], 0..12}] = tokens
+      {:domspec, expand, 2..9} = domspec
+      {:dual_cidr, [24, 128], 10..12} = cidr
+      msg = "013 - macros, testing #{spf}"
+      assert [{:expand, [?d, 0, false, ["."]], 2..5}, {:toplabel, [".com"], 6..9}] == expand, msg
+
+      # some variations
+      spf = "a:%{d}.com/0//0"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [_domspec, cidr]], _range}] = tokens
+      msg = "013 - macros, testing #{spf}"
+      assert {:dual_cidr, [0, 0], _range} = cidr, msg
+
+      spf = "a:%{d2r-.}.example.com/0//0"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [_domspec, cidr]], _range}] = tokens
+      msg = "013 - macros, testing #{spf}"
+      assert {:dual_cidr, [0, 0], _range} = cidr, msg
+
+      spf = "a:%{d2r-.}.example.com/0//0"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [_domspec, cidr]], _range}] = tokens
+      msg = "013 - macros, testing #{spf}"
+      assert {:dual_cidr, [0, 0], _range} = cidr, msg
+    end
+
+    test "014 - macros that end in expand" do
+      spf = "a:%{d2r-.}.example.com/0//0.%{d}"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [domspec]], _range}] = tokens
+      {:domspec, list, _range} = domspec
+      msg = "014 - macros, testing #{spf}"
+      assert {:expand, _args, _range} = List.last(list), msg
+    end
+
+    test "015 - macros that end in toplabel" do
+      spf = "a:%{d2r-.}.example.com"
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [domspec]], _range}] = tokens
+      {:domspec, list, _range} = domspec
+      msg = "015 - macros, testing #{spf}"
+      assert {:toplabel, [".com"], _range} = List.last(list), msg
+
+      # lexer ignores trailing dot (all domains are relative to root)
+      spf = "a:%{d2r-.}.example.com."
+      {:ok, tokens, "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      [{:a, [_q, [domspec]], _range}] = tokens
+      {:domspec, list, _range} = domspec
+      msg = "015 - macros, testing #{spf}"
+      assert {:toplabel, [".com"], _range} = List.last(list), msg
+    end
+
+    test "016 - macros cannot be empty" do
+      # syntax errors show up as {:unknown, args, range}
+      spf = "a:"
+      {:ok, [token], "", _, _, _} = Spf.Parser.tokenize_spf(spf)
+      {:unknown, 'a:', 0..1} = token
     end
   end
 
-  describe "domspec() parses" do
-    defparsecp(:domspec, Spf.Tokens.domspec(":"))
+  describe "unknown modifiers" do
+    @describetag :tokens_unknown_modifier
 
-    test "simple macros" do
-      check = fn l, str ->
-        {:ok, [{:domspec, [{:expand, [mletter, 0, false, ["."]], 1..4}], 1..4}], "", _context,
-         _linepos, 5} = domspec(str)
-
-        assert charcode(l) == mletter, str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macros with keep" do
-      check = fn l, str ->
-        {:ok, [{:domspec, [{:expand, [mletter, 3, false, ["."]], 1..5}], 1..5}], "", _context,
-         _linepos, 6} = domspec(str)
-
-        assert mletter == charcode(l), str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}3}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macros with reverse" do
-      check = fn l, str ->
-        {:ok, [{:domspec, [{:expand, [mletter, 0, true, ["."]], 1..5}], 1..5}], "", _context,
-         _linepos, _} = domspec(str)
-
-        assert charcode(l) == mletter, str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}r}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-      # also uppercase R
-      testcases = for l <- @mletters, do: {l, ":%{#{l}R}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macros with keep and reverse" do
-      check = fn l, str ->
-        {:ok, [{:domspec, [{:expand, [mletter, 9, true, ["."]], 1..6}], 1..6}], "", _context,
-         _linepos, 7} = domspec(str)
-
-        assert charcode(l) == mletter, str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}9r}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-      # also uppercase R
-      testcases = for l <- @mletters, do: {l, ":%{#{l}9R}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macros with delimiters" do
-      check = fn l, str ->
-        {:ok,
-         [
-           {:domspec,
-            [
-              {:expand, [mletter, 0, false, [".", "-", "+", ",", "/", "_", "="]], 1..11}
-            ], 1..11}
-         ], "", _context, _linepos, 12} = domspec(str)
-
-        assert charcode(l) == mletter, str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}.-+,/_=}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macro specials" do
-      {:ok, [token], _, _, _, _} = domspec(":%%")
-      assert token == {:domspec, [{:expand, ["%"], 1..2}], 1..2}
-
-      {:ok, [token], _, _, _, _} = domspec(":%-")
-      assert token == {:domspec, [{:expand, ["-"], 1..2}], 1..2}
-
-      {:ok, [token], _, _, _, _} = domspec(":%_")
-      assert token == {:domspec, [{:expand, ["_"], 1..2}], 1..2}
-    end
-
-    test "macros with reverse and delimiters" do
-      check = fn l, str ->
-        {:ok,
-         [
-           {:domspec,
-            [
-              {:expand, [mletter, 0, true, [".", "-", "+", ",", "/", "_", "="]], 1..12}
-            ], 1..12}
-         ], "", _context, _linepos, 13} = domspec(str)
-
-        assert charcode(l) == mletter, str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}r.-+,/_=}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-      # also uppercase R
-      testcases = for l <- @mletters, do: {l, ":%{#{l}R.-+,/_=}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macros with keep, reverse and delimiters" do
-      check = fn l, str ->
-        {:ok,
-         [
-           {:domspec,
-            [
-              {:expand, [mletter, 11, true, [".", "-", "+", ",", "/", "_", "="]], 1..14}
-            ], 1..14}
-         ], "", _context, _linepos, 15} = domspec(str)
-
-        assert charcode(l) == mletter, str
-      end
-
-      testcases = for l <- @mletters, do: {l, ":%{#{l}11r.-+,/_=}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-      # also uppercase R
-      testcases = for l <- @mletters, do: {l, ":%{#{l}11R.-+,/_=}"}
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
-    end
-
-    test "macros with keep, reverse, delims, literals and specials" do
-      assert {:ok, [token], rest, _, _, _} = domspec(":%{d2R.-}%-.com/24")
-      assert rest == "/24"
-
-      assert token ==
-               {:domspec,
-                [
-                  {:expand, [?d, 2, true, [".", "-"]], 1..8},
-                  {:expand, ["-"], 9..10},
-                  {:toplabel, [".com"], 11..14}
-                ], 1..14}
-    end
-
-    test "macros but not a following dual_cidr" do
-      {:ok, [token], rest, _, _, _} = domspec(":%{d}.com/24")
-
-      assert token ==
-               {:domspec, [{:expand, [?d, 0, false, ["."]], 1..4}, {:toplabel, [".com"], 5..8}],
-                1..8}
-
-      assert rest == "/24"
-
-      {:ok, [_token], rest, _, _, _} = domspec(":%{d}.com//128")
-      assert rest == "//128"
-
-      {:ok, [_token], rest, _, _, _} = domspec(":%{d}.com/32//128")
-      assert rest == "/32//128"
-
-      {:ok, [_token], rest, _, _, _} = domspec(":%{d}.c%-o%_m%%/32//128")
-      assert rest == "/32//128"
-    end
-
-    test ":.com/24//64.net/24:%{o2r+}" do
-      msg = ":.com/24//64.net/24:%{o2r+}"
-      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
-      assert rest == ""
-      assert {:expand, _, _} = List.last(list)
-    end
-
-    test ":/33//129.abc-1" do
-      msg = ":/33//129.abc-1"
-      {:ok, [{:domspec, list, _range}], rest, _, _, _} = domspec(msg)
-      assert rest == ""
-      assert length(list) == 9, msg <> "~>  #{inspect(list)}"
-      assert {:toplabel, [".abc-1"], _} = List.last(list)
-    end
-
-    test ":_spf.example.com" do
-      msg = ":_spf.example.com"
-      {:ok, [{:domspec, list, 1..16}], rest, _, _, _} = domspec(msg)
-      # list is a series of literals for _spf.example + a toplabel for .com
-      assert rest == ""
-      assert length(list) == 13, msg <> "~>  #{inspect(list)}"
-    end
-
-    test "empty domspec" do
-      msg = ":"
-      {:error, _, rest, _, _, _} = domspec(msg)
-      assert rest == ""
-    end
-  end
-
-  describe "unknown_mod() lexes" do
-    defparsec(:unknown_mod, Spf.Tokens.unknown_mod())
-
-    test "holy.cow=an:expression" do
+    test "001 - holy.cow=an:expression" do
       term = "holy.cow=an:expression"
-      {:ok, [token], rest, _, _, _} = unknown_mod(term)
+      {:ok, [token], rest, _, _, _} = Spf.Parser.tokenize_spf(term)
       assert rest == ""
       assert elem(token, 0) == :unknown_mod
       [name | _subtokens] = elem(token, 1)
       assert name == "holy.cow"
-      # subtokens can include {:literal, ["string"], range} or {:expand, [""}, range]
     end
 
-    test "holy-cow=%{r}%%expression" do
+    test "002 - holy-cow=%{r}%%expression" do
       term = "holy-cow=%{r}%%expression"
-      {:ok, [token], rest, _, _, _} = unknown_mod(term)
+      {:ok, [token], rest, _, _, _} = Spf.Parser.tokenize_spf(term)
       assert rest == ""
       assert elem(token, 0) == :unknown_mod
       [name | _subtokens] = elem(token, 1)
       assert name == "holy-cow"
-      # subtokens can include {:literal, ["string"], range} or {:expand, [""}, range]
     end
 
-    test "holy_cow=expression%{r} rest" do
+    test "003 - holy_cow=expression%{r} rest" do
       term = "holy-cow=%{r}%%expression rest"
-      {:ok, [token], rest, _, _, _} = unknown_mod(term)
-      assert rest == " rest"
-      assert elem(token, 0) == :unknown_mod
-      [name | _subtokens] = elem(token, 1)
-      assert name == "holy-cow"
-      # subtokens can include {:literal, ["string"], range} or {:expand, [""}, range]
+      {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_spf(term)
+
+      [{:unknown_mod, ["holy-cow" | _subtokens], _}, {:whitespace, _, _}, {:unknown, 'rest', _}] =
+        tokens
     end
 
-    test "but not holy%cow=n/a" do
+    test "004 - but not holy%cow=n/a" do
       term = "holy%cow=n/a"
-      result = unknown_mod(term)
-      assert elem(result, 0) == :error
+      {:ok, [{:unknown, 'holy%cow=n/a', _}], _, _, _, _} = Spf.Parser.tokenize_spf(term)
     end
 
-    test "but not holy/cow=n/a" do
+    test "005 - but not holy/cow=n/a" do
       term = "holy/cow=n/a"
-      result = unknown_mod(term)
-      assert elem(result, 0) == :error
+      {:ok, [{:unknown, 'holy/cow=n/a', _}], _, _, _, _} = Spf.Parser.tokenize_spf(term)
     end
   end
 
   describe "toplabel()" do
-    defparsecp(:toplabel, Spf.Tokens.toplabel())
-
+    @describetag :tokens_toplabel
+    # see also the macro tests
     test "lexes .com" do
-      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com")
-      assert rest == ""
-      assert toplabel == ".com"
+      # {:ok, [{:a, [43, [{:domspec, [{:toplabel, [".com"], 2..5}], 2..5}]], 0..5}], _, _, _, _}
+      {:ok, [{:a, [?+, [{:domspec, tokens, _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a:.com")
+
+      toplabel = List.last(tokens)
+      {:toplabel, [".com"], _} = toplabel
     end
 
     test "lexes .com." do
-      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com.")
-      assert rest == ""
-      # all domspec's are relative to root, so toplabel drops the root-dot
-      assert toplabel == ".com"
+      # lexer drops trailing dot from toplabel (domains are relative to root)
+      {:ok, [{:a, [?+, [{:domspec, tokens, _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a:.com.")
+
+      toplabel = List.last(tokens)
+      {:toplabel, [".com"], _} = toplabel
     end
 
     test "lexes .1-1." do
-      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".1-1.")
-      assert rest == ""
-      # all domspec's are relative to root, so toplabel drops the root-dot
-      assert toplabel == ".1-1"
-    end
+      {:ok, [{:a, [?+, [{:domspec, tokens, _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a:a.1-1.")
 
-    test "lexes .com./24" do
-      {:ok, [{:toplabel, [toplabel], _range}], rest, _, _, _} = toplabel(".com./24")
-      assert rest == "/24"
-      # all domspec's are relative to root, so toplabel drops the root-dot
-      assert toplabel == ".com"
+      toplabel = List.last(tokens)
+      {:toplabel, [".1-1"], _} = toplabel
     end
 
     test "does not match .com-" do
-      {:error, _, _, _, _, _} = toplabel(".com-")
+      {:ok, [{:a, [?+, [{:domspec, [:einvalid], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a:a.com-")
     end
 
     test "does not match -com." do
-      result = toplabel(".-com")
-      assert elem(result, 0) == :error
+      {:ok, [{:a, [?+, [{:domspec, [:einvalid], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a:a.-com.")
     end
 
     test "does not match .123" do
-      result = toplabel(".123")
-      assert elem(result, 0) == :error
+      {:ok, [{:a, [?+, [{:domspec, [:einvalid], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a:a.123")
     end
   end
 
