@@ -1,6 +1,5 @@
 defmodule Spf.TokenTest do
   use ExUnit.Case
-  import NimbleParsec
 
   @moduletag :tokens
 
@@ -354,208 +353,131 @@ defmodule Spf.TokenTest do
   end
 
   describe "dual_cidr() lexes" do
-    defparsecp(:cidr, Spf.Tokens.dual_cidr())
+    @describetag :tokens_dual_cidr
+
+    test "/0//0" do
+      {:ok, [{:a, [?+, [{:dual_cidr, [0, 0], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/0//0")
+    end
+
+    test "/32//128" do
+      {:ok, [{:a, [?+, [{:dual_cidr, [32, 128], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/32//128")
+    end
 
     test "/24" do
-      str = "/24"
-      {:ok, [{token, [24, 128], 0..2}], "", _context, _linepos, 3} = cidr(str)
-      assert token == :dual_cidr, str
+      {:ok, [{:a, [?+, [{:dual_cidr, [24, 128], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/24")
     end
 
     test "//64" do
-      str = "//64"
-      {:ok, [{token, [32, 64], 0..3}], "", _context, _linepos, 4} = cidr(str)
-      assert token == :dual_cidr, str
+      {:ok, [{:a, [?+, [{:dual_cidr, [32, 64], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a//64")
     end
 
     test "/24//64" do
-      str = "/24//64"
-      {:ok, [{token, [24, 64], 0..6}], "", _context, _linepos, 7} = cidr(str)
-      assert token == :dual_cidr, str
+      {:ok, [{:a, [?+, [{:dual_cidr, [24, 64], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/24//64")
     end
 
     test "/33//129" do
       # parser will validate prefix lengths, not the lexer
-      str = "/33//129"
-      {:ok, [{token, [33, 129], 0..7}], "", _context, _linepos, 8} = cidr(str)
-      assert token == :dual_cidr, str
+      {:ok, [{:a, [?+, [{:dual_cidr, [33, 129], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/33//129")
+    end
+
+    test "/08//128" do
+      # lexer does not check for leading zero's in ip4-length
+      {:ok, [{:a, [?+, [{:dual_cidr, [8, 128], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/08//0128")
+    end
+
+    test "/24//0128" do
+      # lexer does not check for leading zero's in ip6-length
+      {:ok, [{:a, [?+, [{:dual_cidr, [24, 128], _}]], _}], _, _, _, _} =
+        Spf.Parser.tokenize_spf("a/24//0128")
     end
   end
 
   describe "whitespace() lexes" do
-    defparsecp(:wspace, Spf.Tokens.whitespace())
+    @describetag :tokens_whitespace
 
     test "1 space" do
-      {:ok, [{:whitespace, [" "], 0..0}], "", _context, _linepos, 1} = wspace(" ")
+      {:ok, [{:whitespace, [" "], 0..0}], "", _context, _linepos, 1} =
+        Spf.Parser.tokenize_spf(" ")
     end
 
     test "1+ spaces" do
-      {:ok, [{:whitespace, ["   "], 0..2}], "", _context, _linepos, 3} = wspace("   ")
+      {:ok, [{:whitespace, ["   "], 0..2}], "", _context, _linepos, 3} =
+        Spf.Parser.tokenize_spf("   ")
     end
 
     test "1+ tabs" do
-      {:ok, [{:whitespace, ["\t\t"], 0..1}], "", _context, _linepos, 2} = wspace("\t\t")
+      {:ok, [{:whitespace, ["\t\t"], 0..1}], "", _context, _linepos, 2} =
+        Spf.Parser.tokenize_spf("\t\t")
     end
 
     test "1+ (SP / TAB)" do
-      {:ok, [{:whitespace, [" \t "], 0..2}], "", _context, _linepos, 3} = wspace(" \t ")
+      {:ok, [{:whitespace, [" \t "], 0..2}], "", _context, _linepos, 3} =
+        Spf.Parser.tokenize_spf(" \t ")
     end
   end
 
-  describe "a() lexes" do
-    defparsec(:a, Spf.Tokens.a())
+  describe "a-mechanism" do
+    @describetag :tokens_a
 
-    @str "a"
-    test @str do
-      {:ok, [token], _, _, _, _} = a(@str)
+    test "001 - a" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("a")
       {:a, [?+, []], 0..0} = token
     end
 
-    @str "a:"
-    test @str do
-      {:error, _, _, _, _, _} = a(@str)
+    test "002 - a:" do
+      {:ok, [{:unknown, 'a:', _}], _, _, _, _} = Spf.Parser.tokenize_spf("a:")
     end
 
-    @str "a/24"
-    test @str do
-      {:ok, [token], _, _, _, _} = a(@str)
+    test "003 - a/24" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("a/24")
       {:a, [?+, [{:dual_cidr, [24, 128], 1..3}]], 0..3} = token
     end
 
-    @str "a/24//64"
-    test @str do
-      {:ok, [token], _, _, _, _} = a(@str)
+    test "004 - a/24//64" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("a/24//64")
       {:a, [?+, [{:dual_cidr, [24, 64], 1..7}]], 0..7} = token
     end
 
-    @str "a:/24//64"
-    test @str do
+    test "005 - a:/24//64" do
       # empty domspec is illegal
-      {:error, _, _, _, _, _} = a(@str)
+      {:ok, [{:unknown, 'a:/24//64', _}], _, _, _, _} = Spf.Parser.tokenize_spf("a:/24//64")
     end
 
-    @str "a:/24//64/0//0"
-    test @str do
+    test "006 - a:/24//64/0//0" do
       # domspec not empty, but does not end with an expand or toplabel
-      {:ok, [token], _, _, _, _} = a(@str)
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("a:/24//64/0//0")
       {:a, [43, [{:domspec, [:einvalid], 2..8}, {:dual_cidr, [0, 0], 9..13}]], 0..13} = token
     end
 
-    @str "a:l1.l2.tld./24//64"
-    test @str do
-      {:ok, [token], _, _, _, _} = a(@str)
+    test "007 - a:l1.l2.tld./24//64" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("a:l1.l2.tld./24//64")
       {:a, [?+, [{:domspec, list, 2..11}, {:dual_cidr, [24, 64], 12..18}]], 0..18} = token
       {:toplabel, [".tld"], _} = List.last(list)
     end
 
-    @str "a:l1.l2.tld.%{d}/24//64"
-    test @str do
-      {:ok, [token], _, _, _, _} = a(@str)
+    test "008 - a:l1.l2.tld.%{d}/24//64" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("a:l1.l2.tld.%{d}/24//64")
       {:a, [?+, [{:domspec, list, 2..15}, {:dual_cidr, [24, 64], 16..22}]], 0..22} = token
       {:expand, [?d, 0, false, ["."]], 12..15} = List.last(list)
     end
 
-    test "a with default qualifier" do
-      {:ok, [{:a, [?+, []], 0..0}], "", _context, _linepos, 1} = a("a")
-    end
-
-    test "a with cidr" do
-      {:ok, [{:a, [?+, [{:dual_cidr, [24, 128], 1..3}]], 0..3}], "", _context, _linepos, 4} =
-        a("a/24")
-    end
-
-    test "a with domspec" do
-      str = "a:%{d}"
-
-      {:ok,
-       [
-         {token, [43, [{:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5}]], 0..5}
-       ], "", _context, _linepos, 6} = a(str)
-
-      assert token == :a, str
-    end
-
-    test "a with domspec and ipv4 cidr" do
-      str = "a:%{d}/24"
-
-      {:ok,
-       [
-         {token,
-          [
-            43,
-            [
-              {:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
-              {:dual_cidr, [24, 128], 6..8}
-            ]
-          ], 0..8}
-       ], "", _context, _linepos, 9} = a(str)
-
-      assert token == :a, str
-    end
-
-    test "a with domspec and ipv6 cidr" do
-      str = "a:%{d}//64"
-
-      {:ok,
-       [
-         {token,
-          [
-            43,
-            [
-              {:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
-              {:dual_cidr, [32, 64], 6..9}
-            ]
-          ], 0..9}
-       ], "", _context, _linepos, 10} = a(str)
-
-      assert token == :a, str
-    end
-
-    test "a with domspec and dual cidr" do
-      str = "a:%{d}/24//64"
-
-      {:ok,
-       [
-         {:a,
-          [
-            43,
-            [
-              {:domspec, [{:expand, [100, 0, false, ["."]], 2..5}], 2..5},
-              {:dual_cidr, [24, 64], 6..12}
-            ]
-          ], 0..12}
-       ], "", _context, _linepos, 13} = a(str)
-    end
-
-    test "a with qualifier, domspec and dual cidr" do
-      testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}a:%{d}/24//64"}
-
-      check = fn q, str ->
-        {:ok,
-         [
-           {token,
-            [
-              qual,
-              [
-                {:domspec, [{:expand, [100, 0, false, ["."]], 3..6}], 3..6},
-                {:dual_cidr, [24, 64], 7..13}
-              ]
-            ], 0..13}
-         ], "", _context, _linepos, 14} = a(str)
-
-        assert token == :a, str
-        assert qual == q, str
-      end
-
-      Enum.map(testcases, fn {l, str} -> check.(l, str) end)
+    test "009 - a with default qualifier" do
+      {:ok, [{:a, [?+, []], 0..0}], "", _context, _linepos, 1} = Spf.Parser.tokenize_spf("a")
     end
   end
 
   describe "all() lexes" do
-    defparsec(:all, Spf.Tokens.all())
+    @describetag :tokens_all
 
     test "all with implicit  qualifier" do
-      {:ok, [token], _, _, _, _} = all("all")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("all")
       assert token == {:all, [?+], 0..2}
     end
 
@@ -563,7 +485,7 @@ defmodule Spf.TokenTest do
       testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}all"}
 
       check = fn q, str ->
-        {:ok, [{:all, [qual], 0..3}], "", _context, _linepos, 4} = all(str)
+        {:ok, [{:all, [qual], 0..3}], "", _context, _linepos, 4} = Spf.Parser.tokenize_spf(str)
         assert qual == q, str
       end
 
@@ -571,16 +493,15 @@ defmodule Spf.TokenTest do
     end
 
     test "all requires proper term ending" do
-      result = all("all:")
-      assert elem(result, 0) == :error
+      result = Spf.Parser.tokenize_spf("all:")
+      {:ok, [{:unknown, 'all:', _}], _, _, _, _} = result
     end
   end
 
   describe "exists() lexes" do
-    defparsec(:exists, Spf.Tokens.exists())
-
+    @describetag :tokens_exists
     test "its domspec" do
-      {:ok, [token], _, _, _, _} = exists("exists:%{d1R-}.com")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("exists:%{d1R-}.com")
 
       assert token ==
                {:exists,
@@ -593,21 +514,12 @@ defmodule Spf.TokenTest do
                    ], 7..17}
                 ], 0..17}
     end
-
-    # test "proper term ending" do
-    #   result = exists("exists:")
-    #   assert elem(result, 0) == :error
-
-    #   result = exists("exists:example.com\24")
-    #   assert elem(result, 0) == :error
-    # end
   end
 
   describe "include() lexes" do
-    defparsec(:include, Spf.Tokens.include())
-
+    @describetag :tokens_include
     test "its domspec" do
-      {:ok, [token], _, _, _, _} = include("include:spf.example.com")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("include:spf.example.com")
 
       {:include, [?+, {:domspec, list, _}], _} = token
       assert length(list) == 12
@@ -616,59 +528,59 @@ defmodule Spf.TokenTest do
   end
 
   describe "ip4() lexes" do
-    defparsec(:ip4, Spf.Tokens.ip4())
+    @describetag :tokens_ip4
 
     test "an address" do
-      {:ok, [token], _, _, _, _} = ip4("ip4:1.2.3.4")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ip4:1.2.3.4")
       assert token == {:ip4, [?+, "1.2.3.4"], 0..10}
     end
 
     test "a prefix" do
-      {:ok, [token], _, _, _, _} = ip4("ip4:1.2.3.4/32")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ip4:1.2.3.4/32")
       assert token == {:ip4, [?+, "1.2.3.4/32"], 0..13}
     end
 
     test "anything really" do
       # Note: ip4 cheats and lexes any non-spaces since ip4 parsing is done
       # later on by the Parser.
-      {:ok, [token], _, _, _, _} = ip4("ip4:a.b.c.d/xy")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ip4:a.b.c.d/xy")
       assert token == {:ip4, [?+, "a.b.c.d/xy"], 0..13}
     end
   end
 
   describe "ip6() lexes" do
-    defparsec(:ip6, Spf.Tokens.ip6())
+    @describetag :tokens_ip6
 
     test "an address" do
-      {:ok, [token], _, _, _, _} = ip6("ip6:2001::4")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ip6:2001::4")
       assert token == {:ip6, [?+, "2001::4"], 0..10}
     end
 
     test "a prefix" do
-      {:ok, [token], _, _, _, _} = ip6("ip6:2001::/32")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ip6:2001::/32")
       assert token == {:ip6, [?+, "2001::/32"], 0..12}
     end
 
     test "anything really" do
       # Note: ip6 cheats and lexes any non-spaces since ip6 parsing is done
       # later on by the Parser.
-      {:ok, [token], _, _, _, _} = ip6("ip6:a.b.c.d/xy")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ip6:a.b.c.d/xy")
       assert token == {:ip6, [?+, "a.b.c.d/xy"], 0..13}
     end
   end
 
   describe "mx() lexes" do
-    defparsec(:mx, Spf.Tokens.mx())
+    @describetag :tokens_mx
 
     test "mx default qualifier" do
-      {:ok, [{:mx, [?+, []], 0..1}], "", _context, _linepos, 2} = mx("mx")
+      {:ok, [{:mx, [?+, []], 0..1}], "", _context, _linepos, 2} = Spf.Parser.tokenize_spf("mx")
     end
 
     test "mx with qualifier" do
       testcases = for q <- ["+", "-", "~", "?"], do: {charcode(q), "#{q}mx"}
 
       check = fn q, str ->
-        {:ok, [{:mx, [qual, []], 0..2}], "", _context, _linepos, 3} = mx(str)
+        {:ok, [{:mx, [qual, []], 0..2}], "", _context, _linepos, 3} = Spf.Parser.tokenize_spf(str)
         assert qual == q, str
       end
 
@@ -676,12 +588,12 @@ defmodule Spf.TokenTest do
     end
 
     test "mx with dual_cidr" do
-      {:ok, [token], _, _, _, _} = mx("mx/24")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("mx/24")
       assert token == {:mx, [?+, [{:dual_cidr, [24, 128], 2..4}]], 0..4}
     end
 
     test "mx with domspec" do
-      {:ok, [token], _, _, _, _} = mx("mx:%{d}.com")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("mx:%{d}.com")
 
       assert token ==
                {:mx,
@@ -698,7 +610,7 @@ defmodule Spf.TokenTest do
     end
 
     test "mx with domspec and dual_cidr" do
-      {:ok, [token], _, _, _, _} = mx("mx:%{d}.com/24//64")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("mx:%{d}.com/24//64")
 
       assert token ==
                {:mx,
@@ -716,28 +628,29 @@ defmodule Spf.TokenTest do
     end
   end
 
-  describe "ptr() lexes" do
-    defparsec(:ptr, Spf.Tokens.ptr())
+  describe "ptr()" do
+    @describetag :tokens_ptr
 
     test "all qualifiers" do
-      {:ok, [{:ptr, [?+, []], 0..2}], "", _context, _linepos, 3} = ptr("ptr")
-      {:ok, [{:ptr, [?+, []], 0..3}], "", _context, _linepos, 4} = ptr("+ptr")
-      {:ok, [{:ptr, [?-, []], 0..3}], "", _context, _linepos, 4} = ptr("-ptr")
-      {:ok, [{:ptr, [?~, []], 0..3}], "", _context, _linepos, 4} = ptr("~ptr")
-      {:ok, [{:ptr, [??, []], 0..3}], "", _context, _linepos, 4} = ptr("?ptr")
+      {:ok, [{:ptr, [?+, []], 0..2}], "", _context, _linepos, 3} = Spf.Parser.tokenize_spf("ptr")
+      {:ok, [{:ptr, [?+, []], 0..3}], "", _context, _linepos, 4} = Spf.Parser.tokenize_spf("+ptr")
+      {:ok, [{:ptr, [?-, []], 0..3}], "", _context, _linepos, 4} = Spf.Parser.tokenize_spf("-ptr")
+      {:ok, [{:ptr, [?~, []], 0..3}], "", _context, _linepos, 4} = Spf.Parser.tokenize_spf("~ptr")
+      {:ok, [{:ptr, [??, []], 0..3}], "", _context, _linepos, 4} = Spf.Parser.tokenize_spf("?ptr")
     end
 
     test "its domspec" do
-      {:ok, [token], _, _, _, _} = ptr("ptr:spf.example.com")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("ptr:spf.example.com")
+
       {:ptr, [?+, [{:domspec, _list, 4..18}]], 0..18} = token
     end
   end
 
   describe "exp() lexes" do
-    defparsec(:exp, Spf.Tokens.exp())
+    @describetag :tokens_exp
 
     test "its domain-spec" do
-      {:ok, [token], _, _, _, _} = exp("exp=%{d}.com")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("exp=%{d}.com")
 
       assert token ==
                {:exp,
@@ -752,10 +665,10 @@ defmodule Spf.TokenTest do
   end
 
   describe "explain() lexes" do
-    defparsec(:tokenize_exp, Spf.Tokens.tokenize_exp())
+    @describetag :tokens_explain
 
     test "an explain-string" do
-      {:ok, tokens, _, _, _, _} = tokenize_exp("%{i} is bad")
+      {:ok, tokens, _, _, _, _} = Spf.Parser.tokenize_exp("%{i} is bad")
 
       assert tokens ==
                [
@@ -775,10 +688,10 @@ defmodule Spf.TokenTest do
   end
 
   describe "redirect() lexes" do
-    defparsec(:redirect, Spf.Tokens.redirect())
+    @describetag :tokens_redirect
 
     test "its domain-spec" do
-      {:ok, [token], _, _, _, _} = redirect("redirect=%{d}.com")
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("redirect=%{d}.com")
 
       assert token ==
                {:redirect,
@@ -792,87 +705,67 @@ defmodule Spf.TokenTest do
     end
   end
 
-  describe "version() lexes" do
-    defparsec(:version, Spf.Tokens.version())
-
-    test "any number actually" do
-      {:ok, [token], _, _, _, _} = version("v=spf1")
+  describe "version()" do
+    @describetag :tokens_version
+    test "001 - version 1" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("v=spf1")
       assert token == {:version, [1], 0..5}
+    end
 
-      {:ok, [token], _, _, _, _} = version("v=spf11")
+    test "002 - any version number" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("v=spf11")
       assert token == {:version, [11], 0..6}
     end
 
-    test "case-insensitive" do
-      {:ok, [token], _, _, _, _} = version("V=SpF11")
+    test "003 - case-insensitive" do
+      {:ok, [token], _, _, _, _} = Spf.Parser.tokenize_spf("V=SpF11")
       assert token == {:version, [11], 0..6}
     end
   end
 
-  describe "expand() lexes" do
-    defparsec(:expand, Spf.Tokens.expand())
+  describe "expand()" do
+    @describetag :tokens_expand
 
     test "specials" do
-      {:ok, [token], _, _, _, _} = expand("%%")
-      assert token == {:expand, ["%"], 0..1}
+      {:ok, [{:a, [?+, [token]], _}], _, _, _, _} = Spf.Parser.tokenize_spf("a:%%")
+      {:domspec, [{:expand, ["%"], 2..3}], _} = token
 
-      {:ok, [token], _, _, _, _} = expand("%-")
-      assert token == {:expand, ["-"], 0..1}
+      {:ok, [{:a, [?+, [token]], _}], _, _, _, _} = Spf.Parser.tokenize_spf("a:%-")
+      {:domspec, [{:expand, ["-"], 2..3}], _} = token
 
-      {:ok, [token], _, _, _, _} = expand("%_")
-      assert token == {:expand, ["_"], 0..1}
+      {:ok, [{:a, [?+, [token]], _}], _, _, _, _} = Spf.Parser.tokenize_spf("a:%_")
+      {:domspec, [{:expand, ["_"], 2..3}], _} = token
     end
 
     test "simple macros (both cases)" do
       check = fn l, str ->
-        {:ok, [{:expand, [mletter, 0, false, ["."]], 0..3}], "", _context, _linepos, 4} =
-          expand(str)
+        {:ok, [{:a, [?+, [{:domspec, [{:expand, [mletter, 0, false, ["."]], _}], _}]], _}], "", _,
+         _, _} = Spf.Parser.tokenize_spf(str)
 
         assert mletter == charcode(l), str
       end
 
-      testcases = for l <- @mletters, do: {l, "%{#{l}}"}
+      testcases = for l <- @mletters, do: {l, "a:%{#{l}}"}
       Enum.map(testcases, fn {l, str} -> check.(l, str) end)
     end
   end
 
-  describe "literal() lexes" do
-    defparsec(:literal, Spf.Tokens.literal())
-
-    test "anything visible, except %" do
-      {:ok, [token], rest, _, _, _} = literal("tillhere%see?")
-      assert rest == "%see?"
-      assert token == {:literal, ["tillhere"], 0..7}
-    end
-
-    test "anything visible, so stops at whitespace" do
-      {:ok, [token], rest, _, _, _} = literal("tillhere see?")
-      assert rest == " see?"
-      assert token == {:literal, ["tillhere"], 0..7}
-
-      {:ok, [token], rest, _, _, _} = literal("tillhere\tsee?")
-      assert rest == "\tsee?"
-      assert token == {:literal, ["tillhere"], 0..7}
-    end
-  end
-
-  describe "unknown() lexes" do
-    defparsec(:unknown, Spf.Tokens.unknown())
+  describe "unknown()" do
+    @describetag :tokens_unknown
 
     test "anything visible, including %" do
-      {:ok, [token], rest, _, _, _} = unknown("pasthere%see?")
-      assert rest == ""
+      {:ok, [token], "", _, _, _} = Spf.Parser.tokenize_spf("pasthere%see?")
       assert token == {:unknown, 'pasthere%see?', 0..12}
     end
 
     test "anything visible, so stops at whitespace" do
-      {:ok, [token], rest, _, _, _} = unknown("tillhere see?")
-      assert rest == " see?"
-      assert token == {:unknown, 'tillhere', 0..7}
+      {:ok, [tok1, _whitespace, tok2], "", _, _, _} = Spf.Parser.tokenize_spf("tillhere see?")
+      {:unknown, 'tillhere', 0..7} = tok1
+      {:unknown, 'see?', 9..12} = tok2
 
-      {:ok, [token], rest, _, _, _} = unknown("tillhere\tsee?")
-      assert rest == "\tsee?"
-      assert token == {:unknown, 'tillhere', 0..7}
+      {:ok, [tok1, _whitespace, tok2], "", _, _, _} = Spf.Parser.tokenize_spf("tillhere\tsee?")
+      {:unknown, 'tillhere', 0..7} = tok1
+      {:unknown, 'see?', 9..12} = tok2
     end
   end
 end

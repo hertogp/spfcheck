@@ -98,26 +98,24 @@ defmodule Spf.Tokens do
     # context should have recorded start for label
     do: Range.new(Map.get(context, label, 0), offset - 1)
 
-  # record current offset for `token_type` in `context`
-  def start_mark(_rest, args, context, _line, offset, token_type),
+  # POST_TRAVERSE
+
+  def start_token(_rest, args, context, _line, offset, token_type),
     do: {args, Map.put(context, token_type, offset)}
 
-  # combinator to record current offset for given `token_type`
   defp start(token_type) do
+    # records current offset for given `token_type` in context
     empty()
-    |> post_traverse({@m, :start_mark, [token_type]})
+    |> post_traverse({@m, :start_token, [token_type]})
   end
-
-  # SPF
-  # SPF Post_traversals
 
   @doc """
   Post_traverse helper function that creates tokens out of a combinator result.
 
-  A token is three element tuple: `{token_type, token_value, range}`, where:
-  - `token_type` is an atom
-  - `token_value` is a list of values (which may include subtokens)
-  - `range` is the start..stop range of this token in the SPF string
+  A token is three element tuple: `{type, value, range}`, where:
+  - `type` is an atom
+  - `value` is a list of values (which may include subtokens)
+  - `range` is the start..stop range of this token in the input string
 
   """
   def token(rest, args, context, line, offset, atom)
@@ -125,19 +123,8 @@ defmodule Spf.Tokens do
   # offset = token_end (0-based offset from start of entire binary)
 
   # Whitespace
-  def token(_rest, args, context, _line, offset, :whitespace) do
-    {[{:whitespace, args, range(context, :whitespace, offset)}], context}
-  end
-
-  # Cidr
-  def token(_rest, args, context, _line, offset, :cidr2),
-    do: {[{:cidr2, Enum.reverse(args), range(context, :cidr2, offset)}], context}
-
-  def token(_rest, args, context, _line, offset, :cidr4),
-    do: {[{:cidr4, args, range(context, :cidr4, offset)}], context}
-
-  def token(_rest, args, context, _line, offset, :cidr6),
-    do: {[{:cidr6, args, range(context, :cidr6, offset)}], context}
+  def token(_rest, args, context, _line, offset, :whitespace),
+    do: {[{:whitespace, args, range(context, :whitespace, offset)}], context}
 
   # DualCidr
   def token(_rest, args, context, _line, offset, :dual_cidr2),
@@ -150,14 +137,13 @@ defmodule Spf.Tokens do
     do: {[{:dual_cidr, [32] ++ args, range(context, :dual_cidr6, offset)}], context}
 
   # Version
-  def token(_rest, args, context, _line, offset, :version) do
-    {[{:version, args, range(context, :version, offset)}], context}
-  end
+  def token(_rest, args, context, _line, offset, :version),
+    do: {[{:version, args, range(context, :version, offset)}], context}
 
   # Qualifier
   def token(_rest, args, context, _line, offset, :qualifier) do
-    tokval = if args == [], do: ?+, else: hd(args)
-    {[{:qualifier, tokval, range(context, :qualifier, offset)}], context}
+    q = if args == [], do: ?+, else: hd(args)
+    {[{:qualifier, q, range(context, :qualifier, offset)}], context}
   end
 
   # Include/Exists
@@ -174,13 +160,14 @@ defmodule Spf.Tokens do
 
   # IP4/IP6
   def token(_rest, args, context, _line, offset, atom) when atom in [:ip4, :ip6] do
+    # parser will check validity of address supplied
     [{:unknown, addr, _}, {:qualifier, q, _}] = args
     addr = List.to_string(addr)
     {[{atom, [q, addr], range(context, atom, offset)}], context}
   end
 
   # A/MX/PTR
-  def token(_rest, args, context, _line, offset, atom) when atom in [:mx, :ptr, :a] do
+  def token(_rest, args, context, _line, offset, atom) when atom in [:a, :mx, :ptr] do
     tokval =
       case Enum.reverse(args) do
         [{:qualifier, q, _range}] -> [q, []]
@@ -191,14 +178,12 @@ defmodule Spf.Tokens do
   end
 
   # Literal
-  def token(_rest, args, context, _line, offset, :literal) do
-    {[{:literal, args, range(context, :literal, offset)}], context}
-  end
+  def token(_rest, args, context, _line, offset, :literal),
+    do: {[{:literal, args, range(context, :literal, offset)}], context}
 
   # MLiteral
-  def token(_rest, args, context, _line, offset, :mliteral) do
-    {[{:literal, [List.to_string(args)], range(context, :mliteral, offset)}], context}
-  end
+  def token(_rest, args, context, _line, offset, :mliteral),
+    do: {[{:literal, [List.to_string(args)], range(context, :mliteral, offset)}], context}
 
   # Transform
   def token(_rest, args, context, _line, _offset, :transform) do
@@ -215,11 +200,10 @@ defmodule Spf.Tokens do
     {tokval, context}
   end
 
-  def token(_rest, args, context, _line, offset, :toplabel) do
-    {[{:toplabel, args, range(context, :toplabel, offset)}], context}
-  end
+  def token(_rest, args, context, _line, offset, :toplabel),
+    do: {[{:toplabel, args, range(context, :toplabel, offset)}], context}
 
-  # Expand -> {:expand, [letter, keepN, reverse?, delimiters], range}
+  # Expand
   def token(_rest, args, context, _line, offset, :expand1) do
     [ltr, reverse, keep | delims] = Enum.reverse(args)
     delims = if delims == [], do: ["."], else: Enum.map(delims, fn x -> List.to_string([x]) end)
@@ -231,7 +215,7 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, :expand2),
     do: {[{:expand, args, range(context, :expand2, offset)}], context}
 
-  # DomSpec
+  # Domspec
   def token(_rest, args, context, _line, offset, :domspec) when length(args) == 0,
     do: {[{:domspec, args, range(context, :domspec, offset)}], context}
 
@@ -245,9 +229,9 @@ defmodule Spf.Tokens do
     invalid =
       ?c in letters or ?r in letters or ?t in letters or lasttok not in [:expand, :toplabel]
 
-    args = if invalid, do: [:einvalid], else: args
+    args = if invalid, do: [:einvalid], else: Enum.reverse(args)
 
-    {[{:domspec, Enum.reverse(args), range(context, :domspec, offset)}], context}
+    {[{:domspec, args, range(context, :domspec, offset)}], context}
   end
 
   # Redirect
@@ -275,13 +259,10 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, atom),
     do: {[{atom, Enum.reverse(args), range(context, atom, offset)}], context}
 
-  # TOKENIZE
+  # COMBINATORS
 
-  @doc """
-  Combinator that creates a token for the next SPF term in the remaining input string.
-  """
-  # order matters: unknown() last.
-  def term() do
+  defp term() do
+    # note: unknown() must be last.
     choice([
       whitespace(),
       version(),
@@ -300,17 +281,6 @@ defmodule Spf.Tokens do
     ])
   end
 
-  @doc """
-  Combinator that creates a list of tokens for the SPF terms found in an input string.
-  """
-  def tokenize_spf(),
-    do: term() |> repeat()
-
-  # TOKENS
-
-  # HELPERS
-
-  @spec qualifier() :: t
   defp qualifier() do
     # Token `{:qualifier, [q], range}`.
     # When used, this combinator always produces a token where `q` defaults to `?+`.
@@ -324,19 +294,8 @@ defmodule Spf.Tokens do
 
   # L0 TOKENS
 
-  @doc """
-  Token `{:a, [q, tokens], range}`.
-
-  Where
-  - `q` is a [qualifier](`t:q/0`)
-  - `tokens` is a list which is:
-     - empty, or contains,
-     - a [`domspec`](`domspec/0`) or
-     - a [`dual_cidr`](`dual_cidr/0`) or
-     - both.
-
-  """
-  def a() do
+  defp a() do
+    # {:a, [q, tokens], range}
     start(:a)
     |> qualifier()
     |> ignore(anycase("a"))
@@ -346,11 +305,9 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:a]})
   end
 
-  @doc """
-  Token `{:all, [`[`q`](`t:q/0`)`], `[`range`](`t:range/0`)`}`.
-  """
   @spec all() :: t
-  def all() do
+  defp all() do
+    # {:all, [`[`q`](`t:q/0`)`], `[`range`](`t:range/0`)
     start(:all)
     |> qualifier()
     |> ignore(anycase("all"))
@@ -358,10 +315,8 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:all]})
   end
 
-  @doc """
-  Token `{:exists, [q, domspec], range}`.
-  """
-  def exists() do
+  defp exists() do
+    # {:exists, [q, domspec], range}
     start(:exists)
     |> qualifier()
     |> ignore(anycase("exists"))
@@ -370,11 +325,17 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:exists]})
   end
 
-  @doc """
-  Token `{:include, [q, domspec], range}`.
-  """
-  @spec include() :: t
-  def include() do
+  defp exp() do
+    # {:exp, [domspec], range}
+    start(:exp)
+    |> ignore(anycase("exp"))
+    |> concat(domspec("="))
+    |> eoterm()
+    |> post_traverse({@m, :token, [:exp]})
+  end
+
+  defp include() do
+    # {:include, [q, domspec], range}
     start(:include)
     |> qualifier()
     |> ignore(anycase("include"))
@@ -383,12 +344,8 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:include]})
   end
 
-  @doc """
-  Token `{:ip4, [q, address], range}`.
-
-  Where `address` might be an IPv4 address string in CIDR notation.
-  """
-  def ip4() do
+  defp ip4() do
+    # {:ip4, [q, address], range}
     start(:ip4)
     |> qualifier()
     |> ignore(anycase("ip4:"))
@@ -396,12 +353,8 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ip4]})
   end
 
-  @doc """
-  Token `{:ip6, [q, address], range}`.
-
-  Where `address` might be an IPv6 address string.
-  """
-  def ip6() do
+  defp ip6() do
+    # {:ip6, [q, address], range}
     start(:ip6)
     |> qualifier()
     |> ignore(anycase("ip6:"))
@@ -409,17 +362,9 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ip6]})
   end
 
-  @doc """
-  Token `{:mx, [q, domain], range}`.
-
-  Where `domain` is a list which is
-  - empty, or contains
-  - a [`domspec`](`domspec/0`), or
-  - a [`dual_cidr`](`dual_cidr/0`) token, or
-  - both.
-
-  """
-  def mx() do
+  defp mx() do
+    # {:mx, [q, domain], range}
+    # domain is a list: empty or contains a domspec and/or dual_cidr
     start(:mx)
     |> qualifier()
     |> ignore(anycase("mx"))
@@ -429,10 +374,8 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:mx]})
   end
 
-  @doc """
-  Token `{:ptr, [q, domspec], range}`.
-  """
-  def ptr() do
+  defp ptr() do
+    # {:ptr, [q, domspec], range}
     start(:ptr)
     |> qualifier()
     |> ignore(anycase("ptr"))
@@ -441,12 +384,8 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ptr]})
   end
 
-  @doc """
-  Token `{:version, [v], range}`.
-
-  Where `v` is an integer and should `1`.
-  """
-  def version() do
+  defp version() do
+    # {:version, [v], range}
     start(:version)
     |> ignore(anycase("v=spf"))
     |> integer(min: 1)
@@ -454,21 +393,8 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:version]})
   end
 
-  @doc """
-  Token `{:exp, [domspec], range}`.
-  """
-  def exp() do
-    start(:exp)
-    |> ignore(anycase("exp"))
-    |> concat(domspec("="))
-    |> eoterm()
-    |> post_traverse({@m, :token, [:exp]})
-  end
-
-  @doc """
-  Token `{:redirect, [domspec], range}`.
-  """
-  def redirect() do
+  defp redirect() do
+    # {:redirect, [domspec], range}
     start(:redirect)
     |> ignore(anycase("redirect"))
     |> concat(domspec("="))
@@ -478,48 +404,35 @@ defmodule Spf.Tokens do
 
   # L1 TOKENS
 
-  @spec domspec() :: t
   defp domspec() do
     # {:domspec, [token], range}
-    # tokens include: :expand, :literal, :toplabel
-    # Nb: a domain-spec is preceeded either by a `:` or an `=`, so higher level
-    # tokens need to match that themselves.
+    # - tokens include: :expand, :literal, :toplabel
+    # - higher level tokens need to match domain-spec's preceeding `:` or `=`
     start(:domspec)
     |> times(choice([toplabel(), expand(), mliteral()]), min: 1)
     |> post_traverse({@m, :token, [:domspec]})
   end
 
-  def domspec(str) do
+  defp domspec(str) do
     ignore(string(str))
     |> concat(domspec())
   end
 
-  @doc """
-  Token `{:dual_cidr, [len4, len6], range}`.
-
-  Where
-  - `len4` is the ipv4 cidr length (defaults to `32`)
-  - `len6` is the ipv6 cidr lengths (defaults to `128`)
-
-  This is an intermediate token used by the lexer to produce other tokens like
-  [`a`](`a/0`) or [`mx`](`mx/0`) and others.
-
-  """
-  # TODO: dual_cidr's like 0+digits are illegal
-  def dual_cidr() do
+  defp dual_cidr() do
+    # {:dual_cidr, [len4, len6], range}
+    # - happily match anything for address and all numbers for length
+    #   since parser will do additional checks
     choice([
       start(:dual_cidr2)
       |> ignore(string("/"))
-      # |> integer(min: 1)
-      |> cidrlen(2)
+      |> integer(min: 1)
       |> ignore(string("//"))
       |> integer(min: 1)
       |> eoterm()
       |> post_traverse({@m, :token, [:dual_cidr2]}),
       start(:dual_cidr4)
       |> ignore(string("/"))
-      # |> integer(min: 1)
-      |> cidrlen(2)
+      |> integer(min: 1)
       |> eoterm()
       |> post_traverse({@m, :token, [:dual_cidr4]}),
       start(:dual_cidr6)
@@ -530,35 +443,8 @@ defmodule Spf.Tokens do
     ])
   end
 
-  def cidrlen(combinator, _max) do
-    concat(
-      combinator,
-      choice([
-        lookahead(string("0")) |> integer(max: 1),
-        integer(min: 1, max: 2)
-      ])
-    )
-  end
-
-  @doc """
-  Token `{:unknown_mod, [name | subtokens], `[`range`](`t:range/0`)`}`.
-
-  where:
-  - `name` is a string
-  - `subtokens` is a list of `:expand` or `:literal` macro-subtokens.
-
-  ```
-  unknown-modifier = name "=" macro-string
-
-  name             = ALPHA *( ALPHA / DIGIT / "-" / "_" / "." )
-  macro-string     = *( macro-expand / macro-literal )
-  macro-expand     = ( "%{" macro-letter transformers *delimiter "}" ) / "%%" / "%_" / "%-"
-  macro-literal    = %x21-24 / %x26-7E
-                     ; visible characters except "%"
-  ```
-
-  """
-  def unknown_mod() do
+  defp unknown_mod() do
+    # {:unknown_mod, [name | subtokens], range}
     start(:unknown_mod)
     |> concat(alpha())
     |> times(choice([alpha(), digit(), ascii_char([?-, ?_, ?.])]), min: 0)
@@ -569,39 +455,19 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:unknown_mod]})
   end
 
-  @doc """
-  Token `{:unknown, [string], `[`range`](`t:range/0`)`}`.
-
-  Used to catch unknown blobs for the parser to deal with.
-
-  """
-  @spec unknown() :: t
-  def unknown() do
-    # for unknown use start1, since it is also used in ip4, ip6 which are based
-    # on start()
+  defp unknown() do
+    # {:unknown, [string], range}
     start(:unknown)
     |> times(ascii_char(not: ?\ , not: ?\t), min: 1)
     |> post_traverse({@m, :token, [:unknown]})
   end
 
-  @doc """
-  Concatenate `unknown/0` to given `combinator`.
-  """
-  @spec unknown(t) :: t
-  def unknown(combinator),
+  defp unknown(combinator),
     do: concat(combinator, unknown())
 
-  @doc """
-  Token `{:whitespace, [string], `[`range`](`t:range/0`)`}`.
-
-  Where `string = 1*(SP / TAB)`.
-
-  Used to detect repreated whitespace in an SPF string and/or detect use of
-  `TAB` characters which is actually not allowed.
-
-  """
-  @spec whitespace() :: t
-  def whitespace() do
+  defp whitespace() do
+    # {:whitespace, [string], range}
+    # - also accepts tabs (technically a syntax error) for warning
     start(:whitespace)
     |> times(ascii_char([?\ , ?\t]), min: 1)
     |> reduce({List, :to_string, []})
@@ -610,28 +476,8 @@ defmodule Spf.Tokens do
 
   # L2 TOKENS
 
-  @doc """
-  Token `{:expand, list, `[`range`](`t:range/0`)`}`.
-
-  Where list is either:
-  - [letter, keep, reverse, split], or
-  - [string]
-
-  ```
-  letter  = ?s / ?l / ?o / ?d / ?i / ?p / ?h / ?c / ?r / ?t / ?v /
-            ?S / ?L / ?O / ?D / ?I / ?P / ?H / ?C / ?R / ?T / ?V
-  keep    = number of parts to keep
-  reverse = a boolean, indicating if reversal is required
-  split   = list of splitting characters (".", "-", "+", ",", "/", "_", and/or "=")
-
-  string  = "%" / "-" / "_"
-
-  Note that this lexes the c,r,t-macro letters, so creating a :domspec-token
-  will fail if any of these three macro letters are present.
-
-  """
-  @spec expand() :: t
-  def expand() do
+  defp expand() do
+    # {:expand, list, range}
     choice([
       expand1(),
       expand2()
@@ -639,6 +485,7 @@ defmodule Spf.Tokens do
   end
 
   defp expand1 do
+    # {:expand1, [letter, keep, reverse, [delim]], range}
     start(:expand1)
     |> ignore(string("%{"))
     |> m_letter()
@@ -649,6 +496,7 @@ defmodule Spf.Tokens do
   end
 
   defp expand2() do
+    # {:expand2, [string], range}
     start(:expand2)
     |> ignore(ascii_char([?%]))
     |> ascii_char([?%, ?-, ?_])
@@ -656,22 +504,16 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:expand2]})
   end
 
-  @doc """
-  Token `{:literal, [string], range}`.
-
-  Where `string = 1*( %x21-24 / %x26-7E)  ; visible characters except "%"`
-  """
-  @spec literal() :: t
-  def literal() do
+  defp literal() do
+    # {:literal, [string], range}
     start(:literal)
     |> times(m_literal(), min: 1)
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:literal]})
   end
 
-  def m_string() do
-    times(choice([expand(), literal()]), min: 1)
-  end
+  defp m_string(),
+    do: times(choice([expand(), literal()]), min: 1)
 
   defp m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
@@ -700,31 +542,9 @@ defmodule Spf.Tokens do
   defp m_transform(combinator),
     do: concat(combinator, m_transform())
 
-  # EXPLAIN
-  @doc """
-  Token `{:exp_str, [tokens], range}`.
-
-  Where `tokens` include:
-  - [`expand`](`expand/0`)
-  - [`literal`](`literal/0`)
-  - [`whitespace`](`whitespace/0`)
-
-  After expanding the domain spec of a [`exp`](`exp/0`) token into a domain
-  name, its TXT RR is retrieved.  This is called the explain-string.  This
-  string is the only place where an [`expand`](`expand/0`) macro for letters
-  `c`, `r`, or `t` is allowed and these `c,r,t`-letters MUST not be used in
-  regular/other [`domspec`](`domspec\0`).
-
-  The list of tokens can then be expanded into the final explanation.
-
-  """
-  def tokenize_exp() do
-    start(:exp_str)
-    |> times(choice([expand(), mliteral(), whitespace()]), min: 1)
-    |> post_traverse({@m, :token, [:exp_str]})
-  end
-
-  def toplabel() do
+  defp toplabel() do
+    # {:toplabel, [string], range}
+    # - ignore trailing dot, all domains are relative to root
     start(:toplabel)
     |> string(".")
     |> choice([ldhlabel1(), ldhlabel2()])
@@ -748,9 +568,37 @@ defmodule Spf.Tokens do
   end
 
   defp mliteral() do
+    # {:mliteral, [string], range}
+    # - string is just one letter
     start(:mliteral)
     |> lookahead_not(dual_cidr())
     |> ascii_char([0x21..0x24, 0x26..0x7E])
     |> post_traverse({@m, :token, [:mliteral]})
   end
+
+  # API
+
+  @doc """
+  Token `{:exp_str, [token], range}`.
+
+  Where `token`'s include: `:expand`, `:literal` or `:whitespace`.
+
+  After expanding the domain spec, of an exp=domspec, into a domain name, its
+  TXT RR is retrieved.  This is called the explain-string.  This string is the
+  only place where macro-letters `c`, `r`, or `t` are allowed.
+
+  The list of tokens can then be expanded into the final explanation by the parser.
+
+  """
+  def tokenize_exp() do
+    start(:exp_str)
+    |> times(choice([expand(), mliteral(), whitespace()]), min: 1)
+    |> post_traverse({@m, :token, [:exp_str]})
+  end
+
+  @doc """
+  Combinator that creates a list of tokens for the SPF terms found in an input string.
+  """
+  def tokenize_spf(),
+    do: term() |> repeat()
 end
