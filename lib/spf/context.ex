@@ -3,6 +3,48 @@ defmodule Spf.Context do
   Functions to create, access and update an SPF evaluation context.
   """
 
+  @type t :: %{
+          # args
+          :sender => binary(),
+          :local => binary(),
+          :ip => binary(),
+          :domain => binary(),
+          :helo => binary(),
+          # parsing
+          :spf_tokens => list(),
+          :ast => list(),
+          # results
+          :verdict => atom(),
+          :explain => tuple() | nil,
+          :explanation => binary(),
+          :error => binary() | nil,
+          :reason => binary(),
+          # tracking
+          :nth => non_neg_integer(),
+          :num_spf => non_neg_integer(),
+          :traces => map(),
+          :stack => list(),
+          :ipt => Iptrie.t(),
+          :t0 => non_neg_integer(),
+          :duration => non_neg_integer(),
+          # logging
+          :log => function(),
+          :map => map(),
+          :verbosity => non_neg_integer(),
+          :depth => non_neg_integer(),
+          :msg => list(),
+          # dns
+          :atype => :a | :aaaa,
+          :dns => map(),
+          :dns_timeout => non_neg_integer(),
+          :max_dnsm => non_neg_integer(),
+          :num_dnsm => non_neg_integer(),
+          :max_dnsq => non_neg_integer(),
+          :num_dnsq => non_neg_integer(),
+          :max_dnsv => non_neg_integer(),
+          :num_dnsv => non_neg_integer()
+        }
+
   # Helpers
 
   defp ipt_update({k, v}, ctx) do
@@ -171,31 +213,32 @@ defmodule Spf.Context do
         else: pfx
 
     atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
-    ip = "#{pfx}"
 
     %{
-      # the nth spf record is now current
-      nth: 0,
-      # linear increasing count of spf records
-      num_spf: 1,
-      # current recursion depth (for pretty logging)
-      depth: 0,
+      # <sender> that is using <ip> to send mail
+      sender: sender,
+      # local part of sender
+      local: local,
+      # optional helo argument
+      helo: helo,
       # current <domain> whose authorisation is evaluated
       domain: domain,
-      local: local,
-      helo: helo,
+      # <ip> for which authorization is sought
+      ip: "#{pfx}",
+      # the nth spf record under consideration
+      nth: 0,
+      # current recursion depth (for pretty logging)
+      depth: 0,
+      # linear increasing count of spf records
+      num_spf: 1,
       # tracks what was seen before: nth=>domain, domain=>nth; for reporting
       map: %{0 => domain, domain => 0},
-      # traces records series of domains seen, for tracking loops
+      # traces records series of domains seen, for loop detection
       traces: %{},
       # push state (part of ctx) when recursing on include'd domains
       stack: [],
-      # <ip> for which authorization is sought
-      ip: ip,
       # type of A RR lookup (A or AAAA), depends on <ip>
       atype: atype,
-      # <sender> that is using <ip> to send mail
-      sender: sender,
       # user log function, or local one.
       log: Keyword.get(opts, :log, nil),
       # default verdict is ?all, ie neutral
@@ -211,7 +254,6 @@ defmodule Spf.Context do
       verbosity: Keyword.get(opts, :verbosity, 4),
       # log of messages, whether outputted or not
       msg: [],
-      # parser state flags
       # explain term (if any)
       explain: nil,
       explanation: "",
@@ -233,12 +275,12 @@ defmodule Spf.Context do
       # ipt.lookup(ip) -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
       ipt: Iptrie.new(),
       # report back
-      report: Keyword.get(opts, :report, :short),
+      # report: Keyword.get(opts, :report, :short),
       t0: DateTime.utc_now() |> DateTime.to_unix()
     }
     |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
     |> log(:ctx, :debug, "created context for #{domain}")
-    |> log(:spf, :note, "spfcheck(#{domain}, #{ip}, #{sender})")
+    |> log(:spf, :note, "spfcheck(#{domain}, #{pfx}, #{sender})")
   end
 
   @doc """

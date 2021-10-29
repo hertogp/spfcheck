@@ -1,7 +1,10 @@
 defmodule Spf.Parser do
   @moduledoc """
-  Functions to parse a list of tokens, given a context of ip, sender and domain
+  Functions to parse an SPF string or explain string for a given SPF context.
 
+  This module provides two functions:
+  - [`explain`](`Spf.Parser.explain/2`) parses an explain, expands it and returns an explanation-string.
+  - [`parse`](`Spf.Parser.parse/1`) parses an SPF record in an AST
 
   """
   import NimbleParsec
@@ -9,30 +12,38 @@ defmodule Spf.Parser do
   alias Spf.DNS
   alias Spf.Eval
 
-  # Lexer
+  # LEXERs
 
-  defparsec(:tokenize_spf, Spf.Tokens.tokenize_spf())
-  defparsec(:tokenize_exp, Spf.Tokens.tokenize_exp())
+  defparsecp(:tokenize_spf, Spf.Tokens.tokenize_spf())
+  defparsecp(:tokenize_exp, Spf.Tokens.tokenize_exp())
 
-  # Helpers
+  # HELPERS
 
-  @spec pfxparse(binary, atom) :: {:ok, Pfx.t()} | {:error, binary}
-  defp pfxparse(pfx, :ip4) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.6
-    leadzero = String.match?(pfx, ~r/(^|[\.\/])0[0-9]/)
-    fournums = String.match?(pfx, ~r/^\d+\.\d+\.\d+\.\d+/)
+  defp ast(ctx, {_type, _tokval, _range} = token) do
+    # add a token to the AST if possible, otherwise put in an :error
+    case token do
+      {:all, _tokval, _range} ->
+        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
 
-    if fournums and not leadzero,
-      do: {:ok, Pfx.new(pfx)},
-      else: {:error, pfx}
-  rescue
-    _ -> {:error, pfx}
-  end
+      {:redirect, _tokval, _range} ->
+        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
 
-  defp pfxparse(pfx, :ip6) do
-    {:ok, Pfx.new(pfx)}
-  rescue
-    _ -> {:error, pfx}
+      {:exp, _tokval, range} ->
+        term = spf_term(ctx, range)
+
+        if length(ctx.stack) > 0 do
+          log(ctx, :parse, :info, "#{term} - ignored (included explain)")
+        else
+          if ctx.explain do
+            error(ctx, :repeated_modifier, "repeated modifier #{term}", :permerror)
+          else
+            Map.put(ctx, :explain, token)
+          end
+        end
+
+      token ->
+        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
+    end
   end
 
   defp cidr([]),
@@ -64,8 +75,6 @@ defmodule Spf.Parser do
     end
     |> Enum.join()
     |> drop_labels()
-
-    # |> DNS.normalize()
   end
 
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
@@ -88,16 +97,6 @@ defmodule Spf.Parser do
   defp expand(_ctx, token_type, [str])
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
        do: str
-
-  def explain(ctx, explain) do
-    case tokenize_exp(explain) do
-      {:error, _, _, _, _, _} ->
-        ""
-
-      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
-        expand(ctx, exp_str)
-    end
-  end
 
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
     do: macro(ctx, letter + 32) |> URI.encode_www_form()
@@ -176,6 +175,25 @@ defmodule Spf.Parser do
     end
   end
 
+  @spec pfxparse(binary, atom) :: {:ok, Pfx.t()} | {:error, binary}
+  defp pfxparse(pfx, :ip4) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.6
+    leadzero = String.match?(pfx, ~r/(^|[\.\/])0[0-9]/)
+    fournums = String.match?(pfx, ~r/^\d+\.\d+\.\d+\.\d+/)
+
+    if fournums and not leadzero,
+      do: {:ok, Pfx.new(pfx)},
+      else: {:error, pfx}
+  rescue
+    _ -> {:error, pfx}
+  end
+
+  defp pfxparse(pfx, :ip6) do
+    {:ok, Pfx.new(pfx)}
+  rescue
+    _ -> {:error, pfx}
+  end
+
   defp taketok(args, toktype) do
     case List.keytake(args, toktype, 0) do
       nil -> {[], args}
@@ -183,34 +201,39 @@ defmodule Spf.Parser do
     end
   end
 
-  defp ast(ctx, {_type, _tokval, _range} = token) do
-    # add a token to the AST if possible, otherwise put in an :error
-    case token do
-      {:all, _tokval, _range} ->
-        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
+  # API
 
-      {:redirect, _tokval, _range} ->
-        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
+  @doc """
+  Parses an `explain`-string, expands it for given `context` and returns the
+  explanation-string.
 
-      {:exp, _tokval, range} ->
-        term = spf_term(ctx, range)
+  """
+  @spec explain(map, binary()) :: binary()
+  def explain(ctx, explain) do
+    case tokenize_exp(explain) do
+      {:error, _, _, _, _, _} ->
+        ""
 
-        if length(ctx.stack) > 0 do
-          log(ctx, :parse, :info, "#{term} - ignored (included explain)")
-        else
-          if ctx.explain do
-            error(ctx, :repeated_modifier, "repeated modifier #{term}", :permerror)
-          else
-            Map.put(ctx, :explain, token)
-          end
-        end
-
-      token ->
-        Map.update(ctx, :ast, [token], fn tokens -> tokens ++ [token] end)
+      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
+        expand(ctx, exp_str)
     end
   end
 
-  # Parse Context
+  @doc """
+  Given a context, return it after parsing its `ctx.spf` and populating its `ctx.ast`.
+
+  Returns the context with its `ctx.ast` populated based on the `ctx.spf_tokens`
+  found by the tokenizer.
+
+  Any syntax error seen will cause the `ctx.error` to be set, as well as `ctx.reason`.
+  Since the entire SPF string is parsed, `ctx.reason` will point to the last syntax
+  error seen and the SPF evaluation will result in a permanent error.
+
+  Otherwise, the `ctx.ast` can be evaluated to arrive at a result.
+
+  """
+  @spec parse(map) :: map
+  def parse(context)
 
   def parse(%{error: error} = ctx) when error != nil,
     do: ctx
@@ -218,15 +241,12 @@ defmodule Spf.Parser do
   def parse(%{spf: spf} = ctx) do
     {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
 
-    ctx =
-      Map.put(ctx, :spf, spf)
-      |> Map.put(:spf_tokens, tokens)
-      |> Map.put(:spf_rest, rest)
-      |> Map.put(:ast, [])
-      |> check(:spf_length)
-      |> check(:spf_residue)
-
-    Enum.reduce(tokens, ctx, &parse/2)
+    Map.put(ctx, :spf_tokens, tokens)
+    |> Map.put(:spf_rest, rest)
+    |> Map.put(:ast, [])
+    |> check(:spf_length)
+    |> check(:spf_residue)
+    |> then(fn ctx -> Enum.reduce(tokens, ctx, &parse/2) end)
     |> check(:explain_reachable)
     |> check(:no_implicit)
     |> check(:max_redirect)
@@ -234,33 +254,10 @@ defmodule Spf.Parser do
     |> check(:all_last)
   end
 
-  # Parse Tokens
+  # PARSER
 
-  # Version
-  defp parse({:version, [n], range} = _token, ctx) do
-    case n do
-      1 ->
-        ctx
-
-      _ ->
-        error(ctx, :syntax_error, "Unknown SPF version #{spf_term(ctx, range)}", :permerror)
-    end
-  end
-
-  # Whitespace
-  defp parse({:whitespace, [wspace], range}, ctx) do
-    ctx =
-      if String.length(wspace) > 1,
-        do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
-        else: ctx
-
-    if String.contains?(wspace, "\t"),
-      do: log(ctx, :parse, :warn, "tab as whitespace: #{inspect(range)}"),
-      else: ctx
-  end
-
-  # A, MX
   defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
+    # A, MX
     {spec, _} = taketok(args, :domspec)
     {dual, _} = taketok(args, :dual_cidr)
 
@@ -278,8 +275,53 @@ defmodule Spf.Parser do
     end
   end
 
-  # Ptr
+  defp parse({:all, [qual], range}, ctx),
+    # All
+    do: ast(ctx, {:all, [qual], range})
+
+  defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
+    # Exists, Include
+    term = spf_term(ctx, range)
+
+    case(expand(ctx, domspec)) do
+      :einvalid ->
+        error(ctx, :syntax_error, "syntax error #{term}", :permerror)
+
+      domain ->
+        ast(ctx, {atom, [qual, domain], range})
+        |> tick(:num_dnsm)
+        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+    end
+  end
+
+  defp parse({:exp, [domspec], range}, ctx) do
+    # Exp
+    term = spf_term(ctx, range)
+
+    case expand(ctx, domspec) do
+      :einvalid ->
+        error(ctx, :syntax_error, "syntax error for #{term}", :permerror)
+
+      domain ->
+        ast(ctx, {:exp, [domain], range})
+        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+    end
+  end
+
+  defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
+    # IP4, IP6
+    case pfxparse(ip, atom) do
+      {:ok, pfx} ->
+        ast(ctx, {atom, [qual, pfx], range})
+
+      {:error, _} ->
+        error(ctx, :syntax_error, "syntax error for #{spf_term(ctx, range)}", :permerror)
+    end
+  end
+
   defp parse({:ptr, [qual, args], range}, ctx) do
+    # Ptr
     {spec, _} = taketok(args, :domspec)
     term = spf_term(ctx, range)
 
@@ -296,39 +338,8 @@ defmodule Spf.Parser do
     end
   end
 
-  # Include, Exists
-  defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
-    term = spf_term(ctx, range)
-
-    case(expand(ctx, domspec)) do
-      :einvalid ->
-        error(ctx, :syntax_error, "syntax error #{term}", :permerror)
-
-      domain ->
-        ast(ctx, {atom, [qual, domain], range})
-        |> tick(:num_dnsm)
-        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
-        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
-    end
-  end
-
-  # All
-  defp parse({:all, [qual], range}, ctx),
-    do: ast(ctx, {:all, [qual], range})
-
-  # IP4, IP6
-  defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
-    case pfxparse(ip, atom) do
-      {:ok, pfx} ->
-        ast(ctx, {atom, [qual, pfx], range})
-
-      {:error, _} ->
-        error(ctx, :syntax_error, "syntax error for #{spf_term(ctx, range)}", :permerror)
-    end
-  end
-
-  # Redirect
   defp parse({:redirect, [domspec], range}, ctx) do
+    # Redirect
     term = spf_term(ctx, range)
 
     case expand(ctx, domspec) do
@@ -343,35 +354,44 @@ defmodule Spf.Parser do
     end
   end
 
-  # Exp
-  defp parse({:exp, [domspec], range}, ctx) do
-    term = spf_term(ctx, range)
+  defp parse({:version, [n], range} = _token, ctx) do
+    # Version
+    case n do
+      1 ->
+        ctx
 
-    case expand(ctx, domspec) do
-      :einvalid ->
-        error(ctx, :syntax_error, "syntax error for #{term}", :permerror)
-
-      domain ->
-        ast(ctx, {:exp, [domain], range})
-        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+      _ ->
+        error(ctx, :syntax_error, "Unknown SPF version #{spf_term(ctx, range)}", :permerror)
     end
   end
 
-  # Unknown_mod
-  defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
-    log(ctx, :parse, :warn, "ignored unknown modifier '#{spf_term(ctx, range)}'")
+  defp parse({:whitespace, [wspace], range}, ctx) do
+    # Whitespace
+    ctx =
+      if String.length(wspace) > 1,
+        do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
+        else: ctx
+
+    if String.contains?(wspace, "\t"),
+      do: log(ctx, :parse, :warn, "tab as whitespace: #{inspect(range)}"),
+      else: ctx
   end
 
-  # Unknown
   defp parse({:unknown, _tokvalue, range} = _token, ctx) do
+    # Unknown
     error(ctx, :syntax_error, "syntax error for '#{spf_term(ctx, range)}'", :permerror)
   end
 
-  # CatchAll
+  defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
+    # Unknown_mod
+    log(ctx, :parse, :warn, "ignored unknown modifier '#{spf_term(ctx, range)}'")
+  end
+
   defp parse(token, ctx),
+    # CatchAll
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
 
-  # Checks
+  # CHECKS
 
   defp check(ctx, :spf_length) do
     case String.length(ctx.spf) do
@@ -434,6 +454,7 @@ defmodule Spf.Parser do
   end
 
   defp check(ctx, :all_no_redirect) do
+    # warn on ignoring a superfluous `redirect`
     all = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type == :all end)
 
     if length(all) > 0 do
@@ -451,15 +472,15 @@ defmodule Spf.Parser do
   end
 
   defp check(ctx, :all_last) do
-    # terms after all are ignored
+    # warns on terms being ignored
     # - exp is actually part of the context and does not appear in the ast
-    # - redirect is removed from ast if all is present
+    # - redirect is (already) removed from ast if all is present
     rest = Enum.drop_while(ctx.ast, fn {t, _, _} -> t != :all end)
 
     case rest do
-      [_head | tail] when tail != [] ->
-        Enum.reduce(tail, ctx, fn tok, ctx ->
-          log(ctx, :parse, :warn, "term after all ignored: #{inspect(tok)}")
+      [{_, _, r0} | tail] when tail != [] ->
+        Enum.reduce(tail, ctx, fn {_, _, r1}, ctx ->
+          log(ctx, :parse, :warn, "term after #{spf_term(ctx, r0)} ignored: #{spf_term(ctx, r1)}")
         end)
 
       _ ->

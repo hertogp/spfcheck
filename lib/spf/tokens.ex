@@ -1,63 +1,105 @@
 defmodule Spf.Tokens do
   @moduledoc """
-  Combinators and functions to tokenize an SPF string or an explain string.
+  Combinators which tokenize either an SPF string or an explain string.
 
-  Tokens are represented by `{type, value, range}`-tuples. The token types
-  include:
+  This module produces `t:token/0` which are represented as `{type, value,
+  range}`-tuples.  The two main combinators are:
+  - `tokenize_spf/0`, which turns an SPF string into a list of tokens
+  - `tokenize_exp/0`, which turns an explain string into tokens
 
-  - [`:version`](`version/0`)
-  - [`:whitespace`](`whitespace/0`)
-  - [`:a`](`a/0`)
-  - [`:mx`](`mx/0`)
-  - [`:include`](`include/0`)
-  - [`:exists`](`exists/0`)
-  - [`:ip4`](`ip4/0`)
-  - [`:ip6`](`ip6/0`)
-  - [`:ptr`](`ptr/0`)
-  - [`redirect`](`redirect/0`)
-  - [`:all`](`all/0`)
-  - [`:exp`](`exp/0`)
-  - [`:unknown_mod`](`unknown_mod/0`)
-  - [`:unknown`](`unknown/0`)
+  `Spf.Parser` uses these (with help from `NimbleParsec.defparsecp/3`) to perform
+  its lexical analysis as part of the parsing process.
 
-  and sub-tokens that may appear in token values:
-
-  - [`:dual_cidr`](`dual_cidr/0`)
-  - [`:domspec`](`domspec/0`)
-      - [`:expand`](`expand/0`)
-      - [`:literal`](`literal/0`)
-      - [`:toplabel`](`toplabel/0`)
+  The `start_token/6` and `token/6` are (internal) helper functions that
+  should've been private, but it seems they cannot be.  So these are for
+  `Spf.Tokens`' internal use only.
 
   """
 
   import NimbleParsec
 
+  @m __MODULE__
+
+  @typedoc """
+  A `t:NimbleParsec.t/0` combinator
+
+  """
+  @type c :: NimbleParsec.t()
+
   @typedoc """
   qualifier = ?+ / ?- / ?~ / ??
+
   """
   @type q :: ?+ | ?- | ?~ | ??
 
   @typedoc """
-  The range (`start..stop//step)` of a token in the input string.
+  A `range` denotes a token's `start..stop` in the string from which it was lexed.
 
   """
   @type range :: Range.t()
 
-  @type t :: NimbleParsec.t()
-
   @typedoc """
-  A token represented as a tuple: {type, value, range}.
+  The token's `type`.
 
-  The `value` is a list of either strings, number(s) or intermediary tokens.
+  There are several classes of tokens:
+  - the version: `:version`,
+  - a mechanism: `:a, :all, :exists, :exp, :include, :ip4, :ip6, :mx, :ptr`
+  - a modifier: `:exp, :redirect`,
+  - an explain string: `exp_str`,
+  - an unknown modifier: `unknown_mod`,
+  - an unknown token: `unknown`
+  - whitespace: `:whitespace`,
+  - a subtoken: `:domspec, :dual_cidr, :qualifier` and `:expand, :literal, :toplabel`
+
+  Subtokens can appear as part of the value of a mechanism, a (unknown)
+  modifier or an explain string token.  The `:expand, :literal, :toplabel` tokens
+  may appear in the `:domspec` subtoken's value.
+
+  The `:whitespace` token will match both a space as well as a tab character in
+  order to be able to warn about multiple spaces or tab characters being used.
+  The latter is technically a syntax error if used to separate SPF terms.
+
+  The `:unknown` token is tried as a last resort and matches any non-space
+  sequence.  When matched, it probably means the SPF string has a syntax error.
 
   """
-  @type token :: {atom, list(), range}
+  @type type ::
+          :a
+          | :all
+          | :exists
+          | :exp
+          | :exp_str
+          | :include
+          | :ip4
+          | :ip6
+          | :mx
+          | :ptr
+          | :redirect
+          | :unknown
+          | :unknown_mod
+          | :version
+          | :whitespace
+          | :exp_str
+          # L1
+          | :domspec
+          | :dual_cidr
+          | :qualifier
+          # L2
+          | :expand
+          | :literal
+          | :toplabel
 
-  @m __MODULE__
+  @typedoc """
+  A token represented as a tuple: `{type, value, range}`.
 
+  The `value` is a list that is either empty or contains one or more
+  strings, number(s) or subtokens.
+
+  """
+  @type token :: {type, list(), range}
   # Helpers
 
-  @spec anycase(binary) :: t
+  @spec anycase(binary) :: c
   defp anycase(string) do
     # combinator that matches given `string`, case-insensitive.
     string
@@ -66,7 +108,7 @@ defmodule Spf.Tokens do
     |> Enum.reduce(empty(), fn elm, acc -> concat(acc, elm) end)
   end
 
-  @spec bothcases(char) :: t
+  @spec bothcases(char) :: c
   defp bothcases(c) when ?a <= c and c <= ?z,
     do: ascii_char([c, c - 32])
 
@@ -99,6 +141,7 @@ defmodule Spf.Tokens do
     do: Range.new(Map.get(context, label, 0), offset - 1)
 
   # POST_TRAVERSE
+  # TODO: howto make start_token() and token() private?
 
   def start_token(_rest, args, context, _line, offset, token_type),
     do: {args, Map.put(context, token_type, offset)}
@@ -181,10 +224,6 @@ defmodule Spf.Tokens do
   def token(_rest, args, context, _line, offset, :literal),
     do: {[{:literal, args, range(context, :literal, offset)}], context}
 
-  # MLiteral
-  def token(_rest, args, context, _line, offset, :mliteral),
-    do: {[{:literal, [List.to_string(args)], range(context, :mliteral, offset)}], context}
-
   # Transform
   def token(_rest, args, context, _line, _offset, :transform) do
     tokval =
@@ -261,7 +300,7 @@ defmodule Spf.Tokens do
 
   # COMBINATORS
 
-  defp term() do
+  defp spf_term() do
     # note: unknown() must be last.
     choice([
       whitespace(),
@@ -305,7 +344,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:a]})
   end
 
-  @spec all() :: t
+  @spec all() :: c
   defp all() do
     # {:all, [`[`q`](`t:q/0`)`], `[`range`](`t:range/0`)
     start(:all)
@@ -406,14 +445,15 @@ defmodule Spf.Tokens do
 
   defp domspec() do
     # {:domspec, [token], range}
-    # - tokens include: :expand, :literal, :toplabel
-    # - higher level tokens need to match domain-spec's preceeding `:` or `=`
+    # - tokens include: :toplabel, :expand, :literal
+    # - higher level tokens need to use domspec/1
     start(:domspec)
-    |> times(choice([toplabel(), expand(), mliteral()]), min: 1)
+    |> times(choice([toplabel(), expand(), literal()]), min: 1)
     |> post_traverse({@m, :token, [:domspec]})
   end
 
   defp domspec(str) do
+    # match a domspec after ignoring string str (i.e. ":" or "=")
     ignore(string(str))
     |> concat(domspec())
   end
@@ -445,14 +485,17 @@ defmodule Spf.Tokens do
 
   defp unknown_mod() do
     # {:unknown_mod, [name | subtokens], range}
+    # TODO: added toplabel() to choice below
     start(:unknown_mod)
     |> concat(alpha())
     |> times(choice([alpha(), digit(), ascii_char([?-, ?_, ?.])]), min: 0)
     |> ignore(string("="))
     |> reduce({List, :to_string, []})
-    |> concat(m_string())
+    |> times(choice([expand(), toplabel(), literal()]), min: 1)
     |> eoterm()
     |> post_traverse({@m, :token, [:unknown_mod]})
+
+    # |> concat(m_string())
   end
 
   defp unknown() do
@@ -505,15 +548,21 @@ defmodule Spf.Tokens do
   end
 
   defp literal() do
-    # {:literal, [string], range}
+    # {:literal, [binary], range}
     start(:literal)
-    |> times(m_literal(), min: 1)
+    |> times(literal_char(), min: 1)
     |> reduce({List, :to_string, []})
     |> post_traverse({@m, :token, [:literal]})
   end
 
-  defp m_string(),
-    do: times(choice([expand(), literal()]), min: 1)
+  defp literal_char(),
+    # a single literal character, unless we're looking at a dual_cidr ending or
+    # a toplabel
+    # do: concat(lookahead_not(dual_cidr()), ascii_char([0x21..0x24, 0x26..0x7E]))
+    do:
+      lookahead_not(dual_cidr())
+      |> lookahead_not(toplabel())
+      |> ascii_char([0x21..0x24, 0x26..0x7E])
 
   defp m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
@@ -527,9 +576,6 @@ defmodule Spf.Tokens do
 
   defp m_letter(combinator),
     do: concat(combinator, m_letter())
-
-  defp m_literal(),
-    do: concat(lookahead_not(dual_cidr()), ascii_char([0x21..0x24, 0x26..0x7E]))
 
   defp m_transform() do
     # a domspec-expand without a transform will have a :transform token with
@@ -567,15 +613,6 @@ defmodule Spf.Tokens do
     |> times(choice([dash_alphanum(), alphanum()]), min: 0)
   end
 
-  defp mliteral() do
-    # {:mliteral, [string], range}
-    # - string is just one letter
-    start(:mliteral)
-    |> lookahead_not(dual_cidr())
-    |> ascii_char([0x21..0x24, 0x26..0x7E])
-    |> post_traverse({@m, :token, [:mliteral]})
-  end
-
   # API
 
   @doc """
@@ -583,16 +620,17 @@ defmodule Spf.Tokens do
 
   Where `token`'s include: `:expand`, `:literal` or `:whitespace`.
 
-  After expanding the domain spec, of an exp=domspec, into a domain name, its
-  TXT RR is retrieved.  This is called the explain-string.  This string is the
-  only place where macro-letters `c`, `r`, or `t` are allowed.
+  After expanding the domain spec, of an `:exp`-token into a domain name, its
+  TXT RR is retrieved.  That RR's text value  is called the explain-string.
+  `tokenize_expThis string is the only place where macro-letters `c`, `r`, or `t` are
+  allowed.
 
   The list of tokens can then be expanded into the final explanation by the parser.
 
   """
   def tokenize_exp() do
     start(:exp_str)
-    |> times(choice([expand(), mliteral(), whitespace()]), min: 1)
+    |> times(choice([expand(), toplabel(), literal(), whitespace()]), min: 1)
     |> post_traverse({@m, :token, [:exp_str]})
   end
 
@@ -600,5 +638,5 @@ defmodule Spf.Tokens do
   Combinator that creates a list of tokens for the SPF terms found in an input string.
   """
   def tokenize_spf(),
-    do: term() |> repeat()
+    do: spf_term() |> repeat()
 end
