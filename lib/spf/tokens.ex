@@ -6,9 +6,7 @@ defmodule Spf.Tokens do
   range}`-tuples.  The two main combinators are:
   - `tokenize_spf/0`, which turns an SPF string into a list of tokens
   - `tokenize_exp/0`, which turns an explain string into tokens
-
-  `Spf.Parser` uses these (with help from `NimbleParsec.defparsecp/3`) to perform
-  its lexical analysis as part of the parsing process.
+  and are used by the `Spf.Parser` for lexical analysis of the input string.
 
   The `start_token/6` and `token/6` are (internal) helper functions that
   should've been private, but it seems they cannot be.  So these are for
@@ -214,7 +212,7 @@ defmodule Spf.Tokens do
     tokval =
       case Enum.reverse(args) do
         [{:qualifier, q, _range}] -> [q, []]
-        [{:qualifier, q, _rang} | domspec] -> [q, domspec]
+        [{:qualifier, q, _rang} | args] -> [q, args]
       end
 
     {[{atom, tokval, range(context, atom, offset)}], context}
@@ -239,6 +237,7 @@ defmodule Spf.Tokens do
     {tokval, context}
   end
 
+  # Toplabel
   def token(_rest, args, context, _line, offset, :toplabel),
     do: {[{:toplabel, args, range(context, :toplabel, offset)}], context}
 
@@ -618,7 +617,7 @@ defmodule Spf.Tokens do
   @doc """
   Token `{:exp_str, [token], range}`.
 
-  Where `token`'s include: `:expand`, `:literal` or `:whitespace`.
+  Where `token`'s include: `:expand`, `:toplabel`, `:literal` or `:whitespace`.
 
   After expanding the domain spec, of an `:exp`-token into a domain name, its
   TXT RR is retrieved.  That RR's text value  is called the explain-string.

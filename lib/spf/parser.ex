@@ -194,13 +194,6 @@ defmodule Spf.Parser do
     _ -> {:error, pfx}
   end
 
-  defp taketok(args, toktype) do
-    case List.keytake(args, toktype, 0) do
-      nil -> {[], args}
-      {token, args} -> {token, args}
-    end
-  end
-
   # API
 
   @doc """
@@ -258,8 +251,8 @@ defmodule Spf.Parser do
 
   defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
-    {spec, _} = taketok(args, :domspec)
-    {dual, _} = taketok(args, :dual_cidr)
+    spec = List.keyfind(args, :domspec, 0, [])
+    dual = List.keyfind(args, :dual_cidr, 0, [])
 
     domain = expand(ctx, spec)
     cidr = cidr(dual)
@@ -322,7 +315,7 @@ defmodule Spf.Parser do
 
   defp parse({:ptr, [qual, args], range}, ctx) do
     # Ptr
-    {spec, _} = taketok(args, :domspec)
+    spec = List.keyfind(args, :domspec, 0, [])
     term = spf_term(ctx, range)
 
     case expand(ctx, spec) do
