@@ -1,20 +1,22 @@
 defmodule Spf.Eval do
   @moduledoc """
-  Functions to evaluate an SPF context
+  Functions to evaluate an SPF context.
 
   TODO
-  [ ] expand macro's on demand, not beforehand
-  [ ] fix dns stats, make it public and call when needed
-      - DNS.resolve MUST always count the dnsq's since there is no limit
+  - [ ] expand macro's on demand, not beforehand
+  - [ ] fix dns stats, make it public and call when needed
+  - [ ] DNS.resolve MUST always count the dnsq's since there is no limit
   """
 
   alias Spf.DNS
   import Spf.Context
 
+  @type context :: Spf.Context.t()
+
   # Helpers
 
   defp ascii?(string) when is_binary(string),
-    do: string == for(<<c <- string>>, c in 0..127, into: "", do: <<c>>)
+    do: string == for(<<c <- string>>, c < 128, into: "", do: <<c>>)
 
   defp ascii?(_string),
     do: false
@@ -47,7 +49,8 @@ defmodule Spf.Eval do
 
         {:ok, [explain]} ->
           log(ctx, :dns, :info, "txt #{domain} -> '#{explain}'")
-          |> Map.put(:explanation, Spf.Parser.explain(ctx, explain))
+          |> Map.put(:explain_string, explain)
+          |> Spf.Parser.explain()
       end
     else
       ctx
@@ -198,49 +201,6 @@ defmodule Spf.Eval do
     |> Spf.Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
   end
 
-  # API
-
-  @spec spf?(binary) :: boolean
-  def spf?(str) when is_binary(str),
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
-    do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
-
-  def spf?(_),
-    do: false
-
-  def check(sender, opts \\ []) do
-    Spf.Context.new(sender, opts)
-    |> Spf.Eval.evaluate()
-  end
-
-  def evaluate(ctx) do
-    ctx
-    |> check_domain()
-    |> grep_spf()
-    |> check_spf()
-    |> Spf.Parser.parse()
-    |> eval()
-  end
-
-  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
-  def validate?({:error, _}, _ip, _name, _domain, _exact),
-    do: false
-
-  def validate?({:ok, rrs}, ip, name, domain, exact) do
-    pfx = Pfx.new(ip)
-
-    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
-      if exact do
-        String.downcase(name)
-        |> String.ends_with?(String.downcase(domain))
-      else
-        true
-      end
-    else
-      false
-    end
-  end
-
   # Eval Terms
 
   defp eval(%{error: error} = ctx) when error != nil,
@@ -253,8 +213,8 @@ defmodule Spf.Eval do
     |> check_limits()
   end
 
-  # Nomore Terms
   defp evalp(ctx, []),
+    # Nomore Terms
     do: ctx
 
   # A
@@ -272,6 +232,84 @@ defmodule Spf.Eval do
       {:ok, rrs} ->
         addip(ctx, rrs, dual, {q, ctx.nth, term})
     end
+    |> match(term, tail)
+  end
+
+  # All
+  defp evalp(ctx, [{:all, [q], range} = term | tail]) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
+    log(ctx, :eval, :info, "#{spf_term(ctx, range)} - matches")
+    |> tick(:num_checks)
+    |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    |> match(term, tail)
+  end
+
+  # EXISTS
+  defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
+    {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
+
+    case dns do
+      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
+        ctx
+
+      {:error, reason} ->
+        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
+
+      {:ok, rrs} ->
+        log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
+        |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    end
+    |> match(term, tail)
+  end
+
+  # INCLUDE
+  defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
+    # if ctx.map[domain] do
+    if loop?(ctx, domain) do
+      error(
+        ctx,
+        :loop,
+        "loop detected: #{ctx.domain} cannot include #{domain}",
+        :permerror
+      )
+    else
+      ctx =
+        log(ctx, :eval, :note, "#{spf_term(ctx, range)} - recurse")
+        |> push(domain)
+        |> evaluate()
+
+      case ctx.verdict do
+        v when v in [:neutral, :fail, :softfail] ->
+          ctx = pop(ctx)
+
+          log(ctx, :eval, :info, "#{spf_term(ctx, range)} - no match")
+          |> evalp(tail)
+
+        :pass ->
+          ctx = pop(ctx)
+
+          ctx
+          |> Map.put(:verdict, qualify(q))
+          |> log(:eval, :info, "#{spf_term(ctx, range)} - match")
+          |> Map.put(:reason, "#{spf_term(ctx, range)} - matched")
+
+        v when v in [:none, :permerror] ->
+          ctx = pop(ctx)
+          error(ctx, :include, "#{spf_term(ctx, range)} - permanent error", :permerror)
+
+        :temperror ->
+          ctx = pop(ctx)
+
+          ctx
+          |> log(:eval, :warn, "#{spf_term(ctx, range)} - temp error")
+      end
+    end
+  end
+
+  # IP4/6
+  defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
+    addip(ctx, [pfx], [32, 128], {q, ctx.nth, term})
     |> match(term, tail)
   end
 
@@ -325,84 +363,6 @@ defmodule Spf.Eval do
     |> match(term, tail)
   end
 
-  # EXISTS
-  defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
-    {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
-
-    case dns do
-      {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
-        ctx
-
-      {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
-
-      {:ok, rrs} ->
-        log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
-        |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-    end
-    |> match(term, tail)
-  end
-
-  # IP4/6
-  defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
-    addip(ctx, [pfx], [32, 128], {q, ctx.nth, term})
-    |> match(term, tail)
-  end
-
-  # INCLUDE
-  defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
-    # if ctx.map[domain] do
-    if loop?(ctx, domain) do
-      error(
-        ctx,
-        :loop,
-        "loop detected: #{ctx.domain} cannot include #{domain}",
-        :permerror
-      )
-    else
-      ctx =
-        log(ctx, :eval, :note, "#{spf_term(ctx, range)} - recurse")
-        |> push(domain)
-        |> evaluate()
-
-      case ctx.verdict do
-        v when v in [:neutral, :fail, :softfail] ->
-          ctx = pop(ctx)
-
-          log(ctx, :eval, :info, "#{spf_term(ctx, range)} - no match")
-          |> evalp(tail)
-
-        :pass ->
-          ctx = pop(ctx)
-
-          ctx
-          |> Map.put(:verdict, qualify(q))
-          |> log(:eval, :info, "#{spf_term(ctx, range)} - match")
-          |> Map.put(:reason, "#{spf_term(ctx, range)} - matched")
-
-        v when v in [:none, :permerror] ->
-          ctx = pop(ctx)
-          error(ctx, :include, "#{spf_term(ctx, range)} - permanent error", :permerror)
-
-        :temperror ->
-          ctx = pop(ctx)
-
-          ctx
-          |> log(:eval, :warn, "#{spf_term(ctx, range)} - temp error")
-      end
-    end
-  end
-
-  # All
-  defp evalp(ctx, [{:all, [q], range} = term | tail]) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
-    log(ctx, :eval, :info, "#{spf_term(ctx, range)} - matches")
-    |> tick(:num_checks)
-    |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-    |> match(term, tail)
-  end
-
   # REDIRECT
   defp evalp(ctx, [{:redirect, [:einvalid], range} | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
@@ -441,5 +401,63 @@ defmodule Spf.Eval do
   defp evalp(ctx, [term | tail]) do
     log(ctx, :eval, :error, "internal error, eval is missing a handler for #{inspect(term)}")
     |> evalp(tail)
+  end
+
+  # API
+
+  @doc """
+  Say whether `str` contains the start of an SPF string.
+
+  """
+  @spec spf?(binary) :: boolean
+  def spf?(str) when is_binary(str),
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
+    do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
+
+  def spf?(_),
+    do: false
+
+  @doc """
+  Check SPF for given `sender` and possible options.
+
+  Options include:
+  - `ip:` ipv4 or ipv6 address, in binary, of sending MTA
+  - `helo:` the helo presented by sending MTA
+  - `log:` a user log/4 function to relay notifications
+  - `verbosity` how verbose the notifications should be (0..5)
+  - `dns:` filepath to pre-populate the context's DNS cache
+
+  """
+  def check(sender, opts \\ []) do
+    Spf.Context.new(sender, opts)
+    |> Spf.Eval.evaluate()
+  end
+
+  def evaluate(ctx) do
+    ctx
+    |> check_domain()
+    |> grep_spf()
+    |> check_spf()
+    |> Spf.Parser.parse()
+    |> eval()
+  end
+
+  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
+  def validate?({:error, _}, _ip, _name, _domain, _exact),
+    do: false
+
+  def validate?({:ok, rrs}, ip, name, domain, exact) do
+    pfx = Pfx.new(ip)
+
+    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
+      if exact do
+        String.downcase(name)
+        |> String.ends_with?(String.downcase(domain))
+      else
+        true
+      end
+    else
+      false
+    end
   end
 end

@@ -1,16 +1,17 @@
 defmodule Spf.Parser do
   @moduledoc """
-  Functions to parse an SPF string or explain string for a given SPF context.
+  Functions to parse an SPF string or explain string for a given SPF [`context`](`t:context/0`).
 
-  This module provides two functions:
-  - [`explain`](`Spf.Parser.explain/2`) parses an explain, expands it and returns an explanation-string.
-  - [`parse`](`Spf.Parser.parse/1`) parses an SPF record in an AST
+  The parser also performs expansion during the semantic checks, so both
+  functions take an SPF [`context`](`t:Spf.Context.t/0`) as their only argument.
 
   """
   import NimbleParsec
   import Spf.Context
   alias Spf.DNS
   alias Spf.Eval
+
+  @type context :: Spf.Context.t()
 
   # LEXERs
 
@@ -194,57 +195,123 @@ defmodule Spf.Parser do
     _ -> {:error, pfx}
   end
 
-  # API
+  # CHECKS
+  # - checks performed by Spf.Parser at various stages
 
-  @doc """
-  Parses an `explain`-string, expands it for given `context` and returns the
-  explanation-string.
-
-  """
-  @spec explain(map, binary()) :: binary()
-  def explain(ctx, explain) do
-    case tokenize_exp(explain) do
-      {:error, _, _, _, _, _} ->
-        ""
-
-      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
-        expand(ctx, exp_str)
+  defp check(ctx, :spf_length) do
+    case String.length(ctx.spf) do
+      len when len > 512 -> log(ctx, :parse, :warn, "SPF string length #{len} > 512 characters")
+      _ -> ctx
     end
   end
 
-  @doc """
-  Given a context, return it after parsing its `ctx.spf` and populating its `ctx.ast`.
+  defp check(ctx, :spf_residue) do
+    case String.length(ctx.spf_rest) do
+      len when len > 0 -> log(ctx, :parse, :warn, "SPF string residue #{inspect(ctx.spf_rest)}")
+      _ -> ctx
+    end
+  end
 
-  Returns the context with its `ctx.ast` populated based on the `ctx.spf_tokens`
-  found by the tokenizer.
+  defp check(ctx, :explain_reachable) do
+    # if none of the terms have a fail qualifier, an explain is superfluous
+    if ctx.explain != nil do
+      mechs =
+        Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type != :redirect end)
+        |> Enum.map(fn {_type, tokval, _range} -> tokval end)
+        |> Enum.filter(fn l -> List.first(l, ?+) == ?- end)
 
-  Any syntax error seen will cause the `ctx.error` to be set, as well as `ctx.reason`.
-  Since the entire SPF string is parsed, `ctx.reason` will point to the last syntax
-  error seen and the SPF evaluation will result in a permanent error.
+      case mechs do
+        [] -> log(ctx, :parse, :warn, "SPF record cannot fail, so explain is never used")
+        _ -> ctx
+      end
+    else
+      ctx
+    end
+  end
 
-  Otherwise, the `ctx.ast` can be evaluated to arrive at a result.
+  defp check(ctx, :no_implicit) do
+    # warn if there's no redirect and no all present
+    explicit = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type in [:all, :redirect] end)
 
-  """
-  @spec parse(map) :: map
-  def parse(context)
+    case explicit do
+      [] -> log(ctx, :parse, :warn, "SPF record has implicit end (?all)")
+      _ -> ctx
+    end
+  end
 
-  def parse(%{error: error} = ctx) when error != nil,
-    do: ctx
+  defp check(ctx, :max_redirect) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5
+    # redirect modifier is allowed only once
+    redirs = Enum.filter(ctx.ast, fn {type, _tokal, _range} -> type == :redirect end)
 
-  def parse(%{spf: spf} = ctx) do
-    {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
+    if length(redirs) > 1 do
+      [_, {_, _, range} | _] = redirs
 
-    Map.put(ctx, :spf_tokens, tokens)
-    |> Map.put(:spf_rest, rest)
-    |> Map.put(:ast, [])
-    |> check(:spf_length)
-    |> check(:spf_residue)
-    |> then(fn ctx -> Enum.reduce(tokens, ctx, &parse/2) end)
-    |> check(:explain_reachable)
-    |> check(:no_implicit)
-    |> check(:max_redirect)
-    |> check(:all_no_redirect)
-    |> check(:all_last)
+      error(
+        ctx,
+        :repeated_modifier,
+        "#{spf_term(ctx, range)} - redirect is allowed only once",
+        :permerror
+      )
+    else
+      ctx
+    end
+  end
+
+  defp check(ctx, :redirect_last) do
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.3
+    # redirect modifier takes effect after all mechanisms have been evaluated
+    # - note this check must come after check :all_no_redirect
+    {redir, ast} = List.keytake(ctx.ast, :redirect, 0) || {nil, nil}
+    last = List.last(ctx.ast)
+
+    case redir do
+      nil ->
+        ctx
+
+      ^last ->
+        ctx
+
+      {_, _, range} ->
+        log(ctx, :parse, :warn, "#{spf_term(ctx, range)} - not last term")
+        |> Map.put(:ast, ast ++ [redir])
+    end
+  end
+
+  defp check(ctx, :all_no_redirect) do
+    # warn on ignoring a superfluous `redirect`
+    # - note that this check must come before :redirect_last
+    all = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type == :all end)
+
+    if length(all) > 0 do
+      case List.keytake(ctx[:ast], :redirect, 0) do
+        nil ->
+          ctx
+
+        {redir, ast} ->
+          log(ctx, :parse, :warn, "redirect #{inspect(redir)} ignored: `all` is present")
+          |> Map.put(:ast, ast)
+      end
+    else
+      ctx
+    end
+  end
+
+  defp check(ctx, :all_last) do
+    # warns on terms being ignored
+    # - exp is actually part of the context and does not appear in the ast
+    # - redirect is (already) removed from ast if all is present
+    rest = Enum.drop_while(ctx.ast, fn {t, _, _} -> t != :all end)
+
+    case rest do
+      [{_, _, r0} | tail] when tail != [] ->
+        Enum.reduce(tail, ctx, fn {_, _, r1}, ctx ->
+          log(ctx, :parse, :warn, "term after #{spf_term(ctx, r0)} ignored: #{spf_term(ctx, r1)}")
+        end)
+
+      _ ->
+        ctx
+    end
   end
 
   # PARSER
@@ -252,14 +319,15 @@ defmodule Spf.Parser do
   defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
     spec = List.keyfind(args, :domspec, 0, [])
-    dual = List.keyfind(args, :dual_cidr, 0, [])
-
     domain = expand(ctx, spec)
+
+    dual = List.keyfind(args, :dual_cidr, 0, [])
     cidr = cidr(dual)
+
     term = spf_term(ctx, range)
 
     if domain == :einvalid or cidr == :einvalid do
-      error(ctx, :syntax_error, "invalid term #{term}", :permerror)
+      error(ctx, :syntax_error, "syntax error #{term}", :permerror)
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
@@ -384,100 +452,92 @@ defmodule Spf.Parser do
     # CatchAll
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
 
-  # CHECKS
+  # API
 
-  defp check(ctx, :spf_length) do
-    case String.length(ctx.spf) do
-      len when len > 512 -> log(ctx, :parse, :warn, "SPF string length #{len} > 512 characters")
-      _ -> ctx
+  @doc """
+  Parse [`context`](`t:context/0`)'s explain string and store the result under
+  the `:explanation` key.
+
+  In case of any errors, sets the explanation string to an empty string.
+  """
+  @spec explain(context) :: context
+  def explain(%{explain_string: explain} = context) do
+    case tokenize_exp(explain) do
+      {:error, _, _, _, _, _} ->
+        Map.put(context, :explanation, "")
+
+      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
+        Map.put(context, :explanation, expand(context, exp_str))
     end
   end
 
-  defp check(ctx, :spf_residue) do
-    case String.length(ctx.spf_rest) do
-      len when len > 0 -> log(ctx, :parse, :warn, "SPF string residue #{inspect(ctx.spf_rest)}")
-      _ -> ctx
-    end
-  end
+  @doc """
+  Parse [`context`](`t:context/0`)'s SPF string and store the result under the
+  `:ast` key.
 
-  defp check(ctx, :explain_reachable) do
-    # if none of the terms have a fail qualifier, an explain is superfluous
-    if ctx.explain != nil do
-      mechs =
-        Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type != :redirect end)
-        |> Enum.map(fn {_type, tokval, _range} -> tokval end)
-        |> Enum.filter(fn l -> List.first(l, ?+) == ?- end)
+  The parser will parse the entire record so as to find as many problems as
+  possible.
 
-      case mechs do
-        [] -> log(ctx, :parse, :warn, "SPF record cannot fail, so explain is never used")
-        _ -> ctx
-      end
-    else
-      ctx
-    end
-  end
+  The parser will log notifications for:
+  - ignoring an include'd explain modifier
+  - for each DNS mechanism encountered
 
-  defp check(ctx, :no_implicit) do
-    # warn if there's no redirect and no all present
-    explicit = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type in [:all, :redirect] end)
+  The parser will log warnings for:
+  - an SPF string length longer than 512 characters
+  - any residue text in the SPF string after parsing
+  - when an exp modifier is present, but the SPF record cannot fail
+  - SPF records with implicit endings
+  - ignoring a redirect modifier because the all mechanism is present
+  - each ignored term occurring after an all mechanism
+  - the use of the ptr mechanism (which is not recommended)
+  - the use of the p-macro (also not recommended)
+  - repeated whitespace to separate terms
+  - use of tab character(s) to sepearate terms
+  - ignoring an unknown modifier
+  - a redirect modifer, when no all is present, that is not the last term
 
-    case explicit do
-      [] -> log(ctx, :parse, :warn, "SPF record has implicit end (?all)")
-      _ -> ctx
-    end
-  end
+  The parser will log an error for:
+  - repeated modifier terms
+  - syntax errors in domain specifications
+  - syntax errors in dual-cidr notations
+  - invalid IP addresses
+  - unknown terms that are not unknown modifiers
 
-  defp check(ctx, :max_redirect) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-5
-    # redirect modifier is allowed only once
-    redirs = Enum.filter(ctx.ast, fn {type, _tokal, _range} -> type == :redirect end)
+  The logging simply adds messages to the `context.msg` list but, when logging
+  an error, the `context.error` and `context.reason` are also set.
 
-    if length(redirs) > 1 do
-      [_, {_, _, range} | _] = redirs
+  Since the parser does not stop at the first error, the `context.error` and
+  `context.reason` show the details of the last error seen.  If given `context`
+  also has a function reference stored in `context.log`, it is called with
+  4 arguments:
+  - [`context`](`t:context/0`)
+  - `facility`, an atom denoting which part sent the message
+  - `severity`, an atom like :info, :warn, :error, :debug
+  - `msg`, the message string
 
-      error(
-        ctx,
-        :repeated_modifier,
-        "#{spf_term(ctx, range)} - redirect is allowed only once",
-        :permerror
-      )
-    else
-      ctx
-    end
-  end
+  In the absence of an error, `context.ast` is fit for evaluation.
 
-  defp check(ctx, :all_no_redirect) do
-    # warn on ignoring a superfluous `redirect`
-    all = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type == :all end)
+  """
+  @spec parse(context) :: context
+  def parse(context)
 
-    if length(all) > 0 do
-      case List.keytake(ctx[:ast], :redirect, 0) do
-        nil ->
-          ctx
+  def parse(%{error: error} = ctx) when error != nil,
+    do: ctx
 
-        {redir, ast} ->
-          log(ctx, :parse, :warn, "redirect #{inspect(redir)} ignored: `all` is present")
-          |> Map.put(:ast, ast)
-      end
-    else
-      ctx
-    end
-  end
+  def parse(%{spf: spf} = ctx) do
+    {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
 
-  defp check(ctx, :all_last) do
-    # warns on terms being ignored
-    # - exp is actually part of the context and does not appear in the ast
-    # - redirect is (already) removed from ast if all is present
-    rest = Enum.drop_while(ctx.ast, fn {t, _, _} -> t != :all end)
-
-    case rest do
-      [{_, _, r0} | tail] when tail != [] ->
-        Enum.reduce(tail, ctx, fn {_, _, r1}, ctx ->
-          log(ctx, :parse, :warn, "term after #{spf_term(ctx, r0)} ignored: #{spf_term(ctx, r1)}")
-        end)
-
-      _ ->
-        ctx
-    end
+    Map.put(ctx, :spf_tokens, tokens)
+    |> Map.put(:spf_rest, rest)
+    |> Map.put(:ast, [])
+    |> check(:spf_length)
+    |> check(:spf_residue)
+    |> then(fn ctx -> Enum.reduce(tokens, ctx, &parse/2) end)
+    |> check(:explain_reachable)
+    |> check(:no_implicit)
+    |> check(:max_redirect)
+    |> check(:all_no_redirect)
+    |> check(:redirect_last)
+    |> check(:all_last)
   end
 end

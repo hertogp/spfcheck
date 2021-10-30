@@ -16,6 +16,7 @@ defmodule Spf.Context do
           # results
           :verdict => atom(),
           :explain => tuple() | nil,
+          :explain_string => binary(),
           :explanation => binary(),
           :error => binary() | nil,
           :reason => binary(),
@@ -256,6 +257,7 @@ defmodule Spf.Context do
       msg: [],
       # explain term (if any)
       explain: nil,
+      explain_string: "",
       explanation: "",
       # stats
       num_dnsq: 0,

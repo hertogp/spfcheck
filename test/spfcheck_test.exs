@@ -361,4 +361,50 @@ defmodule SpfcheckTest do
       assert ctx.verdict == verdict, msg
     end
   end
+
+  describe "redirect" do
+    test "001 - redirect evaluated last" do
+      sender = "someone@example.com"
+      ip = "1.2.3.4"
+      verdict = :pass
+
+      zonedata = """
+      # redirect takes effect after all mechanisms have been evaluated
+      example.com TXT v=spf1 redirect=b.example.com a
+      example.com A 1.2.3.4
+      b.example.com TXT v=spf1 -all
+      """
+
+      ctx =
+        Spf.Context.new(sender, ip: ip)
+        |> Spf.DNS.load_lines(zonedata)
+        |> Spf.Eval.evaluate()
+
+      msg =
+        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
+
+      assert ctx.verdict == verdict, msg
+    end
+
+    test "002 - redirect ignored if all is present" do
+      sender = "someone@example.com"
+      ip = "1.2.3.4"
+      verdict = :pass
+
+      zonedata = """
+      example.com TXT v=spf1 redirect=b.example.com +all
+      b.example.com TXT v=spf1 -all
+      """
+
+      ctx =
+        Spf.Context.new(sender, ip: ip)
+        |> Spf.DNS.load_lines(zonedata)
+        |> Spf.Eval.evaluate()
+
+      msg =
+        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
+
+      assert ctx.verdict == verdict, msg
+    end
+  end
 end
