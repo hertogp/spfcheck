@@ -1,9 +1,26 @@
 defmodule Spf.DNS do
   @moduledoc """
-  DNS helper functions
+  A simple DNS caching resolver for SPF evaluations.
+
+  Simple refers to the fact that `Spf.DNS` only supports a small set
+  of RR-types (`a`, `aaaa`, `cname`, `mx`, `ptr`, `soa`, `spf`, `txt`) required
+  for SPF evaluation or testing against the
+  [rfc7208-test-suite](http://www.open-spf.org/Test_Suite/).
+
+  The cache is held in the [`context`](`t:Spf.Context.t/0`) of an SPF
+  evaluation, does not support TTL values, and is a map where `{name, RR-type}`
+  -> `[rrdata]`
+
+  `Spf.DNS` allows for (pre-)populating the cache, making it possible to
+  experiment with new SPF records and/or DNS entries to see how that influences
+  an SPF evaluation before publishing it for production.
+
+
   """
 
   import Spf.Context
+
+  @type context :: Spf.Context.t()
 
   @rrtypes %{
     "a" => :a,
@@ -34,18 +51,28 @@ defmodule Spf.DNS do
   # API
 
   @doc """
-  Returns a cache hit or miss for given `name` and `type` from cache `ctx.dns`.
+  Returns a cached RR for given `name` and `type` from the `context.dns` or a
+  cache miss.
 
-  - `{:ok, []}` is a cache miss.
-  - `{:error, reason}` is a cache hit for a previous negative result
-  - `{:ok, rrs}` is a cache hit where `rrs` is a list of rrdata's.
+  The result returned is one of:
+  - `{:error, :cache_miss}`, for a cache miss
+  - `{:error, reason}`, for a cache hit (of a previous negative result)
+  - `{:ok, rrs}`, for a cache hit (where `rrs` is a list of rrdata's).
+
+  Where `reason` includes:
+  - `:illegal_name`
+  - `:nxdomain`
+  - `:servfail`
+  - `:timeout`
+  - `:zero_answers`
+
+  Note that this function unrolls CNAME(s) and does not make any actual DNS
+  requests nor does it do any statistics.
 
   """
-  @spec from_cache(map, binary, atom) :: {:error, atom} | {:ok, list}
-  def from_cache(ctx, name, type) do
-    # returns either {:error, reason} or {:ok, [rrs]}
-    {ctx, name} = cname(ctx, name)
-    cache = Map.get(ctx, :dns, %{})
+  @spec from_cache(context, binary, atom) :: {:error, atom} | {:ok, list}
+  def from_cache(%{dns: cache} = context, name, type) do
+    {_context, name} = cname(context, name)
 
     case cache[{name, type}] do
       nil -> {:error, :cache_miss}
@@ -217,7 +244,13 @@ defmodule Spf.DNS do
       |> rrentries()
       |> cache(ctx, name, type)
 
-    result = from_cache(ctx, name, type)
+    result =
+      case from_cache(ctx, name, type) do
+        {:error, :cache_miss} -> {:error, :zero_answers}
+        result -> result
+      end
+
+    # result = from_cache(ctx, name, type)
     do_stats(ctx, name, type, result, stats)
   rescue
     x in CaseClauseError ->
@@ -247,26 +280,25 @@ defmodule Spf.DNS do
         false -> "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
       end
 
+    ctx = tick(ctx, :num_dnsq)
+    delta = if stats, do: 1, else: 0
+
     case result do
       {:error, :cache_miss} ->
         # result didn't include an answer for given `type`
         result = {:error, :zero_answers}
 
         {update(ctx, {name, type, result})
-         |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
-         |> tick(:num_dnsq)
+         |> tick(:num_dnsv, delta)
          |> log(:dns, :warn, "#{qry} - ZERO answers!"), result}
 
       {:error, :zero_answers} ->
-        # result didn't include any answers
-        {tick(ctx, :num_dnsq)
-         |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
-         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
+        # zero answers is a void query
+        {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :nxdomain} ->
-        {tick(ctx, :num_dnsq)
-         |> then(fn ctx -> if stats, do: tick(ctx, :num_dnsv), else: ctx end)
-         |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
+        # nxdomain is a void query
+        {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
 
       {:error, reason} ->
         # any other error, like :servfail
@@ -276,8 +308,7 @@ defmodule Spf.DNS do
          |> tick(:num_dnsq), result}
 
       {:ok, res} ->
-        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}")
-         |> tick(:num_dnsq), result}
+        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}
     end
   end
 
