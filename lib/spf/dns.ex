@@ -162,8 +162,12 @@ defmodule Spf.DNS do
     type = Keyword.get(opts, :type, :a)
 
     case valid?(name) do
-      {:ok, name} -> resolvep(ctx, name, type, stats)
-      {:error, reason} -> {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+      {:ok, name} ->
+        tick(ctx, :num_dnsq)
+        |> resolvep(name, type, stats)
+
+      {:error, reason} ->
+        {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
     end
   end
 
@@ -203,6 +207,7 @@ defmodule Spf.DNS do
     do: {:error, :invalid_fqdn}
 
   def valid?(domain) do
+    # rfc7208 yml's 'macro-mania-in-domain' allows spaces in a domain name?
     domain = normalize(domain)
 
     with {:ascii, true} <- {:ascii, validp?(domain, :ascii)},
@@ -231,7 +236,7 @@ defmodule Spf.DNS do
     do: length(String.split(domain, ".")) > 1
 
   defp validp?(domain, :ascii),
-    do: domain == for(<<c <- domain>>, c in 0..127, into: "", do: <<c>>)
+    do: domain == for(<<c <- domain>>, c < 128, into: "", do: <<c>>)
 
   defp query(ctx, name, type, stats) do
     # returns either {ctx, {:error, reason}} or {ctx, {:ok, [rrs]}}
@@ -258,7 +263,7 @@ defmodule Spf.DNS do
 
       ctx =
         update(ctx, {name, type, error})
-        |> log(:dns, :error, "DNS error!: #{name} #{type}: #{inspect(error)}")
+        |> log(:dns, :error, "DNS error: #{name} #{type}: #{inspect(error)}")
 
       {ctx, error}
 
@@ -267,7 +272,7 @@ defmodule Spf.DNS do
 
       ctx =
         update(ctx, {name, type, error})
-        |> log(:dns, :error, "DNS ILLEGAL name: #{name} #{Exception.message(x)}")
+        |> log(:dns, :error, "DNS illegal name: #{name} #{Exception.message(x)}")
 
       {ctx, error}
   end
@@ -280,7 +285,6 @@ defmodule Spf.DNS do
         false -> "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
       end
 
-    ctx = tick(ctx, :num_dnsq)
     delta = if stats, do: 1, else: 0
 
     case result do
@@ -290,7 +294,7 @@ defmodule Spf.DNS do
 
         {update(ctx, {name, type, result})
          |> tick(:num_dnsv, delta)
-         |> log(:dns, :warn, "#{qry} - ZERO answers!"), result}
+         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :zero_answers} ->
         # zero answers is a void query
@@ -304,8 +308,7 @@ defmodule Spf.DNS do
         # any other error, like :servfail
         err = String.upcase("#{inspect(reason)}")
 
-        {log(ctx, :dns, :warn, "#{qry} - #{err}")
-         |> tick(:num_dnsq), result}
+        {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}
 
       {:ok, res} ->
         {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}

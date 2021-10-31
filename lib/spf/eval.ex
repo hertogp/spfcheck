@@ -183,14 +183,15 @@ defmodule Spf.Eval do
           Map.put(ctx, :spf, spf)
 
         {:error, :timeout} ->
-          error(ctx, :timeout, "DNS error (timeout)", :temperror)
+          error(ctx, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
           |> Map.put(:spf, [])
 
         {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
-          error(ctx, reason, "DNS error (#{reason})", :none)
+          error(ctx, reason, "txt #{ctx.domain} - DNS error (#{reason})", :none)
           |> Map.put(:spf, [])
 
         {:error, reason} ->
+          # TODO: remove this IO.inspect at some point
           IO.inspect(reason, label: :grep_spf_reason)
 
           Map.put(ctx, :error, reason)
