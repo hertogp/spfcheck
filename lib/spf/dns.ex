@@ -51,6 +51,57 @@ defmodule Spf.DNS do
   # API
 
   @doc """
+  Find a domain name's start of authority contact and nameservers.
+
+  Returns
+  - `{:ok, {email, [nameserver]}}`, or
+  - `{:error, :nxdomain}`
+
+  """
+  def authority(name) do
+    labels = normalize(name) |> String.split(".", trim: true)
+
+    for d <- 0..(length(labels) - 2) do
+      Enum.drop(labels, d) |> Enum.join(".")
+    end
+    |> authorityp()
+    |> case do
+      {:ok, domain, contact} -> {:ok, name, domain, contact, nameservers(domain)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp authorityp([]), do: {:error, :nxdomain}
+
+  defp authorityp([head | tail]) do
+    name = String.to_charlist(head)
+
+    case :inet_res.resolve(name, :in, :soa) do
+      {:error, _} ->
+        authorityp(tail)
+
+      {:ok, record} ->
+        case rrdata(record) do
+          [{domain, _, {_, contact, _, _, _, _, _}}] ->
+            {:ok, domain, String.replace(contact, ".", "@", global: false)}
+
+          _ ->
+            # list either empty, or contains cnames which are ignored
+            authorityp(tail)
+        end
+    end
+  end
+
+  defp nameservers(domain) do
+    name = String.to_charlist(domain)
+
+    case :inet_res.resolve(name, :in, :ns) do
+      {:error, reason} -> {:error, reason}
+      {:ok, record} -> rrdata(record) |> Enum.map(fn {_, _, ns} -> ns end) |> Enum.sort()
+    end
+  end
+
+  @doc """
   Returns a cached RR for given `name` and `type` from the `context.dns` or a
   cache miss.
 
@@ -100,9 +151,17 @@ defmodule Spf.DNS do
   def grep(rrdatas, fun) when is_function(fun, 1),
     do: {:ok, Enum.filter(rrdatas, fn rrdata -> fun.(rrdata) end)}
 
-  def load_file(ctx, nil), do: ctx
+  def load(ctx, nil),
+    do: ctx
 
-  def load_file(ctx, fpath) when is_binary(fpath) do
+  def load(ctx, dns) do
+    case File.exists?(dns) do
+      true -> load_file(ctx, dns)
+      false -> load_lines(ctx, dns)
+    end
+  end
+
+  defp load_file(ctx, fpath) when is_binary(fpath) do
     ctx =
       case File.read(fpath) do
         {:ok, binary} ->
@@ -117,10 +176,10 @@ defmodule Spf.DNS do
     err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
-  def load_lines(ctx, lines) when is_binary(lines),
+  defp load_lines(ctx, lines) when is_binary(lines),
     do: load_lines(ctx, String.split(lines, "\n"))
 
-  def load_lines(ctx, lines) when is_list(lines) do
+  defp load_lines(ctx, lines) when is_list(lines) do
     lines
     |> Enum.map(&String.trim/1)
     |> Enum.reduce(ctx, &rr_fromstr/2)
@@ -145,17 +204,23 @@ defmodule Spf.DNS do
     do: List.to_string(domain) |> normalize()
 
   @doc """
-  Resolves a query and returns a {`ctx`, results}-tuple.
+  Resolves a query, updates the cache and returns a {`ctx`, results}-tuple.
 
   Returns:
   - `{ctx, {:error, reason}}` if a DNS error occurred, or
   - `{ctx, {:ok, [rrs]}}` where rrs is a list of rrdata's
 
-  Although, technically a result with ZERO answers is not a DNS error, it
-  will be reported as `{:error, :zero_answers}`.
+  Although a result with ZERO answers is technically not a DNS error, it
+  will be reported as an error.  Error reasons include:
+  - `:zero_answers`
+  - `:illegal_name`
+  - `:timeout`
+  - `:nxdomain`
+  - `:servfail`
+  - other
 
   """
-  @spec resolve(map, binary, list) :: {map, any}
+  @spec resolve(context, binary, list) :: {map, any}
   def resolve(ctx, name, opts \\ []) when is_map(ctx) do
     name = normalize(name)
     stats = Keyword.get(opts, :stats, true)
@@ -278,7 +343,7 @@ defmodule Spf.DNS do
   end
 
   defp do_stats(ctx, name, type, result, stats, opts \\ []) do
-    # return {ctx, result}, possibly  update stats
+    # log any warnings, possibly update stats & return {ctx, result}
     qry =
       case Keyword.get(opts, :cached, false) do
         true -> "DNS QUERY (#{ctx.num_dnsq}) [cache] #{type} #{name}"
@@ -356,7 +421,6 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    # name = charlists_tostr(name) |> String.trim() |> String.trim(".")
     name = charlists_tostr(name) |> normalize()
     cache = Map.get(ctx, :dns, %{})
 

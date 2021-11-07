@@ -280,9 +280,11 @@ defmodule Spf.Context do
       # report: Keyword.get(opts, :report, :short),
       t0: DateTime.utc_now() |> DateTime.to_unix()
     }
-    |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
+    |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
     |> log(:ctx, :debug, "created context for #{domain}")
     |> log(:spf, :note, "spfcheck(#{domain}, #{pfx}, #{sender})")
+
+    # |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
   end
 
   @doc """

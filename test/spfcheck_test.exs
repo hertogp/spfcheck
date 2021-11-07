@@ -34,7 +34,7 @@ defmodule SpfcheckTest do
 
   describe "domain name checks" do
     @describetag :domain_names
-    test "001 - dns labels limited to 63 chars" do
+    test "001 - dns label > 63 chars is invalid" do
       # spec: 4.3/1, initial processing:
       # - an invalid dns label in domain -> None
       # - a DNS timeout -> TempError
@@ -46,17 +46,19 @@ defmodule SpfcheckTest do
       example.com TXT v=spf1 -all
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == :none, msg
       assert ctx.error != nil, msg
     end
 
-    test "002 - dns labels limited to 63 chars" do
+    test "002 - dns label <= 63 chars is allowed" do
       # for initial processing, max label length is 63 chars
       # spec: 4.3/1
       domain = "A12345678901234567890123456789012345678901234567890123456789012.example.com"
@@ -68,11 +70,13 @@ defmodule SpfcheckTest do
       a12345678901234567890123456789012345678901234567890123456789012.example.com txt v=spf1 -all
       """
 
-      ctx =
-        Spf.Context.new(domain, sender: sender, ip: ip)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(domain, sender: sender, ip: ip)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
+      # first label is 63 chars, domain is valid -> -all yields a fail
       assert ctx.verdict == :fail, info(ctx)
     end
 
@@ -84,11 +88,12 @@ defmodule SpfcheckTest do
       example.com TXT v=spf1 ptr:example.-com
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -101,11 +106,12 @@ defmodule SpfcheckTest do
       example.com TXT v=spf1 ptr:example.123
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -118,11 +124,12 @@ defmodule SpfcheckTest do
       example.com TXT v=spf1 exists:example.123
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -137,11 +144,12 @@ defmodule SpfcheckTest do
       example.123 A 1.2.3.4
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -156,11 +164,12 @@ defmodule SpfcheckTest do
       example.123 TXT v=spf1 +all
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}\n\n" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -178,10 +187,12 @@ defmodule SpfcheckTest do
       a.example.com TXT v=spf1 ~all
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -202,10 +213,12 @@ defmodule SpfcheckTest do
       x.example.com TXT %{d} says %{i} is not ok
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -222,10 +235,12 @@ defmodule SpfcheckTest do
       example.com TXT v=spf1 include:EXAMPLE.COM +all
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -244,10 +259,12 @@ defmodule SpfcheckTest do
       x.example.com TXT %{d} says %{i} is not ok
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -265,11 +282,12 @@ defmodule SpfcheckTest do
       example.com A 1.2.3.4
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
 
+      ctx = Spf.Eval.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -283,10 +301,12 @@ defmodule SpfcheckTest do
       example.com TXT v=spf1 redirect=example.com
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -304,10 +324,12 @@ defmodule SpfcheckTest do
       b.example.com TXT v=spf1 redirect=example.com
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -327,10 +349,12 @@ defmodule SpfcheckTest do
       d.example.com TXT v=spf1 redirect=b.example.com
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -350,10 +374,12 @@ defmodule SpfcheckTest do
       d.example.com TXT v=spf1 redirect=b.%{d2}
       """
 
-      ctx =
-        Spf.Context.new(sender)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -375,10 +401,12 @@ defmodule SpfcheckTest do
       b.example.com TXT v=spf1 -all
       """
 
-      ctx =
-        Spf.Context.new(sender, ip: ip)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender, ip: ip)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -396,10 +424,12 @@ defmodule SpfcheckTest do
       b.example.com TXT v=spf1 -all
       """
 
-      ctx =
-        Spf.Context.new(sender, ip: ip)
-        |> Spf.DNS.load_lines(zonedata)
-        |> Spf.Eval.evaluate()
+      # ctx =
+      #   Spf.Context.new(sender, ip: ip)
+      #   |> Spf.DNS.load_lines(zonedata)
+      #   |> Spf.Eval.evaluate()
+
+      ctx = Spf.Eval.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
