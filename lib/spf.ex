@@ -1,2 +1,43 @@
 defmodule Spf do
+  @moduledoc """
+  Check SPF for a specific `sender` and possible options.
+
+  The `Spf.check/2` function takes a sender and possible options 
+  and returns an evaluation [`context`](`t:Spf.Context.t/0`) that
+  contains the verdict and some statistics of the evaluation.
+
+  ## Example
+
+      iex> File.write("tmp/zone.txt", """
+      ...> example.com TXT v=spf1 -all exp=why.%{d}
+      ...> why.example.com TXT %{d}: %{i} is not one of our MTA's
+      ...> """)
+      iex> ctx = Spf.check("example.com", dns: "tmp/zone.txt")
+      iex> {ctx.verdict, ctx.reason, ctx.explanation}
+      {:fail, "spf[0] -all", "example.com: 127.0.0.1 is not one of our MTA's"}
+
+  """
+  @doc """
+  Check SPF for given `sender` and possible options.
+
+  Options include:
+  - `dns:` filepath or zonedata to pre-populate the context's DNS cache
+  - `helo:` the helo presented by sending MTA, defaults to `sender`
+  - `ip:` ipv4 or ipv6 address, in binary, of sending MTA, defaults to `127.0.0.1`
+  - `log:` a user log/4 function to relay notifications, defaults to `nil`
+  - `verbosity` how verbose the notifications should be (0..5), defaults to `3`
+
+  ## Examples
+
+      iex> zone = """
+      ...> example.com TXT v=spf1 +all
+      ...> """
+      iex> Spf.check("example.com", dns: zone) |> Map.get(:verdict)
+      :pass
+
+  """
+  def check(sender, opts \\ []) do
+    Spf.Context.new(sender, opts)
+    |> Spf.Eval.evaluate()
+  end
 end

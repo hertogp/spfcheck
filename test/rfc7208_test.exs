@@ -21,7 +21,7 @@ defmodule SpfcheckTestSuite do
     @tag set: @test_set
     @tag tst: @test_tag
     test "#{@test} - #{@mailfrom}" do
-      ctx = Spf.Eval.check(@mailfrom, helo: @helo, ip: @ip, dns: @dns)
+      ctx = Spf.check(@mailfrom, helo: @helo, ip: @ip, dns: @dns)
 
       msg = "\ngot #{ctx.verdict}, expected #{@result} - #{@info}\n"
       msg = msg <> "got #{ctx.explanation}, expected #{@explanation}\n\n"

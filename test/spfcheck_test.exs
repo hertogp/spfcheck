@@ -51,7 +51,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == :none, msg
@@ -75,7 +75,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, ip: ip, dns: zonedata)
       # first label is 63 chars, domain is valid -> -all yields a fail
       assert ctx.verdict == :fail, info(ctx)
     end
@@ -93,7 +93,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -111,7 +111,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -129,7 +129,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -149,7 +149,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -169,7 +169,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}\n\n" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -192,7 +192,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -218,7 +218,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -240,7 +240,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -264,7 +264,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -287,7 +287,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
       msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
       assert ctx.verdict == verdict, msg
     end
@@ -306,7 +306,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -329,7 +329,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -354,7 +354,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -379,7 +379,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -406,7 +406,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, ip: ip, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
@@ -429,7 +429,7 @@ defmodule SpfcheckTest do
       #   |> Spf.DNS.load_lines(zonedata)
       #   |> Spf.Eval.evaluate()
 
-      ctx = Spf.Eval.check(sender, dns: zonedata)
+      ctx = Spf.check(sender, ip: ip, dns: zonedata)
 
       msg =
         "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"

@@ -13,6 +13,48 @@ defmodule Spf.Eval do
 
   @type context :: Spf.Context.t()
 
+  # API
+
+  @doc """
+  Say whether `str` contains the start of an SPF string.
+
+  """
+  @spec spf?(binary) :: boolean
+  def spf?(str) when is_binary(str),
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
+    do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
+
+  def spf?(_),
+    do: false
+
+  def evaluate(ctx) do
+    ctx
+    |> check_domain()
+    |> grep_spf()
+    |> check_spf()
+    |> Spf.Parser.parse()
+    |> eval()
+  end
+
+  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
+  def validate?({:error, _}, _ip, _name, _domain, _exact),
+    do: false
+
+  def validate?({:ok, rrs}, ip, name, domain, exact) do
+    pfx = Pfx.new(ip)
+
+    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
+      if exact do
+        String.downcase(name)
+        |> String.ends_with?(String.downcase(domain))
+      else
+        true
+      end
+    else
+      false
+    end
+  end
+
   # Helpers
 
   defp ascii?(string) when is_binary(string),
@@ -141,7 +183,7 @@ defmodule Spf.Eval do
     if ctx.error do
       ctx
     else
-      case Spf.DNS.valid?(ctx.domain) do
+      case Spf.DNS.check_domain(ctx.domain) do
         {:ok, _domain} ->
           ctx
 
@@ -191,9 +233,6 @@ defmodule Spf.Eval do
           |> Map.put(:spf, [])
 
         {:error, reason} ->
-          # TODO: remove this IO.inspect at some point
-          IO.inspect(reason, label: :grep_spf_reason)
-
           Map.put(ctx, :error, reason)
           |> Map.put(:spf, [])
       end
@@ -402,63 +441,5 @@ defmodule Spf.Eval do
   defp evalp(ctx, [term | tail]) do
     log(ctx, :eval, :error, "internal error, eval is missing a handler for #{inspect(term)}")
     |> evalp(tail)
-  end
-
-  # API
-
-  @doc """
-  Say whether `str` contains the start of an SPF string.
-
-  """
-  @spec spf?(binary) :: boolean
-  def spf?(str) when is_binary(str),
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
-    do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
-
-  def spf?(_),
-    do: false
-
-  @doc """
-  Check SPF for given `sender` and possible options.
-
-  Options include:
-  - `ip:` ipv4 or ipv6 address, in binary, of sending MTA
-  - `helo:` the helo presented by sending MTA
-  - `log:` a user log/4 function to relay notifications
-  - `verbosity` how verbose the notifications should be (0..5)
-  - `dns:` filepath to pre-populate the context's DNS cache
-
-  """
-  def check(sender, opts \\ []) do
-    Spf.Context.new(sender, opts)
-    |> Spf.Eval.evaluate()
-  end
-
-  def evaluate(ctx) do
-    ctx
-    |> check_domain()
-    |> grep_spf()
-    |> check_spf()
-    |> Spf.Parser.parse()
-    |> eval()
-  end
-
-  # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
-  def validate?({:error, _}, _ip, _name, _domain, _exact),
-    do: false
-
-  def validate?({:ok, rrs}, ip, name, domain, exact) do
-    pfx = Pfx.new(ip)
-
-    if Enum.any?(rrs, fn ip -> Pfx.member?(ip, pfx) end) do
-      if exact do
-        String.downcase(name)
-        |> String.ends_with?(String.downcase(domain))
-      else
-        true
-      end
-    else
-      false
-    end
   end
 end

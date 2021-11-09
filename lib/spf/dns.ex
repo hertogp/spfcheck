@@ -20,13 +20,12 @@ defmodule Spf.DNS do
 
   import Spf.Context
 
-  @type context :: Spf.Context.t()
-
   @rrtypes %{
     "a" => :a,
     "aaaa" => :aaaa,
     "cname" => :cname,
     "mx" => :mx,
+    "ns" => :ns,
     "ptr" => :ptr,
     "soa" => :soa,
     "spf" => :spf,
@@ -34,10 +33,10 @@ defmodule Spf.DNS do
   }
 
   @rrerrors %{
-    "timeout" => :timeout,
-    "nxdomain" => :nxdomain,
     "formerr" => :formerr,
+    "nxdomain" => :nxdomain,
     "servfail" => :servfail,
+    "timeout" => :timeout,
     "zero_answers" => :zero_answers
   }
 
@@ -51,13 +50,14 @@ defmodule Spf.DNS do
   # API
 
   @doc """
-  Find a domain name's start of authority contact and nameservers.
+  Find a domain name's start of authority and contact.
 
   Returns
-  - `{:ok, {email, [nameserver]}}`, or
+  - `{:ok, domain, authority, contact}`, or
   - `{:error, :nxdomain}`
 
   """
+  @spec authority(binary) :: {:ok, binary, binary, binary} | {:error, binary}
   def authority(name) do
     labels = normalize(name) |> String.split(".", trim: true)
 
@@ -66,38 +66,41 @@ defmodule Spf.DNS do
     end
     |> authorityp()
     |> case do
-      {:ok, domain, contact} -> {:ok, name, domain, contact, nameservers(domain)}
+      {:ok, domain, contact} -> {:ok, name, domain, contact}
       {:error, reason} -> {:error, reason}
     end
   end
 
-  defp authorityp([]), do: {:error, :nxdomain}
+  @doc """
+  Checks validity of a domain name, Returns {:ok, name} or {:error, reason}
 
-  defp authorityp([head | tail]) do
-    name = String.to_charlist(head)
+  Checks the domain name:
+  - is an ascii string
+  - is less than 254 chars long
+  - has labels less than 64 chars long, and
+  - has at least 2 labels
+  """
+  @spec check_domain(String.t()) :: {:ok, String.t()} | {:error, String.t()}
+  def check_domain(domain)
 
-    case :inet_res.resolve(name, :in, :soa) do
-      {:error, _} ->
-        authorityp(tail)
+  def check_domain(nil),
+    do: {:error, :invalid_fqdn}
 
-      {:ok, record} ->
-        case rrdata(record) do
-          [{domain, _, {_, contact, _, _, _, _, _}}] ->
-            {:ok, domain, String.replace(contact, ".", "@", global: false)}
+  def check_domain(domain) do
+    # rfc7208 yml's 'macro-mania-in-domain' allows spaces in a domain name?
+    domain = normalize(domain)
 
-          _ ->
-            # list either empty, or contains cnames which are ignored
-            authorityp(tail)
-        end
-    end
-  end
-
-  defp nameservers(domain) do
-    name = String.to_charlist(domain)
-
-    case :inet_res.resolve(name, :in, :ns) do
-      {:error, reason} -> {:error, reason}
-      {:ok, record} -> rrdata(record) |> Enum.map(fn {_, _, ns} -> ns end) |> Enum.sort()
+    with {:ascii, true} <- {:ascii, check_domain(domain, :ascii)},
+         {:length, true} <- {:length, check_domain(domain, :length)},
+         {:labels, true} <- {:labels, check_domain(domain, :labels)},
+         {:multi, true} <- {:multi, check_domain(domain, :multi)} do
+      {:ok, domain}
+    else
+      {:ascii, false} -> {:error, "name contains non-ascii characters"}
+      {:length, false} -> {:error, "name too long (> 254 chars long)"}
+      {:labels, false} -> {:error, "name has illegal label (empty or > 63 chars)"}
+      {:multi, false} -> {:error, "name not multi-label"}
+      {reason, _} -> {:error, "name error: #{inspect(reason)}"}
     end
   end
 
@@ -121,8 +124,9 @@ defmodule Spf.DNS do
   requests nor does it do any statistics.
 
   """
-  @spec from_cache(context, binary, atom) :: {:error, atom} | {:ok, list}
-  def from_cache(%{dns: cache} = context, name, type) do
+  @spec from_cache(map, binary, atom) :: {:error, atom} | {:ok, list}
+  def from_cache(context, name, type) do
+    cache = Map.get(context, :dns, %{})
     {_context, name} = cname(context, name)
 
     case cache[{name, type}] do
@@ -161,30 +165,6 @@ defmodule Spf.DNS do
     end
   end
 
-  defp load_file(ctx, fpath) when is_binary(fpath) do
-    ctx =
-      case File.read(fpath) do
-        {:ok, binary} ->
-          load_lines(ctx, String.split(binary, "\n"))
-
-        {:error, reason} ->
-          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
-      end
-
-    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
-  rescue
-    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
-  end
-
-  defp load_lines(ctx, lines) when is_binary(lines),
-    do: load_lines(ctx, String.split(lines, "\n"))
-
-  defp load_lines(ctx, lines) when is_list(lines) do
-    lines
-    |> Enum.map(&String.trim/1)
-    |> Enum.reduce(ctx, &rr_fromstr/2)
-  end
-
   @doc """
   Normalize a domain name: lowercase and no trailing dot.
 
@@ -220,13 +200,13 @@ defmodule Spf.DNS do
   - other
 
   """
-  @spec resolve(context, binary, list) :: {map, any}
+  @spec resolve(map, binary, list) :: {map, any}
   def resolve(ctx, name, opts \\ []) when is_map(ctx) do
-    name = normalize(name)
+    # name = normalize(name)
     stats = Keyword.get(opts, :stats, true)
-    type = Keyword.get(opts, :type, :a)
+    type = Keyword.get(opts, :type, Map.get(ctx, :atype, :a))
 
-    case valid?(name) do
+    case check_domain(name) do
       {:ok, name} ->
         tick(ctx, :num_dnsq)
         |> resolvep(name, type, stats)
@@ -256,52 +236,96 @@ defmodule Spf.DNS do
     |> Enum.map(fn {domain, type, data} -> rr_tostr(domain, type, data) end)
   end
 
-  @doc """
-  Checks validity of a domain name, Returns {:ok, name} or {:error, reason}
+  # Helpers
 
-  Checks the domain name:
-  - is an ascii string
-  - is less than 254 chars long
-  - has labels less than 64 chars long, and
-  - has at least 2 labels
-  """
-  @spec valid?(String.t()) :: {:ok, String.t()} | {:error, String.t()}
-  def valid?(domain)
+  defp authorityp([]), do: {:error, :nxdomain}
 
-  def valid?(nil),
-    do: {:error, :invalid_fqdn}
+  defp authorityp([head | tail]) do
+    # check ctx's cache for results for `head` to skip soa of a possible CNAME
+    {ctx, _} = resolve(%{}, head, type: :soa)
 
-  def valid?(domain) do
-    # rfc7208 yml's 'macro-mania-in-domain' allows spaces in a domain name?
-    domain = normalize(domain)
+    case ctx.dns[{head, :soa}] do
+      [{_, contact, _, _, _, _, _}] ->
+        {:ok, head, String.replace(contact, ".", "@", global: false)}
 
-    with {:ascii, true} <- {:ascii, validp?(domain, :ascii)},
-         {:length, true} <- {:length, validp?(domain, :length)},
-         {:labels, true} <- {:labels, validp?(domain, :labels)},
-         {:multi, true} <- {:multi, validp?(domain, :multi)} do
-      {:ok, domain}
-    else
-      {:ascii, false} -> {:error, "name contains non-ascii characters"}
-      {:length, false} -> {:error, "name too long (> 254 chars long)"}
-      {:labels, false} -> {:error, "name has illegal label (empty or > 63 chars)"}
-      {:multi, false} -> {:error, "name not multi-label"}
-      {reason, _} -> {:error, "name error: #{inspect(reason)}"}
+      _ ->
+        authorityp(tail)
     end
   end
 
-  # Helpers
-
-  defp validp?(domain, :length),
+  defp check_domain(domain, :length),
     do: String.length(domain) < 254
 
-  defp validp?(domain, :labels),
+  defp check_domain(domain, :labels),
     do: String.split(domain, ".") |> Enum.all?(fn label -> String.length(label) in 1..63 end)
 
-  defp validp?(domain, :multi),
+  defp check_domain(domain, :multi),
     do: length(String.split(domain, ".")) > 1
 
-  defp validp?(domain, :ascii),
+  defp check_domain(domain, :ascii),
     do: domain == for(<<c <- domain>>, c < 128, into: "", do: <<c>>)
+
+  defp do_stats(ctx, name, type, result, stats, opts \\ []) do
+    # log any warnings, possibly update stats & return {ctx, result}
+    qry =
+      case Keyword.get(opts, :cached, false) do
+        true -> "DNS QUERY (#{ctx.num_dnsq}) [cache] #{type} #{name}"
+        false -> "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
+      end
+
+    delta = if stats, do: 1, else: 0
+
+    case result do
+      {:error, :cache_miss} ->
+        # result didn't include an answer for given `type`
+        result = {:error, :zero_answers}
+
+        {update(ctx, {name, type, result})
+         |> tick(:num_dnsv, delta)
+         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
+
+      {:error, :zero_answers} ->
+        # zero answers is a void query
+        {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
+
+      {:error, :nxdomain} ->
+        # nxdomain is a void query
+        {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
+
+      {:error, reason} ->
+        # any other error, like :servfail
+        err = String.upcase("#{inspect(reason)}")
+
+        {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}
+
+      {:ok, res} ->
+        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}
+    end
+  end
+
+  defp load_file(ctx, fpath) when is_binary(fpath) do
+    ctx =
+      case File.read(fpath) do
+        {:ok, binary} ->
+          load_lines(ctx, String.split(binary, "\n"))
+
+        {:error, reason} ->
+          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
+      end
+
+    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
+  rescue
+    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
+  end
+
+  defp load_lines(ctx, lines) when is_binary(lines),
+    do: load_lines(ctx, String.split(lines, "\n"))
+
+  defp load_lines(ctx, lines) when is_list(lines) do
+    lines
+    |> Enum.map(&String.trim/1)
+    |> Enum.reduce(ctx, &rr_fromstr/2)
+  end
 
   defp query(ctx, name, type, stats) do
     # returns either {ctx, {:error, reason}} or {ctx, {:ok, [rrs]}}
@@ -342,44 +366,6 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  defp do_stats(ctx, name, type, result, stats, opts \\ []) do
-    # log any warnings, possibly update stats & return {ctx, result}
-    qry =
-      case Keyword.get(opts, :cached, false) do
-        true -> "DNS QUERY (#{ctx.num_dnsq}) [cache] #{type} #{name}"
-        false -> "DNS QUERY (#{ctx.num_dnsq}) #{type} #{name}"
-      end
-
-    delta = if stats, do: 1, else: 0
-
-    case result do
-      {:error, :cache_miss} ->
-        # result didn't include an answer for given `type`
-        result = {:error, :zero_answers}
-
-        {update(ctx, {name, type, result})
-         |> tick(:num_dnsv, delta)
-         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
-
-      {:error, :zero_answers} ->
-        # zero answers is a void query
-        {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
-
-      {:error, :nxdomain} ->
-        # nxdomain is a void query
-        {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
-
-      {:error, reason} ->
-        # any other error, like :servfail
-        err = String.upcase("#{inspect(reason)}")
-
-        {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}
-
-      {:ok, res} ->
-        {log(ctx, :dns, :info, "#{qry} - #{inspect(res)}"), result}
-    end
-  end
-
   defp resolvep(ctx, name, type, stats) do
     case from_cache(ctx, name, type) do
       {:error, :cache_miss} ->
@@ -399,14 +385,6 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rrdata(record) do
-    # turn dns record into list of simple rrdata entries: [{domain, type, data}]
-    # see https://erlang.org/doc/man/inet_res.html#type-dns_data
-    record
-    |> :inet_dns.msg(:anlist)
-    |> Enum.map(fn x -> rrentry(x) end)
-  end
-
   defp rrentry(answer) do
     # {:dns_rr, :domain, :type, :in, _, _, :data, :undefined, [], false}
     # -> {domain, type, data}, where shape of data depends on type
@@ -415,6 +393,14 @@ defmodule Spf.DNS do
     type = :inet_dns.rr(answer, :type)
     data = :inet_dns.rr(answer, :data) |> charlists_tostr(type)
     {domain, type, data}
+  end
+
+  defp rrdata(record) do
+    # turn dns record into list of simple rrdata entries: [{domain, type, data}]
+    # see https://erlang.org/doc/man/inet_res.html#type-dns_data
+    record
+    |> :inet_dns.msg(:anlist)
+    |> Enum.map(fn x -> rrentry(x) end)
   end
 
   # Cache

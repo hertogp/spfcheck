@@ -13,6 +13,95 @@ defmodule Spf.Parser do
 
   @type context :: Spf.Context.t()
 
+  # API
+
+  @doc """
+  Parse [`context`](`t:context/0`)'s explain string and store the result under
+  the `:explanation` key.
+
+  In case of any errors, sets the explanation string to an empty string.
+  """
+  @spec explain(context) :: context
+  def explain(%{explain_string: explain} = context) do
+    case tokenize_exp(explain) do
+      {:error, _, _, _, _, _} ->
+        Map.put(context, :explanation, "")
+
+      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
+        Map.put(context, :explanation, expand(context, exp_str))
+    end
+  end
+
+  @doc """
+  Parse [`context`](`t:context/0`)'s SPF string and store the result under the
+  `:ast` key.
+
+  The parser will parse the entire record so as to find as many problems as
+  possible.
+
+  The parser will log notifications for:
+  - ignoring an include'd explain modifier
+  - for each DNS mechanism encountered
+
+  The parser will log warnings for:
+  - an SPF string length longer than 512 characters
+  - any residue text in the SPF string after parsing
+  - when an exp modifier is present, but the SPF record cannot fail
+  - SPF records with implicit endings
+  - ignoring a redirect modifier because the all mechanism is present
+  - each ignored term occurring after an all mechanism
+  - the use of the ptr mechanism (which is not recommended)
+  - the use of the p-macro (also not recommended)
+  - repeated whitespace to separate terms
+  - use of tab character(s) to sepearate terms
+  - ignoring an unknown modifier
+  - a redirect modifer, when no all is present, that is not the last term
+
+  The parser will log an error for:
+  - repeated modifier terms
+  - syntax errors in domain specifications
+  - syntax errors in dual-cidr notations
+  - invalid IP addresses
+  - unknown terms that are not unknown modifiers
+
+  The logging simply adds messages to the `context.msg` list but, when logging
+  an error, the `context.error` and `context.reason` are also set.
+
+  Since the parser does not stop at the first error, the `context.error` and
+  `context.reason` show the details of the last error seen.  If given `context`
+  also has a function reference stored in `context.log`, it is called with
+  4 arguments:
+  - [`context`](`t:context/0`)
+  - `facility`, an atom denoting which part sent the message
+  - `severity`, an atom like :info, :warn, :error, :debug
+  - `msg`, the message string
+
+  In the absence of an error, `context.ast` is fit for evaluation.
+
+  """
+  @spec parse(context) :: context
+  def parse(context)
+
+  def parse(%{error: error} = ctx) when error != nil,
+    do: ctx
+
+  def parse(%{spf: spf} = ctx) do
+    {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
+
+    Map.put(ctx, :spf_tokens, tokens)
+    |> Map.put(:spf_rest, rest)
+    |> Map.put(:ast, [])
+    |> check(:spf_length)
+    |> check(:spf_residue)
+    |> then(fn ctx -> Enum.reduce(tokens, ctx, &parse/2) end)
+    |> check(:explain_reachable)
+    |> check(:no_implicit)
+    |> check(:max_redirect)
+    |> check(:all_no_redirect)
+    |> check(:redirect_last)
+    |> check(:all_last)
+  end
+
   # LEXERs
 
   defparsecp(:tokenize_spf, Spf.Tokens.tokenize_spf())
@@ -64,13 +153,18 @@ defmodule Spf.Parser do
     end
   end
 
+  # expand returns:
+  # - string (a domain for :domspec, an explanation string for :exp_str)
+  # - :einvalid (in case tokenization saw errors)
+  # note: consequence of an :einvalid for an expansion are determined at eval-time
+
   defp expand(ctx, []),
     do: ctx.domain
 
   defp expand(_ctx, {:domspec, [:einvalid], _range}),
     do: :einvalid
 
-  defp expand(ctx, {toktype, tokens, _range}) when toktype in [:domspec, :exp_str] do
+  defp expand(ctx, {token_type, tokens, _range}) when token_type in [:domspec, :exp_str] do
     for {token, args, _range} <- tokens do
       expand(ctx, token, args)
     end
@@ -215,12 +309,10 @@ defmodule Spf.Parser do
   defp check(ctx, :explain_reachable) do
     # if none of the terms have a fail qualifier, an explain is superfluous
     if ctx.explain != nil do
-      mechs =
-        Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type != :redirect end)
-        |> Enum.map(fn {_type, tokval, _range} -> tokval end)
-        |> Enum.filter(fn l -> List.first(l, ?+) == ?- end)
-
-      case mechs do
+      Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type != :redirect end)
+      |> Enum.map(fn {_type, tokval, _range} -> tokval end)
+      |> Enum.filter(fn l -> List.first(l, ?+) == ?- end)
+      |> case do
         [] -> log(ctx, :parse, :warn, "SPF record cannot fail, so explain is never used")
         _ -> ctx
       end
@@ -451,93 +543,4 @@ defmodule Spf.Parser do
   defp parse(token, ctx),
     # CatchAll
     do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
-
-  # API
-
-  @doc """
-  Parse [`context`](`t:context/0`)'s explain string and store the result under
-  the `:explanation` key.
-
-  In case of any errors, sets the explanation string to an empty string.
-  """
-  @spec explain(context) :: context
-  def explain(%{explain_string: explain} = context) do
-    case tokenize_exp(explain) do
-      {:error, _, _, _, _, _} ->
-        Map.put(context, :explanation, "")
-
-      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
-        Map.put(context, :explanation, expand(context, exp_str))
-    end
-  end
-
-  @doc """
-  Parse [`context`](`t:context/0`)'s SPF string and store the result under the
-  `:ast` key.
-
-  The parser will parse the entire record so as to find as many problems as
-  possible.
-
-  The parser will log notifications for:
-  - ignoring an include'd explain modifier
-  - for each DNS mechanism encountered
-
-  The parser will log warnings for:
-  - an SPF string length longer than 512 characters
-  - any residue text in the SPF string after parsing
-  - when an exp modifier is present, but the SPF record cannot fail
-  - SPF records with implicit endings
-  - ignoring a redirect modifier because the all mechanism is present
-  - each ignored term occurring after an all mechanism
-  - the use of the ptr mechanism (which is not recommended)
-  - the use of the p-macro (also not recommended)
-  - repeated whitespace to separate terms
-  - use of tab character(s) to sepearate terms
-  - ignoring an unknown modifier
-  - a redirect modifer, when no all is present, that is not the last term
-
-  The parser will log an error for:
-  - repeated modifier terms
-  - syntax errors in domain specifications
-  - syntax errors in dual-cidr notations
-  - invalid IP addresses
-  - unknown terms that are not unknown modifiers
-
-  The logging simply adds messages to the `context.msg` list but, when logging
-  an error, the `context.error` and `context.reason` are also set.
-
-  Since the parser does not stop at the first error, the `context.error` and
-  `context.reason` show the details of the last error seen.  If given `context`
-  also has a function reference stored in `context.log`, it is called with
-  4 arguments:
-  - [`context`](`t:context/0`)
-  - `facility`, an atom denoting which part sent the message
-  - `severity`, an atom like :info, :warn, :error, :debug
-  - `msg`, the message string
-
-  In the absence of an error, `context.ast` is fit for evaluation.
-
-  """
-  @spec parse(context) :: context
-  def parse(context)
-
-  def parse(%{error: error} = ctx) when error != nil,
-    do: ctx
-
-  def parse(%{spf: spf} = ctx) do
-    {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
-
-    Map.put(ctx, :spf_tokens, tokens)
-    |> Map.put(:spf_rest, rest)
-    |> Map.put(:ast, [])
-    |> check(:spf_length)
-    |> check(:spf_residue)
-    |> then(fn ctx -> Enum.reduce(tokens, ctx, &parse/2) end)
-    |> check(:explain_reachable)
-    |> check(:no_implicit)
-    |> check(:max_redirect)
-    |> check(:all_no_redirect)
-    |> check(:redirect_last)
-    |> check(:all_last)
-  end
 end

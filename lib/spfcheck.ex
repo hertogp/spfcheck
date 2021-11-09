@@ -101,7 +101,7 @@ defmodule Spfcheck do
       do: do_stdin(parsed)
 
     for sender <- senders do
-      Spf.Eval.check(sender, parsed)
+      Spf.check(sender, parsed)
       |> report(0)
       |> report(1)
       |> report(2)
@@ -130,7 +130,7 @@ defmodule Spfcheck do
     opts = Keyword.merge(opts, parsed)
 
     for domain <- domains do
-      Spf.Eval.check(domain, opts)
+      Spf.check(domain, opts)
       |> csv_result()
     end
   end
