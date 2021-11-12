@@ -276,12 +276,15 @@ defmodule Spf.Eval do
   end
 
   # All
-  defp evalp(ctx, [{:all, [q], range} = term | tail]) do
+  defp evalp(ctx, [{:all, [q], range} = _term | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
     log(ctx, :eval, :info, "#{spf_term(ctx, range)} - matches")
     |> tick(:num_checks)
-    |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-    |> match(term, tail)
+    |> Map.put(:verdict, qualify(q))
+    |> Map.put(:reason, "#{spf_term(ctx, range)}")
+
+    # |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+    # |> match(term, tail)
   end
 
   # EXISTS

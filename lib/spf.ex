@@ -2,9 +2,9 @@ defmodule Spf do
   @moduledoc """
   Check SPF for a specific `sender` and possible options.
 
-  The `Spf.check/2` function takes a sender and possible options 
-  and returns an evaluation [`context`](`t:Spf.Context.t/0`) that
-  contains the verdict and some statistics of the evaluation.
+  The `Spf.check/2` function takes a sender and possible options and returns an
+  evaluation [`context`](`t:Spf.Context.t/0`) that contains the verdict and
+  some statistics of the evaluation.
 
   ## Example
 

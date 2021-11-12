@@ -13,6 +13,7 @@ defmodule Spfcheck do
     helo: :string,
     help: :boolean,
     ip: :string,
+    report: :string,
     verbosity: :integer
   ]
 
@@ -22,6 +23,7 @@ defmodule Spfcheck do
     d: :dns,
     h: :helo,
     i: :ip,
+    r: :report,
     v: :verbosity
   ]
 
@@ -70,7 +72,7 @@ defmodule Spfcheck do
 
   # Log callback
 
-  def log(ctx, facility, severity, msg) do
+  defp log(ctx, facility, severity, msg) do
     if @verbosity[severity] <= ctx.verbosity do
       nth = String.pad_leading("#{ctx.nth}", 2)
       facility = String.pad_trailing("#{facility}", 5)
@@ -87,29 +89,25 @@ defmodule Spfcheck do
   Check spf for given ip, sender and domain.
   """
   def main(argv) do
-    {parsed, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+    {opts, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
 
-    if Keyword.get(parsed, :help, false), do: usage()
+    if Keyword.get(opts, :help, false), do: usage()
 
-    if Keyword.get(parsed, :color, true),
+    if Keyword.get(opts, :color, true),
       do: Application.put_env(:elixir, :ansi_enabled, true),
       else: Application.put_env(:elixir, :ansi_enabled, false)
 
-    parsed = Keyword.put(parsed, :log, &log/4)
+    opts = Keyword.put(opts, :log, &log/4)
 
     if [] == senders,
-      do: do_stdin(parsed)
+      do: do_stdin(opts)
+
+    # used by report to print meta information only once.
+    opts = Keyword.put(opts, :first, List.first(senders))
 
     for sender <- senders do
-      Spf.check(sender, parsed)
-      |> report(0)
-      |> report(1)
-      |> report(2)
-      |> report(3)
-      |> report(4)
-      |> report(5)
-      |> report(6)
-      |> report(7)
+      Spf.check(sender, opts)
+      |> report(opts)
     end
   end
 
@@ -141,33 +139,55 @@ defmodule Spfcheck do
     |> IO.puts()
   end
 
-  # Report result
-  defp report(ctx, 0) do
+  # Report topics
+  defp report(ctx, opts) do
+    reports = Keyword.get(opts, :report, "") |> String.downcase() |> String.split("", trim: true)
+
+    topics =
+      case reports do
+        [] -> ["V"]
+        ["a", "l", "l"] -> ["v", "s", "e", "w", "p", "d", "a", "t"]
+        topics -> topics
+      end
+
+    if Keyword.get(opts, :first, nil) == ctx.domain,
+      do: topic(ctx, "h")
+
+    for item <- topics, do: topic(ctx, item)
+  end
+
+  # Header (meta)
+  defp topic(_ctx, "h") do
     meta = """
     ---
-    title: SPF report on #{ctx.domain}.
+    title: SPF report
     author: spfcheck
     date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
     ...
     """
 
     IO.puts(meta)
+  end
 
-    IO.puts("\n# Verdict\n")
-
-    IO.puts("```")
-
+  # Verdict
+  defp topic(ctx, "V") do
+    # print out verdict without markdown
     Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
     |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
     |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
-
-    IO.puts("```")
-    ctx
   end
 
-  # Report Spf's
-  defp report(ctx, 1) do
-    IO.puts("\n## SPF records seen\n")
+  defp topic(ctx, "v") do
+    # wrap verdict in markdown
+    IO.puts("\n# Verdict #{ctx.domain}\n")
+    IO.puts("```")
+    topic(ctx, "V")
+    IO.puts("```")
+  end
+
+  # Spf's
+  defp topic(ctx, "s") do
+    IO.puts("\n## SPF\n")
     nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
 
     IO.puts("```")
@@ -181,12 +201,10 @@ defmodule Spfcheck do
     end
 
     IO.puts("```")
-
-    ctx
   end
 
-  # Report warnings
-  defp report(ctx, 2) do
+  # Warnings
+  defp topic(ctx, "w") do
     warnings =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :warn end)
@@ -207,12 +225,10 @@ defmodule Spfcheck do
 
         IO.puts("```")
     end
-
-    ctx
   end
 
-  # Report errors
-  defp report(ctx, 3) do
+  # Errors
+  defp topic(ctx, "e") do
     errors =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :error end)
@@ -233,12 +249,10 @@ defmodule Spfcheck do
 
         IO.puts("```")
     end
-
-    ctx
   end
 
-  # Report Prefixes
-  defp report(ctx, 4) do
+  # Prefixes
+  defp topic(ctx, "p") do
     IO.puts("\n## Prefixes\n")
     wseen = 5
     wpfx = 35
@@ -265,12 +279,10 @@ defmodule Spfcheck do
 
       IO.puts("#{indent} #{seen} #{pfx} #{terms}")
     end
-
-    ctx
   end
 
-  # Report DNS
-  defp report(ctx, 5) do
+  # DNS
+  defp topic(ctx, "d") do
     IO.puts("\n## DNS\n")
 
     IO.puts("```")
@@ -292,12 +304,10 @@ defmodule Spfcheck do
 
       IO.puts("```")
     end
-
-    ctx
   end
 
-  # Report AST
-  defp report(ctx, 6) do
+  # AST
+  defp topic(ctx, "a") do
     IO.puts("\n## AST\n")
 
     IO.puts("```")
@@ -309,11 +319,11 @@ defmodule Spfcheck do
 
     IO.puts("```")
     IO.puts("\nexplain: #{inspect(ctx.explain)}")
-    ctx
   end
 
-  defp report(ctx, 7) do
-    IO.puts("\n## TOKENS\n")
+  # Tokens
+  defp topic(ctx, "t") do
+    IO.puts("\n## Tokens\n")
 
     IO.puts("```")
 
@@ -323,66 +333,14 @@ defmodule Spfcheck do
     |> IO.puts()
 
     IO.puts("```")
-    ctx
   end
 
-  def usage() do
-    """
+  # Unknown Topic
+  defp topic(_ctx, ltr),
+    do: IO.puts("unknown topic #{ltr} ignored")
 
-    Usage: spfcheck [options] sender
-
-    where sender = [localpart@]domain and localpart defaults to 'postmaster'
-
-    Options:
-     -H, --help           print this message and exit
-     -c, --color          use colored output (--no-color to set this to false)
-     -d, --dns=filepath   file with DNS RR records to override live DNS
-     -h, --helo=string    sending MTA's helo/ehlo identity (defaults to nil)
-     -i, --ip=string      sending MTA's IPv4/IPv6 address (defaults to 127.0.0.1)
-     -v, --verbosity      set logging noise level (0..5)
-
-    Examples:
-
-      spfcheck example.com
-      spfcheck  -i 1.1.1.1   --helo example.net xyz@example.com
-      spfcheck --ip=1.1.1.1 --sender=someone@example.com example.com -r ./dns.txt
-
-    DNS RR override
-
-      DNS queries are cached and the cache can be preloaded to override the
-      live DNS with specific records.  Useful to try out SPF records before
-      publishing them in DNS.  The `-r` option should point to a text file
-      that contains 1 RR record per line specifying the name type and rdata
-      all on 1 line.  Note that the file is not in BIND format and all RR's
-      must be written in full and keys are taken relative to root (.)
-
-      Example dns.txt
-        example.com  TXT  v=spf1 a mx exists:%{i}.example.net ~all
-        example.com  TXT  verification=asdfi234098sf
-        127.0.0.1.example.net A  127.0.0.1
-
-      Note that each line contains a single `name type rdata` combination, so
-      for multiple TXT records (e.g.) specify each on its own line, like in
-      the example above.  Lines that begin with '#' or *SP'#' are ignored
-
-
-    Batch mode reads from stdin
-
-      If no domains were listen on the commandline, the domains to check are
-      read from stdin, including possible flags that will override the ones
-      given on the cli itself.  Note that in this case, csv output is produced
-      on stdout (other logging still goes to stderr, use -v 0 to silence that)
-
-      Examples
-
-       % cat domains.txt | spfcheck -v 0 -i 1.1.1.1
-       % cat domains.tst
-         example.com -s postmaster@example.com -i 127.0.0.1
-         example.net -v 5
-
-    """
-    |> IO.puts()
-
+  defp usage() do
+    IO.puts(@moduledoc)
     exit({:shutdown, 1})
   end
 end

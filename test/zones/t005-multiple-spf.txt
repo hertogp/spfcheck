@@ -1,0 +1,5 @@
+# multiple included records before an ip mechanism
+# verdict should be pass when ip=127.0.0.1
+example.com TXT v=spf1 include:b.example.com include:c.example.com ip4:127.0.0.0/16 -all
+b.example.com TXT v=spf1 -all
+c.example.com TXT v=spf1 -all
