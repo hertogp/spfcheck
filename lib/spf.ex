@@ -8,10 +8,12 @@ defmodule Spf do
 
   ## Example
 
+      iex> unless File.dir?("tmp"), do: File.mkdir("tmp")
       iex> File.write("tmp/zone.txt", """
       ...> example.com TXT v=spf1 -all exp=why.%{d}
       ...> why.example.com TXT %{d}: %{i} is not one of our MTA's
       ...> """)
+      :ok
       iex> ctx = Spf.check("example.com", dns: "tmp/zone.txt")
       iex> {ctx.verdict, ctx.reason, ctx.explanation}
       {:fail, "spf[0] -all", "example.com: 127.0.0.1 is not one of our MTA's"}
