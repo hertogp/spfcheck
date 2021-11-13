@@ -282,9 +282,6 @@ defmodule Spf.Eval do
     |> tick(:num_checks)
     |> Map.put(:verdict, qualify(q))
     |> Map.put(:reason, "#{spf_term(ctx, range)}")
-
-    # |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
-    # |> match(term, tail)
   end
 
   # EXISTS

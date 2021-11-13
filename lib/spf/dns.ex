@@ -57,7 +57,7 @@ defmodule Spf.DNS do
   - `{:error, :nxdomain}`
 
   """
-  @spec authority(binary) :: {:ok, binary, binary, binary} | {:error, binary}
+  @spec authority(binary) :: {:ok, binary, binary, binary} | {:error, atom}
   def authority(name) do
     labels = normalize(name) |> String.split(".", trim: true)
 
@@ -447,8 +447,12 @@ defmodule Spf.DNS do
     data = charlists_tostr(data, type)
 
     case data in cached do
-      true -> ctx
-      false -> Map.put(ctx, :dns, Map.put(cache, {domain, type}, [data | cached]))
+      true ->
+        ctx
+
+      false ->
+        Map.put(ctx, :dns, Map.put(cache, {domain, type}, [data | cached]))
+        |> log(:ipt, :debug, "ipt added {#{domain}, #{type}} -> #{inspect(data)}")
     end
   end
 
@@ -552,6 +556,7 @@ defmodule Spf.DNS do
     do: ctx
 
   defp rr_fromstrp(str, ctx) do
+    # TODO: use case "DOMAIN xYz whatever" is to be ignored and logged
     case String.split(str, ~r/\s+(A|AAAA|MX|PTR|TXT|SPF|SOA|CNAME)\s+/i,
            parts: 2,
            include_captures: true
@@ -571,7 +576,6 @@ defmodule Spf.DNS do
         end)
 
       rr ->
-        # ignore malformed, TODO: log this as error/warning
         Spf.Context.log(ctx, :dns, :warn, "ignoring invalid RR #{inspect(rr)}")
     end
   end

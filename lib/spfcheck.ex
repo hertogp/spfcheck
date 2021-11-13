@@ -13,8 +13,10 @@ defmodule Spfcheck do
     helo: :string,
     help: :boolean,
     ip: :string,
+    markdown: :boolean,
     report: :string,
-    verbosity: :integer
+    verbosity: :integer,
+    width: :integer
   ]
 
   @aliases [
@@ -23,8 +25,10 @@ defmodule Spfcheck do
     d: :dns,
     h: :helo,
     i: :ip,
+    m: :markdown,
     r: :report,
-    v: :verbosity
+    v: :verbosity,
+    w: :width
   ]
 
   @verbosity %{
@@ -55,38 +59,60 @@ defmodule Spfcheck do
 
   # Helpers
 
-  defp color(type, width) do
-    padded = String.pad_leading("#{type}", width)
-
+  defp color(msg, type) do
     iodata =
       case type do
-        :error -> ANSI.format([:red_background, :white, padded])
-        :warn -> ANSI.format([:light_yellow, padded])
-        :note -> ANSI.format([:green, padded])
-        :debug -> ANSI.format([:light_blue, padded])
-        _ -> padded
+        :error -> ANSI.format([:red_background, :white, msg])
+        :warn -> ANSI.format([:light_yellow, msg])
+        :note -> ANSI.format([:green, msg])
+        :debug -> ANSI.format([:light_blue, msg])
+        _ -> msg
       end
 
     IO.iodata_to_binary(iodata)
   end
 
-  # Log callback
-
   defp log(ctx, facility, severity, msg) do
+    # log callback
     if @verbosity[severity] <= ctx.verbosity do
-      nth = String.pad_leading("#{ctx.nth}", 2)
-      facility = String.pad_trailing("#{facility}", 5)
-      severity = color(severity, 5)
+      nth = "#{ctx.nth}"
+      fac = "#{facility}"
+      sev = "#{severity}"
       depth = String.duplicate("| ", ctx.depth)
-      lead = "[spf #{nth}][#{facility}][#{severity}] #{depth}"
-      IO.puts(:stderr, "#{lead}> #{msg}")
+
+      lead = String.pad_trailing("%spf[#{nth}]-#{fac}-#{sev}:", 20, " ") |> color(severity)
+
+      IO.puts(:stderr, "#{lead}#{depth}> #{msg}")
+    end
+  end
+
+  defp text_wrap(text, max, joiner) do
+    # simple text wrapper to keep lengthy spf records readable
+    if String.length(text) > max do
+      String.split(text, ~r/\s+/, trim: true)
+      |> assemble("", [], max)
+      |> Enum.join(joiner)
+    else
+      text
+    end
+  end
+
+  defp assemble([], line, lines, _max),
+    do: lines ++ [line]
+
+  defp assemble([word | rest], line, lines, max) do
+    if String.length(word) + String.length(line) + 1 > max do
+      assemble(rest, "#{word}", lines ++ [line], max)
+    else
+      prev = if line == "", do: "", else: "#{line} "
+      assemble(rest, "#{prev}#{word}", lines, max)
     end
   end
 
   # MAIN
 
   @doc """
-  Check spf for given ip, sender and domain.
+  Check the SPF policy for given `sender`.
   """
   def main(argv) do
     {opts, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
@@ -111,11 +137,11 @@ defmodule Spfcheck do
     end
   end
 
-  defp do_stdin(parsed) do
+  defp do_stdin(opts) do
     IO.puts(Enum.join(@csv_fields, ","))
 
     IO.stream()
-    |> Enum.each(&do_stdin(parsed, String.trim(&1)))
+    |> Enum.each(&do_stdin(opts, String.trim(&1)))
   end
 
   # skip comments and empty lines
@@ -124,11 +150,11 @@ defmodule Spfcheck do
 
   defp do_stdin(opts, line) do
     argv = String.split(line, ~r/\s+/, trim: true)
-    {parsed, domains, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+    {parsed, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
     opts = Keyword.merge(opts, parsed)
 
-    for domain <- domains do
-      Spf.check(domain, opts)
+    for sender <- senders do
+      Spf.check(sender, opts)
       |> csv_result()
     end
   end
@@ -141,122 +167,129 @@ defmodule Spfcheck do
 
   # Report topics
   defp report(ctx, opts) do
-    reports = Keyword.get(opts, :report, "") |> String.downcase() |> String.split("", trim: true)
+    report = Keyword.get(opts, :report, "") |> String.downcase() |> String.split("", trim: true)
+    width = Keyword.get(opts, :width, 60)
 
     topics =
-      case reports do
-        [] -> ["V"]
+      case report do
+        [] -> ["v"]
         ["a", "l", "l"] -> ["v", "s", "e", "w", "p", "d", "a", "t"]
         topics -> topics
       end
 
-    if Keyword.get(opts, :first, nil) == ctx.domain,
-      do: topic(ctx, "h")
+    markdown = length(topics) > 1 and Keyword.get(opts, :markdown, true)
 
-    for item <- topics, do: topic(ctx, item)
+    if Keyword.get(opts, :first, nil) == ctx.domain,
+      do: topic(ctx, "m", markdown, width)
+
+    if markdown,
+      do: IO.puts("\n# #{ctx.domain}"),
+      else: IO.puts("")
+
+    for item <- topics, do: topic(ctx, item, markdown, width)
   end
 
   # Header (meta)
-  defp topic(_ctx, "h") do
-    meta = """
-    ---
-    title: SPF report
-    author: spfcheck
-    date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
-    ...
-    """
+  defp topic(_ctx, "m", markdown, _width) do
+    if markdown do
+      meta = """
+      ---
+      title: SPF report
+      author: spfcheck
+      date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
+      ...
+      """
 
-    IO.puts(meta)
+      IO.puts(meta)
+    end
   end
 
   # Verdict
-  defp topic(ctx, "V") do
-    # print out verdict without markdown
+  defp topic(ctx, "v", markdown, width) do
+    # wrap verdict in markdown
+    if markdown, do: IO.puts("\n## Verdict\n\n```")
+
     Enum.map(@csv_fields, fn field -> {"#{field}", "#{ctx[field]}"} end)
     |> Enum.map(fn {k, v} -> {String.pad_trailing(k, 11, " "), v} end)
-    |> Enum.map(fn {k, v} -> IO.puts("#{k}: #{v}") end)
-  end
+    |> Enum.map(fn {k, v} -> "#{k}: #{v}" end)
+    |> Enum.map(&text_wrap(&1, width, "\n             "))
+    |> Enum.join("\n")
+    |> IO.puts()
 
-  defp topic(ctx, "v") do
-    # wrap verdict in markdown
-    IO.puts("\n# Verdict #{ctx.domain}\n")
-    IO.puts("```")
-    topic(ctx, "V")
-    IO.puts("```")
+    if markdown, do: IO.puts("```"), else: IO.puts("")
   end
 
   # Spf's
-  defp topic(ctx, "s") do
-    IO.puts("\n## SPF\n")
+  defp topic(ctx, "s", markdown, width) do
+    if markdown, do: IO.puts("\n## SPF\n\n```")
     nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
-
-    IO.puts("```")
 
     for nth <- nths do
       domain = ctx.map[nth]
 
-      spf = Context.get_spf(ctx, domain)
-      IO.puts("[#{nth}] #{domain}")
-      IO.puts("    #{spf}")
+      {owner, email} =
+        case Spf.DNS.authority(domain) do
+          {:ok, _, owner, email} -> {owner, email}
+          {:error, _} -> {"unknown", "no email"}
+        end
+
+      spf = Context.get_spf(ctx, domain) |> text_wrap(width, "\n    ")
+      IO.puts("[#{nth}] #{domain} -- (#{owner}, #{email})")
+      IO.puts("    #{spf}\n")
     end
 
-    IO.puts("```")
+    if markdown, do: IO.puts("```"), else: IO.puts("")
   end
 
   # Warnings
-  defp topic(ctx, "w") do
+  defp topic(ctx, "w", markdown, _width) do
     warnings =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :warn end)
       |> Enum.reverse()
 
-    IO.puts("\n## Warnings\n")
+    if markdown, do: IO.puts("\n## Warnings\n\n```")
 
     case warnings do
       [] ->
-        IO.puts("None.")
+        IO.puts("No warnings.")
 
       msgs ->
-        IO.puts("```")
-
         Enum.map(msgs, fn {nth, facility, severity, msg} ->
-          IO.puts("spf [#{nth}] %#{facility}-#{severity}: #{msg}")
+          IO.puts("%spf[#{nth}]-#{facility}-#{severity}: #{msg}")
         end)
-
-        IO.puts("```")
     end
+
+    if markdown, do: IO.puts("```"), else: IO.puts("")
   end
 
   # Errors
-  defp topic(ctx, "e") do
+  defp topic(ctx, "e", markdown, _width) do
     errors =
       ctx.msg
       |> Enum.filter(fn t -> elem(t, 2) == :error end)
       |> Enum.reverse()
 
-    IO.puts("\n## Errors\n")
+    if markdown, do: IO.puts("\n## Errors\n\n```")
 
     case errors do
       [] ->
-        IO.puts("None.")
+        IO.puts("No errors.")
 
       msgs ->
-        IO.puts("```")
-
         Enum.map(msgs, fn {nth, facility, severity, msg} ->
-          IO.puts("spf [#{nth}] %#{facility}-#{severity}: #{msg}")
+          IO.puts("%spf[#{nth}]-#{facility}-#{severity}: #{msg}")
         end)
-
-        IO.puts("```")
     end
+
+    if markdown, do: IO.puts("```"), else: IO.puts("")
   end
 
   # Prefixes
-  defp topic(ctx, "p") do
-    IO.puts("\n## Prefixes\n")
-    wseen = 5
+  defp topic(ctx, "p", markdown, _width) do
+    if markdown, do: IO.puts("\n## Prefixes\n\n```")
+    wseen = 2
     wpfx = 35
-    indent = "    "
 
     spfs =
       for n <- 0..ctx.num_spf do
@@ -264,7 +297,7 @@ defmodule Spfcheck do
       end
       |> Enum.into(%{})
 
-    IO.puts("#{indent} #Seen #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
+    IO.puts("#  #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
 
     for {ip, v} <- Iptrie.to_list(ctx.ipt) do
       seen = String.pad_trailing("#{length(v)}", wseen)
@@ -277,66 +310,64 @@ defmodule Spfcheck do
         |> Enum.sort()
         |> Enum.join(", ")
 
-      IO.puts("#{indent} #{seen} #{pfx} #{terms}")
+      IO.puts("#{seen} #{pfx} #{terms}")
     end
+
+    if markdown, do: IO.puts("```"), else: IO.puts("")
   end
 
   # DNS
-  defp topic(ctx, "d") do
-    IO.puts("\n## DNS\n")
-
-    IO.puts("```")
+  defp topic(ctx, "d", markdown, width) do
+    if markdown, do: IO.puts("\n## DNS\n\n```")
 
     Spf.DNS.to_list(ctx)
+    |> Enum.map(fn rr -> text_wrap(rr, width, "\n    ") end)
     |> Enum.join("\n")
     |> IO.puts()
 
-    IO.puts("```")
+    if markdown, do: IO.puts("```")
 
-    errors = Spf.DNS.to_list(ctx, valid: false)
+    issues = Spf.DNS.to_list(ctx, valid: false)
 
-    if length(errors) > 0 do
-      IO.puts("\n## DNS issues\n")
-      IO.puts("```")
+    if length(issues) > 0 do
+      if markdown, do: IO.puts("\n## DNS issues\n\n```")
 
-      Enum.join(errors, "\n")
+      issues
+      |> Enum.map(fn rr -> text_wrap(rr, width, "\n   ") end)
+      |> Enum.join("\n")
       |> IO.puts()
 
-      IO.puts("```")
+      if markdown, do: IO.puts("```"), else: IO.puts("")
     end
   end
 
   # AST
-  defp topic(ctx, "a") do
-    IO.puts("\n## AST\n")
-
-    IO.puts("```")
+  defp topic(ctx, "a", markdown, _width) do
+    if markdown, do: IO.puts("\n## AST\n\n```")
 
     ctx.ast
     |> Enum.map(fn x -> inspect(x) end)
     |> Enum.join("\n")
     |> IO.puts()
 
-    IO.puts("```")
+    if markdown, do: IO.puts("```")
     IO.puts("\nexplain: #{inspect(ctx.explain)}")
   end
 
   # Tokens
-  defp topic(ctx, "t") do
-    IO.puts("\n## Tokens\n")
-
-    IO.puts("```")
+  defp topic(ctx, "t", markdown, _width) do
+    if markdown, do: IO.puts("\n## Tokens\n\n```")
 
     ctx.spf_tokens
     |> Enum.map(fn x -> inspect(x) end)
     |> Enum.join("\n")
     |> IO.puts()
 
-    IO.puts("```")
+    if markdown, do: IO.puts("```"), else: IO.puts("")
   end
 
   # Unknown Topic
-  defp topic(_ctx, ltr),
+  defp topic(_ctx, ltr, _markdown, _width),
     do: IO.puts("unknown topic #{ltr} ignored")
 
   defp usage() do
