@@ -1,53 +1,65 @@
 defmodule Spf.Context do
   @moduledoc """
   Functions to create, access and update an SPF evaluation context.
+
   """
 
+  @typedoc """
+  An SPF result of evaluation.
+  """
+  @type verdict :: :fail | :neutral | :none | :pass | :permerror | :softfail | :temperror
+
+  @typedoc """
+  An SPF evaluation context.
+  """
   @type t :: %{
-          # args
-          :sender => binary(),
-          :local => binary(),
-          :ip => binary(),
-          :domain => binary(),
-          :helo => binary(),
-          # parsing
-          :spf_tokens => list(),
           :ast => list(),
-          # results
-          :verdict => atom(),
-          :explain => tuple() | nil,
-          :explain_string => binary(),
-          :explanation => binary(),
-          :error => binary() | nil,
-          :reason => binary(),
-          # tracking
-          :nth => non_neg_integer(),
-          :num_spf => non_neg_integer(),
-          :traces => map(),
-          :stack => list(),
-          :ipt => Iptrie.t(),
-          :t0 => non_neg_integer(),
-          :duration => non_neg_integer(),
-          # logging
-          :log => function(),
-          :map => map(),
-          :verbosity => non_neg_integer(),
-          :depth => non_neg_integer(),
-          :msg => list(),
-          # dns
           :atype => :a | :aaaa,
+          :depth => non_neg_integer(),
           :dns => map(),
           :dns_timeout => non_neg_integer(),
+          :domain => binary(),
+          :duration => non_neg_integer(),
+          :error => nil | atom(),
+          :explain => nil | tuple(),
+          :explain_string => binary(),
+          :explanation => binary(),
+          :helo => binary(),
+          :ip => binary(),
+          :ipt => Iptrie.t(),
+          :local => binary(),
+          :log => function(),
+          :map => map(),
           :max_dnsm => non_neg_integer(),
-          :num_dnsm => non_neg_integer(),
-          :max_dnsq => non_neg_integer(),
-          :num_dnsq => non_neg_integer(),
           :max_dnsv => non_neg_integer(),
-          :num_dnsv => non_neg_integer()
+          :msg => list(),
+          :nth => non_neg_integer(),
+          :num_checks => non_neg_integer(),
+          :num_dnsm => non_neg_integer(),
+          :num_dnsq => non_neg_integer(),
+          :num_dnsv => non_neg_integer(),
+          :num_error => non_neg_integer(),
+          :num_spf => non_neg_integer(),
+          :num_warn => non_neg_integer(),
+          :reason => binary(),
+          :sender => binary(),
+          :spf => binary(),
+          :spf_rest => binary(),
+          :spf_tokens => list(),
+          :stack => list(),
+          :t0 => non_neg_integer(),
+          :traces => map(),
+          :verbosity => non_neg_integer(),
+          :verdict => verdict()
         }
+
+  @type token :: Spf.Tokens.token()
+  @type prefix :: Pfx.prefix()
+  @type iptval :: {token, non_neg_integer}
 
   # Helpers
 
+  @spec ipt_update({prefix, iptval}, t) :: t
   defp ipt_update({k, v}, ctx) do
     data = Iptrie.lookup(ctx.ipt, k)
     ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
@@ -63,6 +75,7 @@ defmodule Spf.Context do
     |> test(:ipt, :warn, seen_before, "#{k} seen before: #{inspect(data)}")
   end
 
+  @spec prefix(binary, [non_neg_integer]) :: :error | prefix
   defp prefix(ip, [len4, len6]) do
     pfx = Pfx.new(ip)
 
@@ -84,6 +97,7 @@ defmodule Spf.Context do
   and term (including the qualifier) that attributed the ip or ip's.
 
   """
+  @spec addip(t, list(), list(), any) :: t
   def addip(ctx, ips, dual, value) when is_list(ips) do
     kvs =
       Enum.map(ips, fn ip -> {prefix(ip, dual), value} end)
@@ -92,10 +106,19 @@ defmodule Spf.Context do
     Enum.reduce(kvs, ctx, &ipt_update/2)
   end
 
+  @spec addip(t, binary, list(), iptval) :: t
   def addip(ctx, ip, dual, value) when is_binary(ip) do
-    ipt_update({prefix(ip, dual), value}, ctx)
+    case prefix(ip, dual) do
+      :error -> log(ctx, :ctx, :error, "ignored malformed IP #{ip}")
+      pfx -> ipt_update({pfx, value}, ctx)
+    end
   end
 
+  @doc """
+  Set an `error`, its `reason` and log it and return the updated `ctx`.
+
+  """
+  @spec error(t, atom, binary, nil | atom) :: t
   def error(ctx, error, reason, verdict \\ nil) do
     Map.put(ctx, :error, error)
     |> Map.put(:reason, reason)
@@ -104,10 +127,12 @@ defmodule Spf.Context do
   end
 
   @doc """
-  Returns the SPF string for `nth` domain if available, nil otherwise.
+  Returns a previous SPF string given either its `domain` of `nth`-tracking number.
+
+  Used for reporting rather than evalutation an SPF record.
 
   """
-  @spec get_spf(map, integer | binary) :: binary
+  @spec get_spf(t, integer | binary) :: binary
   def get_spf(ctx, nth) when is_integer(nth) do
     with domain when is_binary(domain) <- ctx.map[nth] do
       get_spf(ctx, domain)
@@ -118,16 +143,36 @@ defmodule Spf.Context do
 
   def get_spf(ctx, domain) when is_binary(domain) do
     case Spf.DNS.from_cache(ctx, domain, :txt) do
-      {:ok, []} -> "ERROR SPF NOT FOUND"
-      {:ok, rrs} -> Enum.find(rrs, "ERROR SPF NOT FOUND", &Spf.Eval.spf?/1)
+      # {:ok, []} -> "ERROR SPF NOT FOUND"
       {:error, _} -> "ERROR SPF NOT FOUND"
+      {:ok, rrs} -> Enum.find(rrs, "ERROR SPF NOT FOUND", &Spf.Eval.spf?/1)
     end
   end
 
+  @doc """
+  Given a current `ctx` and a range, return the SPF term in that range.
+
+  Retrieves a slice of the `ctx.spf` current record being evaluated.
+  Used for logging events.
+
+  """
+  @spec spf_term(t, Range.t()) :: binary
   def spf_term(ctx, range),
     do: "spf[#{ctx.nth}] #{String.slice(ctx.spf, range)}"
 
-  @spec log(map, atom, atom, binary) :: map
+  @doc """
+  Updates `ctx`'s message queue and, if available, calls the user supplied log
+  function.
+
+  The `log/4` is called with:
+  - `ctx` the current context/state of the evalution
+  - `facility` an atom denoting which part of the program emitted the event
+  - `severity` an atom describing the severity
+  - `msg` a binary with event details
+
+  """
+
+  @spec log(t, atom, atom, binary) :: t
   def log(ctx, facility, severity, msg) do
     if ctx[:log],
       do: ctx.log.(ctx, facility, severity, msg)
@@ -146,12 +191,22 @@ defmodule Spf.Context do
     end
   end
 
+  @doc """
+  Returns true if `new_domain` constitues a loop for given `ctx`, false
+  otherwise.
+
+  Used to break a loop when two domains (eventually) include or redirect to
+  each other.
+
+  """
+  @spec loop?(t, binary) :: boolean
   def loop?(ctx, new_domain) do
     new_domain = String.downcase(new_domain)
     cur_domain = String.downcase(ctx.domain)
     cur_domain in Map.get(ctx.traces, new_domain, [])
   end
 
+  @spec trace(t, binary) :: t
   defp trace(ctx, new_domain) do
     new_domain = String.downcase(new_domain)
     cur_domain = String.downcase(ctx.domain)
@@ -161,24 +216,27 @@ defmodule Spf.Context do
     |> then(fn traces -> Map.put(ctx, :traces, traces) end)
   end
 
+  @doc """
+  Split an email address into a local and a domain part.
+
+  The local part is left to the left-most `@`, if there is no local
+  part it defaults to "postmaster".  Note that splitting an empty
+  string yields `{"postmaster", ""}`.
+
+  """
+  @spec split(binary) :: {binary, binary}
   def split(mbox) do
-    # local@local@domain -> {local@local, domain}, local part is upto last `@`
-    # TODO: right now, split("domain@domain") -> {postmaster, domain} instead
-    # of {domain, domain} ... although its an edge case.
-    domain = String.replace(mbox, ~r/^.*@/, "")
+    words = String.split(mbox, "@", parts: 2, trim: true)
 
-    local =
-      case String.replace(mbox, ~r/@[^@]*$/, "") do
-        "" -> "postmaster"
-        ^domain -> "postmaster"
-        local -> local
-      end
-
-    {local, domain}
+    case words do
+      [] -> {"postmaster", ""}
+      [local, domain] -> {local, domain}
+      [domain] -> {"postmaster", domain}
+    end
   end
 
   @doc """
-  Returns a new context map for an SPF evaluation.
+  Returns a new [`context`](`t:Spf.Context.t/0`) for an SPF evaluation.
 
   The initial `domain` is derived from given `sender` and `ip` defaults to
   `127.0.0.1` if not given via the `ip:` option.  The context is used for the
@@ -194,8 +252,8 @@ defmodule Spf.Context do
   new domain specified by the modifier.
 
   """
+  @spec new(binary, Keyword.t()) :: t
   def new(sender, opts \\ []) do
-    # TODO: check validity of user supplied IP address
     helo = Keyword.get(opts, :helo, sender)
     {local, domain} = split(sender)
 
@@ -205,8 +263,15 @@ defmodule Spf.Context do
         else: {local, domain}
 
     # IPV4-mapped IPv6 addresses are converted to the mapped IPv4 address
+    # note: check validity of user supplied IP address, default to 127.0.0.1
     ip = Keyword.get(opts, :ip, "127.0.0.1")
-    pfx = Pfx.new(ip)
+
+    pfx =
+      try do
+        Pfx.new(ip)
+      rescue
+        ArgumentError -> Pfx.new("127.0.0.1")
+      end
 
     pfx =
       if Pfx.member?(pfx, "::FFFF:0:0/96"),
@@ -216,82 +281,55 @@ defmodule Spf.Context do
     atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
 
     %{
-      # <sender> that is using <ip> to send mail
-      sender: sender,
-      # local part of sender
-      local: local,
-      # optional helo argument
-      helo: helo,
-      # current <domain> whose authorisation is evaluated
-      domain: domain,
-      # <ip> for which authorization is sought
-      ip: "#{pfx}",
-      # the nth spf record under consideration
-      nth: 0,
-      # current recursion depth (for pretty logging)
-      depth: 0,
-      # linear increasing count of spf records
-      num_spf: 1,
-      # tracks what was seen before: nth=>domain, domain=>nth; for reporting
-      map: %{0 => domain, domain => 0},
-      # traces records series of domains seen, for loop detection
-      traces: %{},
-      # push state (part of ctx) when recursing on include'd domains
-      stack: [],
-      # type of A RR lookup (A or AAAA), depends on <ip>
+      ast: [],
       atype: atype,
-      # user log function, or local one.
-      log: Keyword.get(opts, :log, nil),
-      # default verdict is ?all, ie neutral
-      verdict: :neutral,
-      # what actually caused a match
-      reason: "",
-      # default :inet_res timeout in msec
-      dns_timeout: 2000,
-      # dns cache {key, type} => [value]
+      depth: 0,
       dns: %{},
-      # no dns error seen (yet)
+      dns_timeout: 2000,
+      domain: domain,
+      duration: 0,
       error: nil,
-      verbosity: Keyword.get(opts, :verbosity, 4),
-      # log of messages, whether outputted or not
-      msg: [],
-      # explain term (if any)
       explain: nil,
       explain_string: "",
       explanation: "",
-      # stats
-      num_dnsq: 0,
-      num_dnsm: 0,
-      max_dnsm: 10,
-      num_dnsv: 0,
-      max_dnsv: 2,
-      num_checks: 0,
-      num_warn: 0,
-      num_error: 0,
-      # list of terms to be evaluated to arrive at a verdict
-      ast: [],
-      # list of tokens found by the lexer
-      spf_tokens: [],
-      # how long the evaluation took; warn if it took > 20 sec!
-      duration: 0,
-      # ipt.lookup(ip) -> [{q, nth}, ..], if len(list) > 1 -> duplicate ip's seen
+      helo: helo,
+      ip: "#{pfx}",
       ipt: Iptrie.new(),
-      # report back
-      # report: Keyword.get(opts, :report, :short),
-      t0: DateTime.utc_now() |> DateTime.to_unix()
+      local: local,
+      log: Keyword.get(opts, :log, nil),
+      map: %{0 => domain, domain => 0},
+      max_dnsm: 10,
+      max_dnsv: 2,
+      msg: [],
+      nth: 0,
+      num_checks: 0,
+      num_dnsm: 0,
+      num_dnsq: 0,
+      num_dnsv: 0,
+      num_error: 0,
+      num_spf: 1,
+      num_warn: 0,
+      reason: "",
+      sender: sender,
+      spf: "",
+      spf_rest: "",
+      spf_tokens: [],
+      stack: [],
+      t0: DateTime.utc_now() |> DateTime.to_unix(),
+      traces: %{},
+      verbosity: Keyword.get(opts, :verbosity, 4),
+      verdict: :neutral
     }
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
     |> log(:ctx, :debug, "created context for #{domain}")
     |> log(:spf, :note, "spfcheck(#{domain}, #{pfx}, #{sender})")
-
-    # |> Spf.DNS.load_file(Keyword.get(opts, :dns, nil))
   end
 
   @doc """
   Pop the previous state of given `ctx` from its stack.
 
   """
-  @spec pop(map) :: map
+  @spec pop(t) :: t
   def pop(ctx) do
     case ctx.stack do
       [] ->
@@ -312,7 +350,7 @@ defmodule Spf.Context do
   record.
 
   """
-  @spec push(map, binary) :: map
+  @spec push(t, binary) :: t
   def push(ctx, domain) do
     state = %{
       depth: ctx.depth,
@@ -335,14 +373,16 @@ defmodule Spf.Context do
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
+    |> log(:ctx, :debug, "pushed state for #{state.domain}")
   end
 
   @doc """
   Reinitializes current `ctx` for given `domain` of a redirect modifier.
 
   """
-  @spec redirect(map, binary) :: map
+  @spec redirect(t, binary) :: t
   def redirect(ctx, domain) do
+    # do NOT empty the stack: a redirect modifier may be in an included record
     tick(ctx, :num_spf)
     |> trace(domain)
     |> Map.put(:depth, 0)
@@ -357,7 +397,12 @@ defmodule Spf.Context do
 
   @doc """
   Adds `label`ed log `msg` to given `ctx`, if `test` is true
+
+  A convencience function to quickly perform some test (in the call)
+  and if true log it as well.
+
   """
+  @spec test(t, atom, atom, boolean, binary) :: t
   def test(ctx, facility, severity, test, msg)
 
   def test(ctx, facility, severity, true, msg),
@@ -368,12 +413,27 @@ defmodule Spf.Context do
     do: ctx
 
   @doc """
-  Add `delta` to `counter`, returns updated `context`.
+  Adds `delta` to `counter` and returns updated `context`.
 
-  If `counter` is not present in `context`, it will be created.
+  Valid counters include:
+  - `:num_spf`, the number of SPF records seen
+  - `:num_dnsm` the number of DNS mechanisms seen
+  - `:num_dnsq` the number of DNS queries performed
+  - `:num_dnsv` the number of void DNS queries seen
+  - `:num_checks` the number of checks performed
+  - `:num_warn` the number of warnings seen
+  - `:num_error` the number of errors see (may not be fatal)
+  - `:depth` the current recursion depth
 
   """
-  @spec tick(map, atom, integer) :: map
-  def tick(ctx, counter, delta \\ 1) when is_atom(counter),
-    do: Map.update(ctx, counter, delta, fn n -> n + delta end)
+  @spec tick(t, atom, integer) :: t
+  def tick(ctx, counter, delta \\ 1) do
+    count = Map.get(ctx, counter, nil)
+
+    if count do
+      Map.put(ctx, counter, count + delta)
+    else
+      log(ctx, :ctx, :error, "unknown counter #{inspect(counter)} - ignored")
+    end
+  end
 end

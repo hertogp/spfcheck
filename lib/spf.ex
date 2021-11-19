@@ -38,6 +38,7 @@ defmodule Spf do
       :pass
 
   """
+  @spec check(binary, list()) :: Spf.Context.t()
   def check(sender, opts \\ []) do
     Spf.Context.new(sender, opts)
     |> Spf.Eval.evaluate()

@@ -2,21 +2,21 @@ defmodule Spf.Eval do
   @moduledoc """
   Functions to evaluate an SPF context.
 
-  TODO
-  - [ ] expand macro's on demand, not beforehand
-  - [ ] fix dns stats, make it public and call when needed
-  - [ ] DNS.resolve MUST always count the dnsq's since there is no limit
   """
 
   alias Spf.DNS
   import Spf.Context
 
+  @type dns_result :: Spf.DNS.dns_result()
   @type context :: Spf.Context.t()
 
   # API
 
   @doc """
   Say whether `str` contains the start of an SPF string.
+
+  Leading whitespace is not considered an error, although technically it is a
+  syntax error.
 
   """
   @spec spf?(binary) :: boolean
@@ -27,18 +27,53 @@ defmodule Spf.Eval do
   def spf?(_),
     do: false
 
+  @doc """
+  Given a [`context`](`t:Spf.Context.t/0`) retrieve and evaluate the associated SPF record.
+
+  After an (attempted) evaluation, returns an updated context where:
+  - `:verdict` will be one of `:pass, :fail, :softfail, :neutral`
+  - `:reason` show the mechanism responsible for the verdict
+  - `:explanation` the expanded explain-string (if possible and applicable)
+  - `:error` in case one occurred
+  - `:ipt` which maps the prefixes seen during evaluation to their source
+  - `:msg` which lists log messages accumulated during evaluation
+
+  and other fields containing information gathered during the evaluation.
+
+  The context is passed around accumulating information and tracks the state of
+  the evaluation. Its `:log` is either `nil` or points to a `log_function/4`
+  that then called with the `context`, `facility`, `severity` and a `message`
+  so it can dump it to screen or somewhere else.
+
+  """
+  @spec evaluate(context) :: context
   def evaluate(ctx) do
     ctx
     |> check_domain()
     |> grep_spf()
-    |> check_spf()
     |> Spf.Parser.parse()
     |> eval()
+
+    # |> check_spf()
   end
 
+  @doc """
+  Returns true if `name` is a validated name for given `domain`.
+
+  The [`dns_result`](`t:dns_result/0`) should contain the ip addresses
+  associated with given `name`. If any of the ip adresss match the given `ip`,
+  the `name` is a validated domain name for given `domain`.
+
+  If the `exact` flag is true, then the `name` is also required to
+  end with given `domain` as well.
+
+  Note that when trying to validate names during the expansion of the p-marco,
+  this flag will be false.
+
+  """
   # a name is validated iff it's ip == <ip> && possibly when name endswith? domain
-  def validate?({:error, _}, _ip, _name, _domain, _exact),
-    do: false
+  @spec validate?(dns_result, binary, binary, binary, boolean) :: boolean
+  def validate?(dns_result, ip, name, domain, exact)
 
   def validate?({:ok, rrs}, ip, name, domain, exact) do
     pfx = Pfx.new(ip)
@@ -55,14 +90,16 @@ defmodule Spf.Eval do
     end
   end
 
+  def validate?({:error, _}, _ip, _name, _domain, _exact),
+    do: false
+
   # Helpers
 
+  @spec ascii?(binary) :: boolean
   defp ascii?(string) when is_binary(string),
     do: string == for(<<c <- string>>, c < 128, into: "", do: <<c>>)
 
-  defp ascii?(_string),
-    do: false
-
+  @spec evalname(context, binary, list, any) :: context
   defp evalname(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
 
@@ -75,9 +112,12 @@ defmodule Spf.Eval do
     end
   end
 
+  @spec explain(context) :: context
   defp explain(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.2
     # - donot track void answers
+    # - get & store the explain-string pointed to by the ctx.explain token
+    # - expand explain-string and store as ctx.explanation
     if ctx.verdict == :fail and ctx.explain do
       {_token, [domain], _range} = ctx.explain
       {ctx, dns} = DNS.resolve(ctx, domain, type: :txt, stats: false)
@@ -99,6 +139,7 @@ defmodule Spf.Eval do
     end
   end
 
+  @spec check_limits(context) :: context
   defp check_limits(ctx) do
     # only check for original SPF record, so we donot prematurely stop processing
     if ctx.nth == 0 do
@@ -119,13 +160,13 @@ defmodule Spf.Eval do
     end
   end
 
+  @spec match(context, tuple, list) :: context
   defp match(%{error: error} = ctx, _term, _tail) when error != nil,
-    # a fatal error was recorded, so bailout
+    # a fatal error was already recorded, so bailout
     do: ctx
 
   defp match(ctx, {_q, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
-    # {_pfx, qlist} = Iptrie.lookup(ctx.ipt, ctx.ip) || {nil, nil}
 
     verdict = verdict(ctx)
 
@@ -143,6 +184,7 @@ defmodule Spf.Eval do
     end
   end
 
+  @spec validate(binary, context, tuple) :: context
   defp validate(name, ctx, {:ptr, [q, domain], _} = term) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
@@ -157,16 +199,26 @@ defmodule Spf.Eval do
     end
   end
 
-  defp verdict(ctx) when is_map(ctx) do
+  @spec verdict(context) :: nil | atom
+  defp verdict(ctx) do
+    # used by match/1 to check if we currently have a match
+    # - ipt[prefix] -> [{token, nth}] => list of tokens and SPF-id that added the prefix
+    # - the token contains the qualifier that, if matched, says what the result should be
+    # notes:
+    # - prefixes can be contributed multiple times by Nxterms in Mxrecords
+    # - the last {token, nth} to do so, is listed first
+    # - so only check for the first token for the current ctx.nth
+    # - having verdict does not necessarily stop evaluation (e.g. when inside an include)
     with {_pfx, qlist} <- Iptrie.lookup(ctx.ipt, ctx.ip),
-         {term, _} <- List.keytake(qlist, ctx.nth, 1),
-         q <- elem(term, 0) do
+         {token, _} <- List.keytake(qlist, ctx.nth, 1),
+         q <- elem(token, 0) do
       qualify(q)
     else
       _ -> nil
     end
   end
 
+  @spec qualify(pos_integer()) :: atom
   defp qualify(qualifier) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
     case qualifier do
@@ -177,6 +229,7 @@ defmodule Spf.Eval do
     end
   end
 
+  @spec check_domain(context) :: context
   defp check_domain(ctx) do
     # check domain, if not a legal fqdn -> evaluation result is :none
     # since there is no domain to actually check
@@ -193,56 +246,46 @@ defmodule Spf.Eval do
     end
   end
 
-  defp check_spf(ctx) do
-    # either set :error, or set :spf to single spf string
-
-    if ctx.error do
-      ctx
-    else
-      case ctx.spf do
-        [] ->
-          error(ctx, :no_spf, "no SPF record found", :none)
-
-        [spf] ->
-          if ascii?(spf) do
-            Map.put(ctx, :spf, spf)
-          else
-            error(ctx, :non_ascii_spf, "SPF contains non-ascii characters", :permerror)
-          end
-
-        list ->
-          error(ctx, :too_many_spf, "too many SPF records found (#{length(list)})", :permerror)
-      end
-    end
-  end
-
-  defp grep_spf(ctx) when is_map(ctx) do
+  @spec grep_spf(context) :: context
+  defp grep_spf(ctx) do
+    # either set ctx.spf to an SPF record, or set ctx.error to some atom error
     {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, type: :txt, stats: false)
 
-    ctx =
-      case Spf.DNS.grep(result, &spf?/1) do
-        {:ok, spf} ->
-          Map.put(ctx, :spf, spf)
+    case Spf.DNS.filter(result, &spf?/1) do
+      {:ok, []} ->
+        error(ctx, :no_spf, "no SPF record found", :none)
 
-        {:error, :timeout} ->
-          error(ctx, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
-          |> Map.put(:spf, [])
+      {:ok, [spf]} ->
+        if ascii?(spf),
+          do: Map.put(ctx, :spf, spf),
+          else: error(ctx, :non_ascii_spf, "SPF contains non-ascii characters", :permerror)
 
-        {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
-          error(ctx, reason, "txt #{ctx.domain} - DNS error (#{reason})", :none)
-          |> Map.put(:spf, [])
+      {:ok, list} ->
+        error(ctx, :too_many_spf, "too many SPF records found (#{length(list)})", :permerror)
 
-        {:error, reason} ->
-          Map.put(ctx, :error, reason)
-          |> Map.put(:spf, [])
-      end
+      {:error, :timeout} ->
+        error(ctx, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
 
-    ctx
-    |> Spf.Context.log(:spf, :note, "SPF (#{ctx.nth}): #{inspect(ctx.spf)}")
+      {:error, :servfail} ->
+        error(ctx, :servfail, "txt #{ctx.domain} - DNS error (servfail)", :temperror)
+
+      {:error, :nxdomain} ->
+        error(ctx, :nxdomain, "txt #{ctx.domain} - DNS error (nxdomain)", :none)
+
+      {:error, :zero_answers} ->
+        error(ctx, :zero_answers, "txt #{ctx.domain} - DNS error (zero answers)", :none)
+
+      {:error, :illegal_name} ->
+        error(ctx, :illegal_name, "txt #{ctx.domain} - DNS error (illegal name)", :none)
+
+      {:error, reason} ->
+        Map.put(ctx, :error, reason)
+    end
   end
 
   # Eval Terms
 
+  @spec eval(Spf.Context.t()) :: Spf.Context.t()
   defp eval(%{error: error} = ctx) when error != nil,
     do: ctx
 
@@ -253,6 +296,7 @@ defmodule Spf.Eval do
     |> check_limits()
   end
 
+  @spec evalp(context, list) :: context
   defp evalp(ctx, []),
     # Nomore Terms
     do: ctx
@@ -409,12 +453,11 @@ defmodule Spf.Eval do
     error(ctx, :no_redir_domain, "#{spf_term(ctx, range)} - invalid domain", :permerror)
   end
 
-  defp evalp(ctx, [{:redirect, [domain], range} = term | tail]) do
+  defp evalp(ctx, [{:redirect, [domain], range} | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
     # - if redirect domain has no SPF -> permerror
     # - if redirect domain is mailformed -> permerror
     # - otherwise its result is the result for this SPF
-    # if ctx.map[domain] do
     if loop?(ctx, domain) do
       error(
         ctx,
@@ -424,7 +467,7 @@ defmodule Spf.Eval do
       )
     else
       ctx =
-        test(ctx, :error, term, length(tail) > 0, "terms after #{spf_term(ctx, range)}?")
+        test(ctx, :eval, :warn, length(tail) > 0, "terms after #{spf_term(ctx, range)}?")
         |> log(:eval, :note, "#{spf_term(ctx, range)} - redirecting to #{domain}")
         |> redirect(domain)
         |> evaluate()
@@ -437,7 +480,7 @@ defmodule Spf.Eval do
     end
   end
 
-  # TERM?
+  # TERM UNKNOWN -> internal error
   defp evalp(ctx, [term | tail]) do
     log(ctx, :eval, :error, "internal error, eval is missing a handler for #{inspect(term)}")
     |> evalp(tail)

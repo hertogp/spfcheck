@@ -99,6 +99,7 @@ defmodule Spf.Tokens do
   @type token :: {type, list(), range}
   # Helpers
 
+  @spec anycase(binary) :: combinator
   defp anycase(string) do
     # combinator that matches given `string`, case-insensitive.
     string
@@ -107,6 +108,7 @@ defmodule Spf.Tokens do
     |> Enum.reduce(empty(), fn elm, acc -> concat(acc, elm) end)
   end
 
+  @spec bothcases(non_neg_integer) :: combinator
   defp bothcases(c) when ?a <= c and c <= ?z,
     do: ascii_char([c, c - 32])
 
@@ -116,24 +118,31 @@ defmodule Spf.Tokens do
   defp bothcases(c),
     do: ascii_char([c])
 
+  @spec digit() :: combinator
   defp digit(),
     do: ascii_char([?0..?9])
 
+  @spec alpha() :: combinator
   defp alpha(),
     do: ascii_char([?a..?z, ?A..?Z])
 
+  @spec alphanum() :: combinator
   defp alphanum(),
     do: choice([alpha(), digit()])
 
+  @spec dash_alphanum() :: combinator
   defp dash_alphanum(),
     do: times(string("-"), min: 1) |> concat(alphanum())
 
+  @spec eoterm() :: combinator
   defp eoterm(),
     do: lookahead(choice([whitespace(), eos()]))
 
+  @spec m_delimiter() :: combinator
   defp m_delimiter(),
     do: ascii_char([?., ?-, ?+, ?,, ?/, ?_, ?=])
 
+  @spec m_letter() :: combinator
   defp m_letter(),
     do:
       ascii_char(
@@ -141,6 +150,7 @@ defmodule Spf.Tokens do
           [?S, ?L, ?O, ?D, ?I, ?P, ?H, ?C, ?R, ?T, ?V]
       )
 
+  @spec m_literal() :: combinator
   defp m_literal(),
     # a single macro-literal character, unless we're looking at:
     # - a dual_cidr (which ends the term), or
@@ -150,27 +160,32 @@ defmodule Spf.Tokens do
       |> lookahead_not(toplabel())
       |> ascii_char([0x21..0x24, 0x26..0x7E])
 
+  @spec m_string() :: combinator
   defp m_string(),
     # notes:
     # - :toplabel is a special form of a :literal
     # - :toplabel matched separately in order to check :domspec's validity
     do: times(choice([expand(), toplabel(), literal()]), min: 1)
 
+  @spec mod_name() :: combinator
   defp mod_name() do
     alpha()
     |> times(choice([alpha(), digit(), ascii_char([?-, ?_, ?.])]), min: 0)
   end
 
+  @spec eoterm(combinator) :: combinator
   defp eoterm(c),
     do: concat(c, eoterm())
 
-  defp range(context, label, offset),
+  @spec range(map, atom, non_neg_integer) :: range
+  defp range(context, token_type, offset),
     # context should have a recorded start for label, if not, defaults to 0
-    do: Range.new(Map.get(context, label, 0), offset - 1)
+    do: Range.new(Map.get(context, token_type, 0), offset - 1)
 
   # POST_TRAVERSE
   # TODO: howto make start_token() and token() private?
 
+  @spec start(atom) :: combinator
   defp start(token_type) do
     # records current offset for given `token_type` in context
     empty()
@@ -194,6 +209,7 @@ defmodule Spf.Tokens do
 
 
   """
+  @spec token(binary, list, map, tuple, non_neg_integer, atom) :: {[token], map}
   def token(rest, args, context, line, offset, atom)
   # line = {linenr, start_of_line}
   # offset = token_end
@@ -337,6 +353,7 @@ defmodule Spf.Tokens do
 
   # COMBINATORS
 
+  @spec qualifier() :: combinator
   defp qualifier() do
     # {:qualifier, [q], range}
     # when used, this combinator always produces a token where `q` defaults to `?+`.
@@ -348,6 +365,7 @@ defmodule Spf.Tokens do
   defp qualifier(combinator),
     do: concat(combinator, qualifier())
 
+  @spec spf_term() :: combinator
   defp spf_term() do
     # note: unknown() must be last.
     choice([
@@ -370,6 +388,7 @@ defmodule Spf.Tokens do
 
   # TOKENS
 
+  @spec a() :: combinator
   defp a() do
     # {:a, [q, [token]], range}
     start(:a)
@@ -381,6 +400,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:a]})
   end
 
+  @spec all() :: combinator
   defp all() do
     # {:all, [q], range]}
     start(:all)
@@ -390,6 +410,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:all]})
   end
 
+  @spec exists() :: combinator
   defp exists() do
     # {:exists, [q, domspec], range}
     start(:exists)
@@ -400,6 +421,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:exists]})
   end
 
+  @spec exp() :: combinator
   defp exp() do
     # {:exp, [domspec], range}
     start(:exp)
@@ -409,6 +431,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:exp]})
   end
 
+  @spec include() :: combinator
   defp include() do
     # {:include, [q, domspec], range}
     start(:include)
@@ -419,6 +442,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:include]})
   end
 
+  @spec ip4() :: combinator
   defp ip4() do
     # {:ip4, [q, address], range}
     start(:ip4)
@@ -428,6 +452,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ip4]})
   end
 
+  @spec ip6() :: combinator
   defp ip6() do
     # {:ip6, [q, address], range}
     start(:ip6)
@@ -437,6 +462,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ip6]})
   end
 
+  @spec mx() :: combinator
   defp mx() do
     # {:mx, [q, [token]], range}
     start(:mx)
@@ -448,6 +474,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:mx]})
   end
 
+  @spec ptr() :: combinator
   defp ptr() do
     # {:ptr, [q, domspec], range}
     start(:ptr)
@@ -458,6 +485,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:ptr]})
   end
 
+  @spec version() :: combinator
   defp version() do
     # {:version, [v], range}
     start(:version)
@@ -467,6 +495,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:version]})
   end
 
+  @spec redirect() :: combinator
   defp redirect() do
     # {:redirect, [domspec], range}
     start(:redirect)
@@ -478,6 +507,7 @@ defmodule Spf.Tokens do
 
   # SUBTOKENS
 
+  @spec domspec() :: combinator
   defp domspec() do
     # {:domspec, [token], range}
     # - tokens include: :toplabel, :expand, :literal
@@ -485,16 +515,16 @@ defmodule Spf.Tokens do
     start(:domspec)
     |> concat(m_string())
     |> post_traverse({@m, :token, [:domspec]})
-
-    # |> times(choice([toplabel(), expand(), literal()]), min: 1)
   end
 
+  @spec domspec(binary) :: combinator
   defp domspec(str) do
     # match a domspec after ignoring string `str` (i.e. ":" or "=")
     ignore(string(str))
     |> concat(domspec())
   end
 
+  @spec dual_cidr() :: combinator
   defp dual_cidr() do
     # {:dual_cidr, [len4, len6], range}
     # - happily match anything for address and all numbers for length
@@ -520,6 +550,7 @@ defmodule Spf.Tokens do
     ])
   end
 
+  @spec unknown_mod() :: combinator
   defp unknown_mod() do
     # {:unknown_mod, [name, [token]], range}
     start(:unknown_mod)
@@ -529,13 +560,9 @@ defmodule Spf.Tokens do
     |> concat(m_string())
     |> eoterm()
     |> post_traverse({@m, :token, [:unknown_mod]})
-
-    # |> concat(alpha())
-    # |> times(choice([alpha(), digit(), ascii_char([?-, ?_, ?.])]), min: 0)
-    #
-    # |> times(choice([expand(), toplabel(), literal()]), min: 1)
   end
 
+  @spec unknown() :: combinator
   defp unknown() do
     # {:unknown, [string], range}
     start(:unknown)
@@ -543,9 +570,11 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:unknown]})
   end
 
+  @spec unknown(combinator) :: combinator
   defp unknown(combinator),
     do: concat(combinator, unknown())
 
+  @spec whitespace() :: combinator
   defp whitespace() do
     # {:whitespace, [string], range}
     # - also accepts tabs (technically a syntax error) for warning
@@ -557,6 +586,7 @@ defmodule Spf.Tokens do
 
   # L2 TOKENS
 
+  @spec expand() :: combinator
   defp expand() do
     # {:expand, list, range}
     choice([
@@ -565,7 +595,8 @@ defmodule Spf.Tokens do
     ])
   end
 
-  defp expand1 do
+  @spec expand1() :: combinator
+  defp expand1() do
     # {:expand1, [letter, keep, reverse, [delim]], range}
     start(:expand1)
     |> ignore(string("%{"))
@@ -576,6 +607,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:expand1]})
   end
 
+  @spec expand2() :: combinator
   defp expand2() do
     # {:expand2, [string], range}
     start(:expand2)
@@ -585,6 +617,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:expand2]})
   end
 
+  @spec literal() :: combinator
   defp literal() do
     # {:literal, [binary], range}
     # notes:
@@ -596,6 +629,7 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:literal]})
   end
 
+  @spec m_transform() :: combinator
   defp m_transform() do
     # a domspec-expand without a transform will have a :transform token with
     # an empty list as token value
@@ -604,9 +638,11 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:transform]})
   end
 
+  @spec m_transform(combinator) :: combinator
   defp m_transform(combinator),
     do: concat(combinator, m_transform())
 
+  @spec toplabel() :: combinator
   defp toplabel() do
     # {:toplabel, [string], range}
     # - ignore trailing dot, all domains are relative to root
@@ -619,12 +655,14 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :token, [:toplabel]})
   end
 
+  @spec ldhlabel1() :: combinator
   defp ldhlabel1() do
     # start with alpha
     alpha()
     |> times(choice([dash_alphanum(), alphanum()]), min: 0)
   end
 
+  @spec ldhlabel2() :: combinator
   defp ldhlabel2() do
     # starts with digit
     times(digit(), min: 1)

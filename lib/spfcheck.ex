@@ -57,6 +57,35 @@ defmodule Spfcheck do
     :explanation
   ]
 
+  # MAIN
+
+  @doc """
+  Main entry point for `spfcheck` cli command.
+
+  """
+  def main(argv) do
+    {opts, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
+
+    if Keyword.get(opts, :help, false), do: usage()
+
+    if Keyword.get(opts, :color, true),
+      do: Application.put_env(:elixir, :ansi_enabled, true),
+      else: Application.put_env(:elixir, :ansi_enabled, false)
+
+    opts = Keyword.put(opts, :log, &log/4)
+
+    if [] == senders,
+      do: do_stdin(opts)
+
+    # used by report to print meta information only once.
+    opts = Keyword.put(opts, :first, List.first(senders))
+
+    for sender <- senders do
+      Spf.check(sender, opts)
+      |> report(opts)
+    end
+  end
+
   # Helpers
 
   defp color(msg, type) do
@@ -106,34 +135,6 @@ defmodule Spfcheck do
     else
       prev = if line == "", do: "", else: "#{line} "
       assemble(rest, "#{prev}#{word}", lines, max)
-    end
-  end
-
-  # MAIN
-
-  @doc """
-  Check the SPF policy for given `sender`.
-  """
-  def main(argv) do
-    {opts, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
-
-    if Keyword.get(opts, :help, false), do: usage()
-
-    if Keyword.get(opts, :color, true),
-      do: Application.put_env(:elixir, :ansi_enabled, true),
-      else: Application.put_env(:elixir, :ansi_enabled, false)
-
-    opts = Keyword.put(opts, :log, &log/4)
-
-    if [] == senders,
-      do: do_stdin(opts)
-
-    # used by report to print meta information only once.
-    opts = Keyword.put(opts, :first, List.first(senders))
-
-    for sender <- senders do
-      Spf.check(sender, opts)
-      |> report(opts)
     end
   end
 
@@ -224,13 +225,16 @@ defmodule Spfcheck do
     if markdown, do: IO.puts("\n## SPF\n\n```")
     nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
 
+    # donot log DNS stuff to console
+    ctx = Map.put(ctx, :verbosity, 0)
+
     for nth <- nths do
       domain = ctx.map[nth]
 
       {owner, email} =
-        case Spf.DNS.authority(domain) do
+        case Spf.DNS.authority(ctx, domain) do
           {:ok, _, owner, email} -> {owner, email}
-          {:error, _} -> {"unknown", "no email"}
+          {:error, reason} -> {"DNS error", "#{reason}"}
         end
 
       spf = Context.get_spf(ctx, domain) |> text_wrap(width, "\n    ")
@@ -289,7 +293,7 @@ defmodule Spfcheck do
   defp topic(ctx, "p", markdown, _width) do
     if markdown, do: IO.puts("\n## Prefixes\n\n```")
     wseen = 2
-    wpfx = 35
+    wpfx = 39
 
     spfs =
       for n <- 0..ctx.num_spf do

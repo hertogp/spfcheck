@@ -12,6 +12,7 @@ defmodule Spf.Parser do
   alias Spf.Eval
 
   @type context :: Spf.Context.t()
+  @type token :: Spf.Tokens.token()
 
   # API
 
@@ -19,7 +20,7 @@ defmodule Spf.Parser do
   Parse [`context`](`t:context/0`)'s explain string and store the result under
   the `:explanation` key.
 
-  In case of any errors, sets the explanation string to an empty string.
+  In case of any syntax errors, sets the explanation string to an empty string.
   """
   @spec explain(context) :: context
   def explain(%{explain_string: explain} = context) do
@@ -109,6 +110,7 @@ defmodule Spf.Parser do
 
   # HELPERS
 
+  @spec ast(context, token) :: context
   defp ast(ctx, {_type, _tokval, _range} = token) do
     # add a token to the AST if possible, otherwise put in an :error
     case token do
@@ -136,6 +138,7 @@ defmodule Spf.Parser do
     end
   end
 
+  @spec cidr([] | token) :: list | :einvalid
   defp cidr([]),
     do: [32, 128]
 
@@ -145,8 +148,10 @@ defmodule Spf.Parser do
       else: :einvalid
   end
 
+  @spec drop_labels(binary) :: binary
   defp drop_labels(domain) do
     # drop leftmost labels if name exceeds 253 characters
+    # - assumes name is a dotted domain name
     case String.split_at(domain, -253) do
       {"", name} -> name
       {_, name} -> String.replace(name, ~r/^[^.]*./, "")
@@ -156,8 +161,9 @@ defmodule Spf.Parser do
   # expand returns:
   # - string (a domain for :domspec, an explanation string for :exp_str)
   # - :einvalid (in case tokenization saw errors)
-  # note: consequence of an :einvalid for an expansion are determined at eval-time
+  # note: the consequence of an :einvalid for an expansion is determined at eval-time
 
+  @spec expand(context, list | token) :: binary | :einvalid
   defp expand(ctx, []),
     do: ctx.domain
 
@@ -172,6 +178,7 @@ defmodule Spf.Parser do
     |> drop_labels()
   end
 
+  @spec expand(context, atom, list) :: binary
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
     macro(ctx, ltr)
     |> String.split(delimiters)
@@ -193,6 +200,7 @@ defmodule Spf.Parser do
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
        do: str
 
+  @spec macro(context, non_neg_integer) :: binary
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
     do: macro(ctx, letter + 32) |> URI.encode_www_form()
 
@@ -212,15 +220,17 @@ defmodule Spf.Parser do
     end
   end
 
+  @spec macro_c(binary) :: binary
   defp macro_c(ip) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
     # - use inet.ntoa to get shorthand ip6 (appease v-macro-ip6 test)
-    addr = Pfx.new(ip) |> Pfx.marshall({1, 2, 3, 4, 5, 6, 7, 8})
+    addr = Pfx.new(ip) |> Pfx.marshall({0, 0, 0, 0})
 
     :inet.ntoa(addr)
     |> List.to_string()
   end
 
+  @spec macro_i(binary) :: binary
   defp macro_i(ip) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
     # - upcase reversed ip address (appease v-macro-ip6 test)
@@ -232,9 +242,10 @@ defmodule Spf.Parser do
     end
   end
 
+  @spec macro_p(context) :: binary
   defp macro_p(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
-    # "p" macro expands to the validated domain name of <ip>
+    # "p" macro expands to a validated domain name of <ip>
     # - perform a DNS reverse-mapping for <ip>
     # - for name returned lookup its IP addresses
     # - if <ip> is among the IP addresses, then that domain name is validated
@@ -247,26 +258,24 @@ defmodule Spf.Parser do
 
     domain = DNS.normalize(ctx.domain)
 
-    pvalue =
-      case dns do
-        {:error, _reason} ->
-          {:ok, "unknown"}
+    case dns do
+      {:error, _reason} ->
+        "unknown"
 
-        {:ok, rrs} ->
-          Enum.take(rrs, 10)
-          |> Enum.map(fn name -> DNS.normalize(name) end)
-          |> Enum.map(fn name ->
-            {name, DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
-          end)
-          |> Enum.filter(fn {name, dns} -> Eval.validate?(dns, ctx.ip, name, domain, false) end)
-          |> Enum.map(fn {name, _dns} -> {String.bag_distance(name, domain), name} end)
-          |> Enum.sort(fn {x0, s0}, {x1, s1} -> x0 > x1 || s0 < s1 end)
-          |> List.first()
-      end
-
-    case pvalue do
-      nil -> "unknown"
-      {_, str} -> str
+      {:ok, rrs} ->
+        Enum.take(rrs, 10)
+        |> Enum.map(fn name -> DNS.normalize(name) end)
+        |> Enum.map(fn name ->
+          {name, DNS.resolve(ctx, name, type: ctx.atype, stats: false) |> elem(1)}
+        end)
+        |> Enum.filter(fn {name, dns} -> Eval.validate?(dns, ctx.ip, name, domain, false) end)
+        |> Enum.map(fn {name, _dns} -> {String.bag_distance(name, domain), name} end)
+        |> Enum.sort(fn {x0, s0}, {x1, s1} -> x0 > x1 || s0 < s1 end)
+        |> List.first()
+        |> case do
+          nil -> "unknown"
+          {_, str} -> inspect(str) |> String.trim("\"")
+        end
     end
   end
 
@@ -292,6 +301,7 @@ defmodule Spf.Parser do
   # CHECKS
   # - checks performed by Spf.Parser at various stages
 
+  @spec check(context, atom) :: context
   defp check(ctx, :spf_length) do
     case String.length(ctx.spf) do
       len when len > 512 -> log(ctx, :parse, :warn, "SPF string length #{len} > 512 characters")
@@ -408,6 +418,7 @@ defmodule Spf.Parser do
 
   # PARSER
 
+  @spec parse(token, context) :: context
   defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
     spec = List.keyfind(args, :domspec, 0, [])

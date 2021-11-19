@@ -16,22 +16,6 @@ defmodule SpfcheckTest do
   end
 
   # TODO:
-  # - remove this if it's not going to be used for testing via zonedata files
-  # defp kvs(ctx, domain) do
-  #   ctx = Map.put(ctx, :num_dnsq, 0)
-  #   {_, rrs} = Spf.DNS.resolve(ctx, domain, type: :txt, stats: false)
-  #   {:ok, [l]} = Spf.DNS.grep(rrs, fn x -> String.match?(x, ~r/^spfcheck/i) end)
-
-  #   String.replace(l, ~r/^\s*spfcheck\s*/i, "")
-  #   |> String.split(~r/,\s*/)
-  #   |> Enum.map(fn x -> String.split(x, "=", parts: 2) end)
-  #   |> Enum.map(fn l -> List.to_tuple(l) end)
-  #   |> Enum.map(fn {k, v} -> {String.to_atom(k), v} end)
-  #   |> Enum.into(%{})
-  # rescue
-  #   err -> IO.inspect(err, label: :err)
-  # end
-
   describe "domain name checks" do
     @describetag :domain_names
     test "001 - dns label > 63 chars is invalid" do

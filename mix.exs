@@ -2,6 +2,8 @@ defmodule Spfcheck.MixProject do
   use Mix.Project
 
   # Before publishing to Hex:
+  # - ensure git is up-to-date
+  # - ensure all github workflows ended up ok
   # - update CHANGELOG.md for changes in new version
   # - set new version tag in mix.exs, README.md
   # - mix test
@@ -9,6 +11,7 @@ defmodule Spfcheck.MixProject do
   # - mix dialyzer
   # - git tag -a vx.y.z -m 'Release vx.y.z'
   # - git push --tags
+  # - check doc (links working?)
   # mix hex.publish
 
   @source_url "https://github.com/hertogp/spfcheck"
