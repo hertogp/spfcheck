@@ -2,9 +2,9 @@ defmodule Spfcheck.MixProject do
   use Mix.Project
 
   # Before publishing to Hex:
+  # - update CHANGELOG.md for changes in new version
   # - git is up-to-date
   # - github workflows are ok
-  # - update CHANGELOG.md for changes in new version
   # - set new version tag in mix.exs, README.md
   # - mix test
   # - mix docs
