@@ -2,11 +2,13 @@ defmodule Spf.DNS do
   @moduledoc ~S"""
   A simple DNS caching resolver for SPF evaluations.
 
-  During an SPF evaluation all DNS responses are cached.  Since the cache
-  lasts only for the duration of the evaluation, TTL values are ignored.
+  During an SPF evaluation all DNS responses are cached.  Since the cache lasts
+  only for the duration of the evaluation, TTL values are ignored. The cache
+  allows for reporting on DNS data acquired during the evaluation. By
+  preloading the cache, using `Spf.DNS.load/2`, new records can be tested.
 
-  The cache allows for reporting on DNS data acquired during the evaluation.
-  By preloading the cache, using `Spf.DNS.load/2`, new records can be tested.
+  The caching resolver also tracks the number of DNS queries made and the
+  number of void queries seen.
 
   ## Example
 
@@ -23,7 +25,7 @@ defmodule Spf.DNS do
   import Spf.Context
 
   @typedoc """
-  A DNS resolve result in the form of an ok/error-tuple.
+  A DNS result in the form of an ok/error-tuple.
   """
   @type dns_result :: {:ok, [any]} | {:error, atom}
 
@@ -31,6 +33,11 @@ defmodule Spf.DNS do
   An SPF evaluation context.
   """
   @type context :: Spf.Context.t()
+
+  @typedoc """
+  An `{:error, :cache_miss}`-tuple
+  """
+  @type cache_miss :: {:error, :cache_miss}
 
   # upcase last, since we usually check normalized domain names
   @ldh Enum.concat([?a..?z, [?-], ?0..?9, ?A..?Z])
@@ -67,25 +74,28 @@ defmodule Spf.DNS do
   # API
 
   @doc """
-  Finds a domain name's start of authority and contact.
+  Finds a domain `name`'s start of authority and contact.
 
   SPF evaluation might require evaluating multiple records of different
   domains.  This function allows for reporting the owner and contact for each
   SPF record encountered. CNAME's are ignored since the goal is to find the
-  authoritative zone for a given (sub)domain name.
+  authoritative zone for a given (sub)domain `name`.
 
   Returns
   - `{:ok, domain, authority, contact}`, or
   - `{:error, :err_code}`
 
+  The given `name` does not need to actually exist, the aim is to find the
+  owner of the domain the `name` belongs to.
+
   ## Examples
 
       iex> Spf.Context.new("example.com")
-      ...> |> Spf.DNS.authority("spf.example.com")
-      {:ok, "spf.example.com", "example.com", "noc@dns.icann.org"}
+      ...> |> Spf.DNS.authority("non-existing.example.com")
+      {:ok, "non-existing.example.com", "example.com", "noc@dns.icann.org"}
 
   """
-  @spec authority(context(), binary) :: {:ok, binary, binary, binary} | {:error, atom}
+  @spec authority(Spf.Context.t(), binary) :: {:ok, binary, binary, binary} | {:error, atom}
   def authority(ctx, name) do
     labels = normalize(name) |> String.split(".", trim: true)
 
@@ -136,7 +146,7 @@ defmodule Spf.DNS do
       {:ok, "example.c0m"}
 
   """
-  # @spec check_domain(binary) :: {:ok, binary} | {:error, binary}
+  @spec check_domain(binary) :: {:ok, binary} | {:error, binary}
   def check_domain(domain) do
     domain = normalize(domain)
     lbs = String.split(domain, ".")
@@ -176,13 +186,12 @@ defmodule Spf.DNS do
   end
 
   @doc """
-  Returns a cached RR for given `name` and `type` from the `context.dns` or a
-  cache miss.
+  Returns a cached `t:dns_result/0` for given `name`, `type` and `context` or a `t:cache_miss/0`.
 
   The result returned is one of:
   - `{:error, :cache_miss}`, for a cache miss
   - `{:error, reason}`, for a cache hit (of a previous negative result)
-  - `rrs`, for a cache hit (where `rrs` is a list of rrdata's).
+  - `{:ok, rrs}`, for a cache hit (where `rrs` is a list of rrdata's).
 
   Where `reason` includes:
   - `:nxdomain`
@@ -204,12 +213,10 @@ defmodule Spf.DNS do
       {:ok, ["1.2.3.4"]}
 
   """
-  # @spec from_cache(context(), binary, atom) :: dns_result()
+  @spec from_cache(Spf.Context.t(), binary, atom) :: dns_result()
   def from_cache(context, name, type) do
     # TODO:
     # - check validity of name and return {:error, :illegal_name} is not valid
-    # - add that check also when pre-loading the cache
-    # - pre-loading should only understand the documented rr-types and errors
     {_context, name} = cname(context, name)
     cache = Map.get(context, :dns, %{})
 
@@ -245,7 +252,7 @@ defmodule Spf.DNS do
       {:error, :nxdomain}
 
   """
-  # @spec filter(dns_result(), function()) :: dns_result
+  @spec filter(dns_result(), function()) :: dns_result()
   def filter(dns_result, fun)
 
   def filter({:ok, rrdatas}, fun),
@@ -283,7 +290,6 @@ defmodule Spf.DNS do
   all known `rr-type`'s.
 
   Unknown rr-types are ignored and logged as a warning during preloading.
-  TODO: true? -> Note however, that real DNS queries have no such limitation.
 
   ## Example
 
@@ -320,7 +326,7 @@ defmodule Spf.DNS do
       }
 
   """
-  # @spec load(context, nil | binary | [binary]) :: context
+  @spec load(Spf.Context.t(), nil | binary | [binary]) :: context
   def load(context, dns)
 
   def load(ctx, nil),
@@ -348,7 +354,7 @@ defmodule Spf.DNS do
       "example.c%m"
 
   """
-  # @spec normalize(binary | list) :: binary
+  @spec normalize(binary | list) :: binary
   def normalize(domain) when is_binary(domain) do
     domain
     |> String.trim()
@@ -376,7 +382,7 @@ defmodule Spf.DNS do
   - other
 
   """
-  # @spec resolve(context(), binary, Keyword.t()) :: {context(), dns_result}
+  @spec resolve(Spf.Context.t(), binary, Keyword.t()) :: {Spf.Context.t(), dns_result}
   def resolve(ctx, name, opts \\ []) do
     stats = Keyword.get(opts, :stats, true)
     type = Keyword.get(opts, :type, Map.get(ctx, :atype, :a))
@@ -427,7 +433,7 @@ defmodule Spf.DNS do
       ]
 
   """
-  # @spec to_list(context(), Keyword.t()) :: list(binary)
+  @spec to_list(Spf.Context.t(), Keyword.t()) :: list(binary)
   def to_list(ctx, opts \\ []) do
     keep =
       case Keyword.get(opts, :valid, :both) do
@@ -448,7 +454,7 @@ defmodule Spf.DNS do
 
   # Helpers
 
-  # @spec authorityp([binary], context()) :: {:error, atom} | {:ok, binary, binary}
+  @spec authorityp([binary], Spf.Context.t()) :: {:error, atom} | {:ok, binary, binary}
   defp authorityp([], _ctx), do: {:error, :nxdomain}
 
   defp authorityp([head | tail], ctx) do
@@ -464,8 +470,8 @@ defmodule Spf.DNS do
     end
   end
 
-  # @spec do_stats(context(), binary, atom, dns_result, boolean, Keyword.t()) :: {context(), dns_result}
-
+  @spec do_stats(Spf.Context.t(), binary, atom, dns_result, boolean, Keyword.t()) ::
+          {Spf.Context.t(), dns_result}
   defp do_stats(ctx, name, type, result, stats, opts \\ []) do
     # log any warnings, possibly update stats & return {ctx, result}
     qry =
@@ -504,7 +510,7 @@ defmodule Spf.DNS do
     end
   end
 
-  # @spec load_file(Spf.Context.(), binary) :: Spf.Context.()
+  @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
   defp load_file(ctx, fpath) when is_binary(fpath) do
     ctx =
       case File.read(fpath) do
@@ -520,7 +526,7 @@ defmodule Spf.DNS do
     err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
-  # @spec load_lines(Spf.Context.(), list() | binary) :: Spf.Context.()
+  @spec load_lines(Spf.Context.t(), list() | binary) :: Spf.Context.t()
   defp load_lines(ctx, lines) when is_binary(lines),
     do: load_lines(ctx, String.split(lines, "\n"))
 
@@ -530,7 +536,7 @@ defmodule Spf.DNS do
     |> Enum.reduce(ctx, &rr_fromstr/2)
   end
 
-  # @spec query(Spf.Context.(), binary, atom, boolean) :: {Spf.Context.(), dns_result}
+  @spec query(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
   defp query(ctx, name, type, stats) do
     timeout = Map.get(ctx, :dns_timeout, 2000)
 
@@ -570,7 +576,7 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  # @spec resolvep(Spf.Context.(), binary, atom, boolean) :: {Spf.Context.(), dns_result}
+  @spec resolvep(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
   defp resolvep(ctx, name, type, stats) do
     case from_cache(ctx, name, type) do
       {:error, :cache_miss} ->
@@ -608,8 +614,6 @@ defmodule Spf.DNS do
     |> Enum.map(fn x -> rrentry(x) end)
   end
 
-  # Cache
-
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
     name = charlists_tostr(name) |> normalize()
@@ -630,7 +634,7 @@ defmodule Spf.DNS do
     end
   end
 
-  # From: https://www.erlang.org/doc/man/inet_res.html
+  # from: https://www.erlang.org/doc/man/inet_res.html
   # inet_res.resolve results are one of:
   # a) {:ok, dns_msg()}
   # b) {:error, Reason}, or
@@ -870,6 +874,7 @@ defmodule Spf.DNS do
     end
   end
 
+  @spec rr_tostr(binary, atom, any) :: binary
   defp rr_tostr(domain, type, data) do
     domain = String.pad_trailing(domain, 25) |> String.downcase()
     rrtype = String.upcase("#{type}") |> String.pad_trailing(7)
@@ -877,7 +882,7 @@ defmodule Spf.DNS do
     Enum.join([domain, rrtype, data], " ")
   end
 
-  # @spec rr_data_tostr(atom, any) :: String.t()
+  @spec rr_data_tostr(atom, any) :: binary
   defp rr_data_tostr(_, {:error, reason}),
     do: "#{inspect(reason)}" |> String.upcase() |> String.trim_leading(":")
 
@@ -900,6 +905,7 @@ defmodule Spf.DNS do
     "#{inspect(data)}" |> no_quotes()
   end
 
+  @spec no_quotes(binary) :: binary
   defp no_quotes(str) do
     str
     |> String.replace(~r/^\"/, "")
