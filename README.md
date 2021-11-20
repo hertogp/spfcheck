@@ -23,7 +23,7 @@ Options:
   -h, --helo=string    sending MTA helo/ehlo identity (defaults to nil)
   -i, --ip=string      sending MTA IPv4/IPv6 address (defaults to 127.0.0.1)
   -r, --report=string  either "all" or one of more letters of "vsewpdat" (see below)
-  -v, --verbosity      set logging noise level (0..5), default is 3 (notifications)
+  -v, --verbosity      set logging noise level (0..5), default is 4 (informational)
   -w, --width=NUM      limits line length to increase readability (defaults to 60)
   --no-color           turn off colors for log messages
   --no-markdown        turn off markdown formatting for reports

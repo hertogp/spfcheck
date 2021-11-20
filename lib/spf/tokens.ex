@@ -97,6 +97,7 @@ defmodule Spf.Tokens do
 
   """
   @type token :: {type, list(), range}
+
   # Helpers
 
   @spec anycase(binary) :: combinator

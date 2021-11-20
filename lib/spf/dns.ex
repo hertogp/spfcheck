@@ -117,7 +117,7 @@ defmodule Spf.DNS do
   ## Examples
 
       iex> check_domain("com")
-      {:error, "name not multi-label"}
+      {:error, "not multi-label"}
 
       iex> check_domain(".example.com")
       {:error, "empty label"}
@@ -152,7 +152,7 @@ defmodule Spf.DNS do
         {:error, "domain name too long"}
 
       length(lbs) < 2 ->
-        {:error, "name not multi-label"}
+        {:error, "not multi-label"}
 
       Enum.any?(lbs, fn l -> String.length(l) > 63 end) ->
         {:error, "label too long"}
@@ -375,6 +375,13 @@ defmodule Spf.DNS do
   - `:nxdomain`
   - `:servfail`
   - other
+
+  Options include:
+  - `type:`, which defaults to `:a`
+  - `stats`, which defaults to `true`
+
+  When `stats` is `false`, void DNS responses (`:nxdomain` or `:zero_answers`)
+  are not counted.
 
   """
   @spec resolve(Spf.Context.t(), binary, Keyword.t()) :: {Spf.Context.t(), dns_result}
