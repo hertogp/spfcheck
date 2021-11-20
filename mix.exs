@@ -2,8 +2,8 @@ defmodule Spfcheck.MixProject do
   use Mix.Project
 
   # Before publishing to Hex:
-  # - ensure git is up-to-date
-  # - ensure all github workflows ended up ok
+  # - git is up-to-date
+  # - github workflows are ok
   # - update CHANGELOG.md for changes in new version
   # - set new version tag in mix.exs, README.md
   # - mix test
@@ -66,7 +66,7 @@ defmodule Spfcheck.MixProject do
       {:nimble_parsec, "~> 1.0"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
-      {:credo, "~> 0.8", only: [:dev, :test]},
+      {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:yaml_elixir, "~> 2.8.0", only: [:test]}
     ]
   end
