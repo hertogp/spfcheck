@@ -30,11 +30,6 @@ defmodule Spf.DNS do
   @type dns_result :: {:ok, [any]} | {:error, atom}
 
   @typedoc """
-  An SPF evaluation context.
-  """
-  @type context :: Spf.Context.t()
-
-  @typedoc """
   An `{:error, :cache_miss}`-tuple
   """
   @type cache_miss :: {:error, :cache_miss}
@@ -326,7 +321,7 @@ defmodule Spf.DNS do
       }
 
   """
-  @spec load(Spf.Context.t(), nil | binary | [binary]) :: context
+  @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
   def load(context, dns)
 
   def load(ctx, nil),
@@ -401,8 +396,11 @@ defmodule Spf.DNS do
   Return all acquired DNS RR's in a flat list of printable lines.
 
   Note that RR's with multiple entries in their rrdata are listed individually,
-  so the output can be copy/paste'd into a local dns.txt pre-cache to facilitate
-  experimentation with RR records.
+  so the output can be copy/paste'd into a local dns.txt pre-cache to
+  facilitate experimentation with RR records.
+
+  The lines are sorted such that domains and subdomains are kept together as
+  much as possible.
 
   ## Example
 

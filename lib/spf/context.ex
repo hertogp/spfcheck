@@ -5,7 +5,7 @@ defmodule Spf.Context do
   """
 
   @typedoc """
-  An SPF result of evaluation.
+  An SPF evaluation result.
   """
   @type verdict :: :fail | :neutral | :none | :pass | :permerror | :softfail | :temperror
 
