@@ -193,28 +193,26 @@ defmodule Spf.Tokens do
     |> post_traverse({@m, :start_token, [token_type]})
   end
 
-  @doc """
-  Internal helper that records the start of a token of given `token_type`.
+  # @doc """
+  # Internal helper that records the start of a token of given `token_type`.
 
-  This function must be called at the start of trying to lex a token of
-  `token_type` and, when succesfull, the post_traverse function(s) can easily
-  pickup the last recorded start for given `token_type`.
+  # This function must be called at the start of trying to lex a token of
+  # `token_type` and, when succesfull, the post_traverse function(s) can easily
+  # pickup the last recorded start for given `token_type`.
 
-  """
+  # """
+  @doc false
   @spec start_token(binary, list, map, tuple, non_neg_integer, atom) :: {list, map}
   def start_token(_rest, args, context, _line, offset, token_type),
     do: {args, Map.put(context, token_type, offset)}
 
-  @doc """
-  Internal helper that turns a combinator result into a `t:token/0`.
-
-
-  """
+  @doc false
   @spec token(binary, list, map, tuple, non_neg_integer, atom) :: {[token], map}
   def token(rest, args, context, line, offset, atom)
-  # line = {linenr, start_of_line}
-  # offset = token_end
-  # both token_end and start_of_line are (0-based offset from start of entire binary
+  # Internal helper that turns a combinator result into a `t:token/0`.
+  # - line = {linenr, start_of_line}
+  # - offset = token_end
+  # - both token_end and start_of_line are (0-based offset from start of entire binary
 
   # Whitespace
   def token(_rest, args, context, _line, offset, :whitespace),

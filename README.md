@@ -124,7 +124,7 @@ The `-r` flag can be used to print out some information, topics include:
 - `p` the prefixes collected
 - `d` DNS information collected
 - `a` the AST for the (first) SPF record
-- `t` the tokens for the (first) SPF record
+- `t` the tokens for the (last) SPF record seen
 
 In case no `-r` flag is used, spfcheck will simply print out the verdict.
 
@@ -188,7 +188,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.1.0"}
+    {:spfcheck, "~> 0.1.1"}
   ]
 end
 ```
