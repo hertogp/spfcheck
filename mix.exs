@@ -6,12 +6,12 @@ defmodule Spfcheck.MixProject do
   # - git is up-to-date
   # - github workflows are ok
   # - set new version tag in mix.exs, README.md
-  # - mix test
   # - mix docs
+  # - mix test
   # - mix dialyzer
+  # - check doc (links working?)
   # - git tag -a vx.y.z -m 'Release vx.y.z'
   # - git push --tags
-  # - check doc (links working?)
   # mix hex.publish
 
   @source_url "https://github.com/hertogp/spfcheck"
@@ -22,8 +22,9 @@ defmodule Spfcheck.MixProject do
       version: @version,
       elixir: "~> 1.12",
       name: "Spfcheck",
-      deps: deps(),
+      description: "command line tool to examine and debug SPF records",
       docs: docs(),
+      deps: deps(),
       package: package(),
       aliases: aliases(),
       build_embedded: Mix.env() == :prod,
@@ -52,9 +53,9 @@ defmodule Spfcheck.MixProject do
         "README.md": [title: "Overview"]
       ],
       main: "readme",
-      assets: "assets",
       source_url: @source_url,
       source_ref: "v#{@version}",
+      assets: "assets",
       formatters: ["html"]
     ]
   end
@@ -64,7 +65,7 @@ defmodule Spfcheck.MixProject do
     [
       {:iptrie, "~> 0.5.0"},
       {:nimble_parsec, "~> 1.0"},
-      {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
+      {:ex_doc, "~> 0.24", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
       {:yaml_elixir, "~> 2.8.0", only: [:test]}
