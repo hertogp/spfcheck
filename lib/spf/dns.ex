@@ -321,7 +321,8 @@ defmodule Spf.DNS do
       }
 
   """
-  @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
+  # @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
+  @spec load(Spf.Context.t(), any) :: Spf.Context.t()
   def load(context, dns)
 
   def load(ctx, nil),
@@ -361,7 +362,8 @@ defmodule Spf.DNS do
     do: List.to_string(domain) |> normalize()
 
   @doc """
-  Resolves a query, updates the cache and returns a {`ctx`, `t:dns_result/0`}tuple.
+  Resolves a query, updates the cache and returns a {`ctx`,
+  `t:dns_result/0`}-tuple.
 
   Returns:
   - `{ctx, {:error, reason}}` if a DNS error occurred, or

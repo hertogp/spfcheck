@@ -46,6 +46,8 @@ defmodule Spfcheck do
     :sender,
     :verdict,
     :reason,
+    :owner,
+    :contact,
     :num_spf,
     :num_dnsm,
     :num_dnsq,
@@ -104,6 +106,7 @@ defmodule Spfcheck do
   defp log(ctx, facility, severity, msg) do
     # log callback
     if @verbosity[severity] <= ctx.verbosity do
+      domain = "[ #{ctx.map[0]} ]"
       nth = "#{ctx.nth}"
       fac = "#{facility}"
       sev = "#{severity}"
@@ -111,7 +114,7 @@ defmodule Spfcheck do
 
       lead = String.pad_trailing("%spf[#{nth}]-#{fac}-#{sev}:", 20, " ") |> color(severity)
 
-      IO.puts(:stderr, "#{lead}#{depth}> #{msg}")
+      IO.puts(:stderr, "#{domain} #{lead}#{depth}> #{msg}")
     end
   end
 
@@ -295,11 +298,11 @@ defmodule Spfcheck do
     wseen = 2
     wpfx = 39
 
-    spfs =
-      for n <- 0..ctx.num_spf do
-        {n, Context.get_spf(ctx, n)}
-      end
-      |> Enum.into(%{})
+    # spfs =
+    #   for n <- 0..ctx.num_spf do
+    #     {n, Context.get_spf(ctx, n)}
+    #   end
+    #   |> Enum.into(%{})
 
     IO.puts("#  #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
 
@@ -308,8 +311,8 @@ defmodule Spfcheck do
       pfx = "#{ip}" |> String.pad_trailing(wpfx)
 
       terms =
-        for {_q, nth, {_, _, slice}} <- v do
-          "spf[#{nth}] " <> String.slice(Map.get(spfs, nth, ""), slice)
+        for {_q, _nth, donor} <- v do
+          donor
         end
         |> Enum.sort()
         |> Enum.join(", ")

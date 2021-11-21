@@ -21,6 +21,7 @@ defmodule Spf.Context do
   @type t :: %{
           :ast => list(),
           :atype => :a | :aaaa,
+          :contact => binary(),
           :depth => non_neg_integer(),
           :dns => map(),
           :dns_timeout => non_neg_integer(),
@@ -47,6 +48,7 @@ defmodule Spf.Context do
           :num_error => non_neg_integer(),
           :num_spf => non_neg_integer(),
           :num_warn => non_neg_integer(),
+          :owner => binary(),
           :reason => binary(),
           :sender => binary(),
           :spf => binary(),
@@ -315,6 +317,7 @@ defmodule Spf.Context do
         ArgumentError -> Pfx.new("127.0.0.1")
       end
 
+    # extract IPv4 address from an IPv4-mapped IPv6 address
     pfx =
       if Pfx.member?(pfx, "::FFFF:0:0/96"),
         do: Pfx.cut(pfx, -1, -32),
@@ -325,6 +328,7 @@ defmodule Spf.Context do
     %{
       ast: [],
       atype: atype,
+      contact: "",
       depth: 0,
       dns: %{},
       dns_timeout: 2000,
@@ -351,6 +355,7 @@ defmodule Spf.Context do
       num_error: 0,
       num_spf: 1,
       num_warn: 0,
+      owner: "",
       reason: "",
       sender: sender,
       spf: "",

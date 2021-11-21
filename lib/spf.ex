@@ -42,5 +42,18 @@ defmodule Spf do
   def check(sender, opts \\ []) do
     Spf.Context.new(sender, opts)
     |> Spf.Eval.evaluate()
+    |> add_owner()
+  end
+
+  @spec add_owner(Spf.Context.t()) :: Spf.Context.t()
+  defp add_owner(ctx) do
+    {owner, email} =
+      case Spf.DNS.authority(ctx, ctx.domain) do
+        {:ok, _, owner, email} -> {owner, email}
+        {:error, reason} -> {"DNS error", "#{reason}"}
+      end
+
+    Map.put(ctx, :owner, owner)
+    |> Map.put(:contact, email)
   end
 end

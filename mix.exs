@@ -74,7 +74,7 @@ defmodule Spfcheck.MixProject do
 
   defp package do
     [
-      description: "SPF checker for mail domains",
+      description: "Debug SPF records for any given mail domain",
       licenses: ["MIT"],
       maintainers: ["hertogp"],
       links: %{

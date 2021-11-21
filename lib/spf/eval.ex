@@ -185,13 +185,13 @@ defmodule Spf.Eval do
   end
 
   @spec validate(binary, context, tuple) :: context
-  defp validate(name, ctx, {:ptr, [q, domain], _} = term) do
+  defp validate(name, ctx, {:ptr, [q, domain], range} = _term) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
 
     case validate?(dns, ctx.ip, name, domain, true) do
       true ->
-        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, term})
+        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, spf_term(ctx, range)})
         |> log(:eval, :info, "validated: #{name}, #{ctx.ip} for #{domain}")
 
       false ->
@@ -202,7 +202,7 @@ defmodule Spf.Eval do
   @spec verdict(context) :: nil | atom
   defp verdict(ctx) do
     # used by match/1 to check if we currently have a match
-    # - ipt[prefix] -> [{token, nth}] => list of tokens and SPF-id that added the prefix
+    # - ipt[prefix] -> [{q, nth, token}] => list of tokens and SPF-id that added the prefix
     # - the token contains the qualifier that, if matched, says what the result should be
     # notes:
     # - prefixes can be contributed multiple times by Nxterms in Mxrecords
@@ -210,8 +210,8 @@ defmodule Spf.Eval do
     # - so only check for the first token for the current ctx.nth
     # - having verdict does not necessarily stop evaluation (e.g. when inside an include)
     with {_pfx, qlist} <- Iptrie.lookup(ctx.ipt, ctx.ip),
-         {token, _} <- List.keytake(qlist, ctx.nth, 1),
-         q <- elem(token, 0) do
+         {data, _} <- List.keytake(qlist, ctx.nth, 1),
+         q <- elem(data, 0) do
       qualify(q)
     else
       _ -> nil
@@ -302,7 +302,7 @@ defmodule Spf.Eval do
     do: ctx
 
   # A
-  defp evalp(ctx, [{:a, [q, domain, dual], _range} = term | tail]) do
+  defp evalp(ctx, [{:a, [q, domain, dual], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.3
     {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
 
@@ -314,7 +314,7 @@ defmodule Spf.Eval do
         error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
-        addip(ctx, rrs, dual, {q, ctx.nth, term})
+        addip(ctx, rrs, dual, {q, ctx.nth, spf_term(ctx, range)})
     end
     |> match(term, tail)
   end
@@ -329,7 +329,7 @@ defmodule Spf.Eval do
   end
 
   # EXISTS
-  defp evalp(ctx, [{:exists, [q, domain], _range} = term | tail]) do
+  defp evalp(ctx, [{:exists, [q, domain], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
     {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
 
@@ -342,7 +342,7 @@ defmodule Spf.Eval do
 
       {:ok, rrs} ->
         log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
-        |> addip(ctx.ip, [32, 128], {q, ctx.nth, term})
+        |> addip(ctx.ip, [32, 128], {q, ctx.nth, spf_term(ctx, range)})
     end
     |> match(term, tail)
   end
@@ -392,8 +392,8 @@ defmodule Spf.Eval do
   end
 
   # IP4/6
-  defp evalp(ctx, [{ip, [q, pfx], _range} = term | tail]) when ip in [:ip4, :ip6] do
-    addip(ctx, [pfx], [32, 128], {q, ctx.nth, term})
+  defp evalp(ctx, [{ip, [q, pfx], range} = term | tail]) when ip in [:ip4, :ip6] do
+    addip(ctx, [pfx], [32, 128], {q, ctx.nth, spf_term(ctx, range)})
     |> match(term, tail)
   end
 
@@ -416,7 +416,9 @@ defmodule Spf.Eval do
         else
           Enum.map(rrs, fn {_pref, name} -> name end)
           |> Enum.take(10)
-          |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, term}) end)
+          |> Enum.reduce(ctx, fn name, acc ->
+            evalname(acc, name, dual, {q, ctx.nth, spf_term(ctx, range)})
+          end)
           |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
         end
     end
