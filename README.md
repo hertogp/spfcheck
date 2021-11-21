@@ -31,7 +31,7 @@ Options:
 
 The default is to simply print the verdict and some stats to stdout and print
 notification messages to stderr.  `spfcheck` passes the
-[`rfc7208 test suite`](http://http://www.open-spf.org/Test_Suite)
+[`rfc7208 test suite`](http://www.open-spf.org/Test_Suite)
 and should be reasonably
 [`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html) compliant.
 
