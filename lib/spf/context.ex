@@ -72,7 +72,7 @@ defmodule Spf.Context do
   @type prefix :: Pfx.prefix()
 
   @typedoc """
-  A `{qualifier, nth, token}` tuple, where `nth` is the nth SPF record where `token` was
+  A `{qualifier, nth, term}` tuple, where `nth` is the nth SPF record where `term` was
   found.
 
   The context's ip lookup table stores these tuples thus tracking which term in
@@ -84,7 +84,7 @@ defmodule Spf.Context do
   the mechanism at hand matches.
 
   """
-  @type iptval :: {Spf.Tokens.q(), non_neg_integer, token}
+  @type iptval :: {Spf.Tokens.q(), non_neg_integer, binary}
 
   # Helpers
 

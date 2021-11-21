@@ -679,7 +679,7 @@ defmodule Spf.DNS do
 
       false ->
         Map.put(ctx, :dns, Map.put(cache, {domain, type}, [data | cached]))
-        |> log(:ipt, :debug, "ipt added {#{domain}, #{type}} -> #{inspect(data)}")
+        |> log(:dns, :debug, "added {#{domain}, #{type}} -> #{inspect(data)}")
     end
   end
 

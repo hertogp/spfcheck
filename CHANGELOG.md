@@ -7,20 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## [unreleased]
--[x] output contact email for domain as part of verdict output and csv output
 -[ ] warn for superfluous prefix lengths applicable mechanisms (i.e. /32 resp. /128)
 -[ ] create dot-file that visualizes the records (?)
--[ ] preprend current domain to messages, so a redirect to a log file shows the domain
--[ ] add warning for ?all and/or +all
--[ ] donot output %Pfx{} structs in logging
--[ ] add --logfile flag where logs are csv-fields: "domain", mnemonic, "msg"
+
+## [0.2.0] - 2021-11-21
 
 ### Changed
 - verdict output includes owner domain and contact (also in csv-output)
+- ipt logs show spf terms rather than their raw token
+- logging to stderr now shows the domain in front, so redirecting stderr to a
+  log file means the messages can be related to the domain being checked at
+  that time.
+- added warning when ?all or +all is used
+
 
 ### Fixed
 - url for rfc7208 test suite
-
+- use :dns (not :ipt) when logging dns additions to the cache
 
 ## [v0.1.1] - 2021-11-20
 - Fix url for License badge

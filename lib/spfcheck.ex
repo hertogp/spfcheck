@@ -106,7 +106,7 @@ defmodule Spfcheck do
   defp log(ctx, facility, severity, msg) do
     # log callback
     if @verbosity[severity] <= ctx.verbosity do
-      domain = "[ #{ctx.map[0]} ]"
+      domain = "#{ctx.map[0]}"
       nth = "#{ctx.nth}"
       fac = "#{facility}"
       sev = "#{severity}"
@@ -296,19 +296,13 @@ defmodule Spfcheck do
   defp topic(ctx, "p", markdown, _width) do
     if markdown, do: IO.puts("\n## Prefixes\n\n```")
     wseen = 2
-    wpfx = 39
+    width = 39
 
-    # spfs =
-    #   for n <- 0..ctx.num_spf do
-    #     {n, Context.get_spf(ctx, n)}
-    #   end
-    #   |> Enum.into(%{})
-
-    IO.puts("#  #{String.pad_trailing("Prefixes", wpfx)} Source(s)")
+    IO.puts("#  #{String.pad_trailing("Prefixes", width)} Source(s)")
 
     for {ip, v} <- Iptrie.to_list(ctx.ipt) do
       seen = String.pad_trailing("#{length(v)}", wseen)
-      pfx = "#{ip}" |> String.pad_trailing(wpfx)
+      pfx = "#{ip}" |> String.pad_trailing(width)
 
       terms =
         for {_q, _nth, donor} <- v do

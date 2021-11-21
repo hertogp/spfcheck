@@ -439,9 +439,11 @@ defmodule Spf.Parser do
     end
   end
 
-  defp parse({:all, [qual], range}, ctx),
+  defp parse({:all, [qual], range}, ctx) do
     # All
-    do: ast(ctx, {:all, [qual], range})
+    ast(ctx, {:all, [qual], range})
+    |> test(:parse, :warn, qual in [??, ?+], "usage of #{spf_term(ctx, range)} is not advisable")
+  end
 
   defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
     # Exists, Include

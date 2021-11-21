@@ -40,14 +40,14 @@ domains (and options) to check.  In this case, the verdict(s) are output on
 stdout in csv-format as each domain is (sequentially) evaluated.
 
 ```txt
-% cat domains.txt
+% cat senders.txt
 example.com
-example.net -i 1.2.3.4 -s someone@example.net
+me@example.net -i 1.2.3.4
 
 % cat domains.txt | spfcheck -v 0
-domain,ip,sender,verdict,reason,num_spf,num_dnsm,num_dnsq,num_dnsv,num_checks,num_warn,num_error,duration,explanation
-"example.com","127.0.0.1","example.com",:fail,"spf[0] -all",1,0,1,0,1,0,0,0,""
-"example.net","1.2.3.4","example.net",:fail,"spf[0] -all",1,0,1,0,1,0,0,1,""
+domain,ip,sender,verdict,reason,owner,contact,num_spf,num_dnsm,num_dnsq,num_dnsv,num_checks,num_warn,num_error,duration,explanation
+"example.com","127.0.0.1","example.com",:fail,"spf[0] -all","example.com","noc@dns.icann.org",1,0,1,0,1,0,0,1,""
+"example.net","1.2.3.4","me@example.net",:fail,"spf[0] -all","example.net","noc@dns.icann.org",1,0,1,0,1,0,0,0,""
 ```
 
 The `-d` flag can be used to either point to local file with RR-records or
@@ -74,9 +74,7 @@ num_error  : 0
 duration   : 1
 explanation: 
 
-
-Or using a file
-
+# Or using a file
 
 % cat tmp/zonedata.txt
 # comments are ignored as are empty lines
@@ -116,6 +114,36 @@ it defaults to `127.0.0.1` as an unlikely address to be authorized by anyone.
 The goal is to go down the rabbit hole as far as possible and check the entire
 nested SPF policy for given `sender`.
 
+The `--no-color` flag disables the use of colors in log messages, which is
+better when redirecting logging to a file.
+
+For example:
+
+```txt
+%cat tmp/domains.txt
+example.com
+me@example.net -i 1.2.3.4
+
+% cat tmp/domains.txt | spfcheck -v 5 --no-color 2>tmp/log.txt > tmp/checked.csv
+% cat tmp/log.txt
+example.com %spf[0]-ctx-debug:  > created context for example.com
+example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["v=spf1 -all", "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"]
+example.com %spf[0]-eval-info:  > spf[0] -all - matches
+example.com %spf[0]-dns-debug:  > added {example.com, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+example.net %spf[0]-ctx-debug:  > created context for example.net
+example.net %spf[0]-spf-note:   > spfcheck(example.net, 1.2.3.4, me@example.net)
+example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "v=spf1 -all"
+example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "5fpl1ghm7scnth0907z0pft8c79lvc8t"
+example.net %spf[0]-dns-info:   > DNS QUERY (1) txt example.net - ["5fpl1ghm7scnth0907z0pft8c79lvc8t", "v=spf1 -all"]
+example.net %spf[0]-eval-info:  > spf[0] -all - matches
+example.net %spf[0]-dns-debug:  > added {example.net, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
+example.net %spf[0]-dns-info:   > DNS QUERY (2) soa example.net - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+```
+
 The `-r` flag can be used to print out some information, topics include:
 - `v` the verdict and some statistics
 - `s` the spf records seen and their authority information
@@ -147,13 +175,13 @@ The `-v` flag controls the verbosity level of logging on stderr:
 
 ```txt
 % spfcheck example.com -v 5 --no-color
-%spf[0]-ctx-debug:  > created context for example.com
-%spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
-%spf[0]-ipt-debug:  > ipt added {example.com, txt} -> "v=spf1 -all"
-%spf[0]-ipt-debug:  > ipt added {example.com, txt} -> "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"
-%spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
-%spf[0]-spf-note:   > SPF (0): ["v=spf1 -all"]
-%spf[0]-eval-info:  > spf[0] -all - matches
+example.com %spf[0]-ctx-debug:  > created context for example.com
+example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-spf-note:   > SPF (0): ["v=spf1 -all"]
+example.com %spf[0]-eval-info:  > spf[0] -all - matches
 
 domain     : example.com
 ip         : 127.0.0.1
@@ -170,6 +198,11 @@ num_error  : 0
 duration   : 1
 explanation:
 ```
+
+Finally, the `-w` flag can be used to control the width used when printing
+information of certain topics.  Primarily meant so a markdown formatted report
+can be easily converted to pdf.  Default value is 60, but you can make it as
+wide as necessary.
 
 <!-- @MODULEDOC -->
 
@@ -188,7 +221,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.1.1"}
+    {:spfcheck, "~> 0.2.0"}
   ]
 end
 ```
