@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 ## [unreleased]
+
 - [ ] warn for superfluous prefix lengths applicable mechanisms (i.e. /32 resp. /128)
 - [ ] create dot-file that visualizes the records (?)
 - [ ] add spf domain when warning about string length exceeding 512 characters
