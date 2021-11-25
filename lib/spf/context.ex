@@ -90,18 +90,15 @@ defmodule Spf.Context do
 
   @spec ipt_update({prefix, iptval}, t) :: t
   defp ipt_update({k, v}, ctx) do
-    data = Iptrie.lookup(ctx.ipt, k)
     ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
-
-    seen_before =
-      case data do
-        nil -> false
-        {k2, _v} -> not Pfx.member?(ctx.ip, k2)
-      end
+    {k, values} = Iptrie.lookup(ipt, k)
+    seen_before = length(values) > 1
+    numq = Enum.map(values, &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
 
     Map.put(ctx, :ipt, ipt)
     |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
-    |> test(:ipt, :warn, seen_before, "#{k} seen before: #{inspect(data)}")
+    |> test(:ipt, :warn, seen_before, "#{length(values)} entries for #{k} -> #{inspect(values)}")
+    |> test(:ipt, :warn, numq > 1, "inconsistent entries for #{k} -> #{inspect(values)}")
   end
 
   @spec prefix(binary, [non_neg_integer]) :: :error | prefix

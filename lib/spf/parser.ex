@@ -304,8 +304,11 @@ defmodule Spf.Parser do
   @spec check(context, atom) :: context
   defp check(ctx, :spf_length) do
     case String.length(ctx.spf) do
-      len when len > 512 -> log(ctx, :parse, :warn, "SPF string length #{len} > 512 characters")
-      _ -> ctx
+      len when len > 512 ->
+        log(ctx, :parse, :warn, "#{ctx.domain} - SPF TXT length #{len} > 512 characters")
+
+      _ ->
+        ctx
     end
   end
 

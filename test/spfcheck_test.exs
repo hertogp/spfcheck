@@ -359,4 +359,40 @@ defmodule SpfcheckTest do
       assert ctx.verdict == verdict, msg
     end
   end
+
+  describe "warnings about inconsistent entries" do
+    test "001 - detect multiple, inconsistent entries" do
+      zonedata = """
+      example.com TXT v=spf1 -a +a -mx +mx -ip4:10.10.10.10 +ip4:10.10.10.10
+      example.com A 10.10.10.10
+      example.com MX 10 mail.example.com
+      mail.example.com A 11.11.11.11
+      """
+
+      ctx = Spf.check("someone@example.com", dns: zonedata)
+
+      warnings =
+        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
+        |> Enum.map(fn {_, _, _, msg} -> msg end)
+        |> Enum.filter(&String.contains?(&1, "inconsistent"))
+
+      assert length(warnings) > 0
+    end
+
+    test "002 - detect multiple, inconsistent entries across SPF's" do
+      zonedata = """
+      example.com   TXT v=spf1 -ip4:10.10.10.10 include:a.example.com -all
+      a.example.com TXT v=spf1 ip4:10.10.10.10
+      """
+
+      ctx = Spf.check("someone@example.com", dns: zonedata)
+
+      warnings =
+        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
+        |> Enum.map(fn {_, _, _, msg} -> msg end)
+        |> Enum.filter(&String.contains?(&1, "inconsistent"))
+
+      assert length(warnings) > 0
+    end
+  end
 end
