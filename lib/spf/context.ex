@@ -161,12 +161,12 @@ defmodule Spf.Context do
   at a later stage.
 
   """
-  @spec error(t, atom, binary, nil | atom) :: t
-  def error(context, error, reason, verdict \\ nil) do
+  @spec error(t, atom, atom, binary, nil | atom) :: t
+  def error(context, facility, error, reason, verdict \\ nil) do
     Map.put(context, :error, error)
     |> Map.put(:reason, reason)
     |> Map.put(:verdict, verdict || context.verdict)
-    |> log(:eval, :error, reason)
+    |> log(facility, :error, reason)
   end
 
   @doc """

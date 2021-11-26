@@ -145,13 +145,25 @@ defmodule Spf.Eval do
     if ctx.nth == 0 do
       ctx =
         if ctx.num_dnsm > ctx.max_dnsm do
-          error(ctx, :too_many_dnsm, "too many DNS mechanisms used (#{ctx.num_dnsm})", :permerror)
+          error(
+            ctx,
+            :eval,
+            :too_many_dnsm,
+            "too many DNS mechanisms used (#{ctx.num_dnsm})",
+            :permerror
+          )
         else
           ctx
         end
 
       if ctx.num_dnsv > ctx.max_dnsv do
-        error(ctx, :too_many_dnsv, "too many VOID DNS queries seen (#{ctx.num_dnsv})", :permerror)
+        error(
+          ctx,
+          :eval,
+          :too_many_dnsv,
+          "too many VOID DNS queries seen (#{ctx.num_dnsv})",
+          :permerror
+        )
       else
         ctx
       end
@@ -241,7 +253,7 @@ defmodule Spf.Eval do
           ctx
 
         {:error, reason} ->
-          error(ctx, :illegal_domain, "domain error (#{reason})", :none)
+          error(ctx, :eval, :illegal_domain, "domain error (#{reason})", :none)
       end
     end
   end
@@ -253,30 +265,36 @@ defmodule Spf.Eval do
 
     case Spf.DNS.filter(result, &spf?/1) do
       {:ok, []} ->
-        error(ctx, :no_spf, "no SPF record found", :none)
+        error(ctx, :eval, :no_spf, "no SPF record found", :none)
 
       {:ok, [spf]} ->
         if ascii?(spf),
           do: Map.put(ctx, :spf, spf),
-          else: error(ctx, :non_ascii_spf, "SPF contains non-ascii characters", :permerror)
+          else: error(ctx, :eval, :non_ascii_spf, "SPF contains non-ascii characters", :permerror)
 
       {:ok, list} ->
-        error(ctx, :too_many_spf, "too many SPF records found (#{length(list)})", :permerror)
+        error(
+          ctx,
+          :eval,
+          :too_many_spf,
+          "too many SPF records found (#{length(list)})",
+          :permerror
+        )
 
       {:error, :timeout} ->
-        error(ctx, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
+        error(ctx, :eval, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
 
       {:error, :servfail} ->
-        error(ctx, :servfail, "txt #{ctx.domain} - DNS error (servfail)", :temperror)
+        error(ctx, :eval, :servfail, "txt #{ctx.domain} - DNS error (servfail)", :temperror)
 
       {:error, :nxdomain} ->
-        error(ctx, :nxdomain, "txt #{ctx.domain} - DNS error (nxdomain)", :none)
+        error(ctx, :eval, :nxdomain, "txt #{ctx.domain} - DNS error (nxdomain)", :none)
 
       {:error, :zero_answers} ->
-        error(ctx, :zero_answers, "txt #{ctx.domain} - DNS error (zero answers)", :none)
+        error(ctx, :eval, :zero_answers, "txt #{ctx.domain} - DNS error (zero answers)", :none)
 
       {:error, :illegal_name} ->
-        error(ctx, :illegal_name, "txt #{ctx.domain} - DNS error (illegal name)", :none)
+        error(ctx, :eval, :illegal_name, "txt #{ctx.domain} - DNS error (illegal name)", :none)
 
       {:error, reason} ->
         Map.put(ctx, :error, reason)
@@ -311,7 +329,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         addip(ctx, rrs, dual, {q, ctx.nth, spf_term(ctx, range)})
@@ -338,7 +356,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
@@ -353,6 +371,7 @@ defmodule Spf.Eval do
     if loop?(ctx, domain) do
       error(
         ctx,
+        :eval,
         :loop,
         "loop detected: #{ctx.domain} cannot include #{domain}",
         :permerror
@@ -362,12 +381,12 @@ defmodule Spf.Eval do
         log(ctx, :eval, :note, "#{spf_term(ctx, range)} - recurse")
         |> push(domain)
         |> evaluate()
+        |> tap(&log(&1, :eval, :note, "#{spf_term(ctx, range)} - verdict #{&1.verdict}"))
 
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
-          ctx = pop(ctx)
-
-          log(ctx, :eval, :info, "#{spf_term(ctx, range)} - no match")
+          pop(ctx)
+          |> tap(&log(&1, :eval, :info, "#{spf_term(&1, range)} - no match"))
           |> evalp(tail)
 
         :pass ->
@@ -380,7 +399,7 @@ defmodule Spf.Eval do
 
         v when v in [:none, :permerror] ->
           ctx = pop(ctx)
-          error(ctx, :include, "#{spf_term(ctx, range)} - permanent error", :permerror)
+          error(ctx, :eval, :include, "#{spf_term(ctx, range)} - permanent error", :permerror)
 
         :temperror ->
           ctx = pop(ctx)
@@ -407,12 +426,18 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         if length(rrs) > 10 do
           # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
-          error(ctx, :too_many_mtas, "too many mta's for #{spf_term(ctx, range)}", :permerror)
+          error(
+            ctx,
+            :eval,
+            :too_many_mtas,
+            "too many mta's for #{spf_term(ctx, range)}",
+            :permerror
+          )
         else
           Enum.map(rrs, fn {_pref, name} -> name end)
           |> Enum.take(10)
@@ -437,7 +462,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         # https://www.rfc-editor.org/errata/eid5227
@@ -452,7 +477,7 @@ defmodule Spf.Eval do
   # REDIRECT
   defp evalp(ctx, [{:redirect, [:einvalid], range} | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
-    error(ctx, :no_redir_domain, "#{spf_term(ctx, range)} - invalid domain", :permerror)
+    error(ctx, :eval, :no_redir_domain, "#{spf_term(ctx, range)} - invalid domain", :permerror)
   end
 
   defp evalp(ctx, [{:redirect, [domain], range} | tail]) do
@@ -463,6 +488,7 @@ defmodule Spf.Eval do
     if loop?(ctx, domain) do
       error(
         ctx,
+        :eval,
         :loop,
         "loop detected: #{ctx.domain} cannot redirect to #{domain}",
         :permerror
@@ -475,7 +501,7 @@ defmodule Spf.Eval do
         |> evaluate()
 
       if ctx.error in [:no_spf, :nxdomain] do
-        error(ctx, :no_redir_spf, "no SPF found for #{domain}", :permerror)
+        error(ctx, :eval, :no_redir_spf, "no SPF found for #{domain}", :permerror)
       else
         ctx
       end

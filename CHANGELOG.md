@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - added SPF domain name in warning when exceeding 512 characters
 - seen before warning changed into multiple entries warning
+- Spf.Context.error function takes facility instead of defaulting to :eval
 
 ### added
 
