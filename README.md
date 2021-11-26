@@ -38,7 +38,11 @@ and should be reasonably
 [`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html) compliant.
 
 ```txt
-% spfcheck example.com -v 0 --no-color
+% spfcheck example.com --no-color
+example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-eval-note:  > spf[0] -all - matches
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
 
 domain     : example.com
 ip         : 127.0.0.1
@@ -54,7 +58,7 @@ num_dnsv   : 0
 num_checks : 1
 num_warn   : 0
 num_error  : 0
-duration   : 1
+duration   : 0
 explanation:
 ```
 
