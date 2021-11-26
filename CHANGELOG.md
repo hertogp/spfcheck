@@ -8,7 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] create dot-file that visualizes the records (?)
+- [ ] add flags to customize title & author in markdown's metadata
+- [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
+
+
+## [v0.3.0] - 2021-11-26
 
 ### changed
 

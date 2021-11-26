@@ -12,6 +12,8 @@
 
 `spfcheck` is a command line tool to examine and debug SPF records.
 
+## Usage
+
 ```txt
 Usage: spfcheck [options] [sender ...]
 
@@ -35,6 +37,29 @@ notification messages to stderr.  `spfcheck` passes the
 and should be reasonably
 [`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html) compliant.
 
+```txt
+% spfcheck example.com -v 0 --no-color
+
+domain     : example.com
+ip         : 127.0.0.1
+sender     : example.com
+verdict    : fail
+reason     : spf[0] -all
+owner      : example.com
+contact    : noc@dns.icann.org
+num_spf    : 1
+num_dnsm   : 0
+num_dnsq   : 1
+num_dnsv   : 0
+num_checks : 1
+num_warn   : 0
+num_error  : 0
+duration   : 1
+explanation:
+```
+
+## Batchmode
+
 If no `sender` is given on the command line, `spfcheck` will read stdin for the
 domains (and options) to check.  In this case, the verdict(s) are output on
 stdout in csv-format as each domain is (sequentially) evaluated.
@@ -50,6 +75,8 @@ domain,ip,sender,verdict,reason,owner,contact,num_spf,num_dnsm,num_dnsq,num_dnsv
 "example.net","1.2.3.4","me@example.net",:fail,"spf[0] -all","example.net","noc@dns.icann.org",1,0,1,0,1,0,0,0,""
 ```
 
+## DNS flag
+
 The `-d` flag can be used to either point to local file with RR-records or
 specify DNS data on the command line.  If the file exists, it is read and used
 to prepopulate the cache. Otherwise, the text will be read as DNS data.  This
@@ -59,6 +86,7 @@ format. All `domain`'s are taken to be relative to root ('.').
 
 ```txt
 % spfcheck example.com -v 0 -d "example.com TXT v=spf1 +all"
+
 domain     : example.com
 ip         : 127.0.0.1
 sender     : example.com
@@ -72,7 +100,7 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 1
-explanation: 
+explanation:
 
 # Or using a file
 
@@ -84,6 +112,7 @@ example.com     TXT  just another txt record
 why.example.com TXT  %{d}: %{i} is not one of our MTAs
 
 % spfcheck example.com -v 0 -d tmp/zonedata.txt
+
 domain     : example.com
 ip         : 127.0.0.1
 sender     : example.com
@@ -105,14 +134,20 @@ queries performed (dnsq) and the number of void dns queries seen (dnsv).
 If the evaluation took more than `10` dns mechanisms, the verdict is modified
 accordingly.
 
+## Helo flag
+
 The `-h` allows for setting the EHLO domain name and defaults to given
 `sender`.  Note that `spfcheck` only checks SPF for `sender`, so this is only
 useful when checking the expansion of the `%{h}`-macro in a policy.
+
+## Ip flag
 
 The `-i` flag is used to set sender's IP to either an IPv4 or an IPv6 address,
 it defaults to `127.0.0.1` as an unlikely address to be authorized by anyone.
 The goal is to go down the rabbit hole as far as possible and check the entire
 nested SPF policy for given `sender`.
+
+## No color
 
 The `--no-color` flag disables the use of colors in log messages, which is
 better when redirecting logging to a file.
@@ -144,6 +179,8 @@ example.net %spf[0]-dns-debug:  > added {example.net, soa} -> {"ns.icann.org", "
 example.net %spf[0]-dns-info:   > DNS QUERY (2) soa example.net - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
 ```
 
+## Report flag
+
 The `-r` flag can be used to print out some information, topics include:
 - `v` the verdict and some statistics
 - `s` the spf records seen and their authority information
@@ -164,6 +201,8 @@ In case no `-r` flag is used, spfcheck will simply print out the verdict.
 
 Here, the SPF section lists all SPF records seen along with the authoritative
 domain and its DNS admin email.
+
+## Verbosity flag
 
 The `-v` flag controls the verbosity level of logging on stderr:
 - 0 - no messages at all
@@ -199,6 +238,8 @@ duration   : 1
 explanation:
 ```
 
+## Width flag
+
 Finally, the `-w` flag can be used to control the width used when printing
 information of certain topics.  Primarily meant so a markdown formatted report
 can be easily converted to pdf.  Default value is 60, but you can make it as
@@ -221,7 +262,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.2.0"}
+    {:spfcheck, "~> 0.3.0"}
   ]
 end
 ```
