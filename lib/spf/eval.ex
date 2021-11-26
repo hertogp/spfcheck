@@ -417,6 +417,7 @@ defmodule Spf.Eval do
   defp evalp(ctx, [{:mx, [q, domain, dual], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.4
     {ctx, dns} = DNS.resolve(ctx, domain, type: :mx)
+    spfterm = spf_term(ctx, range)
 
     case dns do
       {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
@@ -425,24 +426,19 @@ defmodule Spf.Eval do
       {:error, reason} ->
         error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
 
+      {:ok, [{0, "."}]} ->
+        # https://www.rfc-editor.org/rfc/rfc7505.html#section-3
+        log(ctx, :eval, :warn, "#{spfterm} - unusable due to null MX for #{domain}")
+
+      {:ok, rrs} when length(rrs) > 10 ->
+        # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
+        error(ctx, :eval, :too_many_mtas, "too many mta's for #{spfterm}", :permerror)
+
       {:ok, rrs} ->
-        if length(rrs) > 10 do
-          # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
-          error(
-            ctx,
-            :eval,
-            :too_many_mtas,
-            "too many mta's for #{spf_term(ctx, range)}",
-            :permerror
-          )
-        else
-          Enum.map(rrs, fn {_pref, name} -> name end)
-          |> Enum.take(10)
-          |> Enum.reduce(ctx, fn name, acc ->
-            evalname(acc, name, dual, {q, ctx.nth, spf_term(ctx, range)})
-          end)
-          |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
-        end
+        Enum.map(rrs, fn {_pref, name} -> name end)
+        |> Enum.take(10)
+        |> Enum.reduce(ctx, fn name, acc -> evalname(acc, name, dual, {q, ctx.nth, spfterm}) end)
+        |> log(:dns, :debug, "MX #{domain} #{inspect({q, ctx.nth, term})} added")
     end
     |> match(term, tail)
   end

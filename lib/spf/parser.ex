@@ -138,14 +138,24 @@ defmodule Spf.Parser do
     end
   end
 
-  @spec cidr([] | token) :: list | :einvalid
-  defp cidr([]),
-    do: [32, 128]
+  @spec cidr(context, [] | token) :: {atom, list} | {:error, :einvalid}
+  defp cidr(_ctx, []),
+    do: {:ok, [32, 128]}
 
-  defp cidr({:dual_cidr, [len4, len6], _range}) do
-    if len4 in 0..32 and len6 in 0..128,
-      do: [len4, len6],
-      else: :einvalid
+  defp cidr(ctx, {:dual_cidr, [len4, len6], range}) do
+    term = spf_term(ctx, range)
+
+    if len4 in 0..32 and len6 in 0..128 do
+      cond do
+        len4 == 0 -> {:wzero_mask, [len4, len6]}
+        len6 == 0 -> {:wzero_mask, [len4, len6]}
+        len4 == 32 and String.match?(term, ~r/^\/32/) -> {:wmax_mask, [len4, len6]}
+        len6 == 128 and String.match?(term, ~r/128$/) -> {:wmax_mask, [len4, len6]}
+        true -> {:ok, [len4, len6]}
+      end
+    else
+      {:error, :einvalid}
+    end
   end
 
   @spec drop_labels(binary) :: binary
@@ -279,21 +289,35 @@ defmodule Spf.Parser do
     end
   end
 
-  @spec pfxparse(binary, atom) :: {:ok, Pfx.t()} | {:error, binary}
+  @spec pfxparse(binary, atom) :: {atom, Pfx.t()} | {:error, binary}
   defp pfxparse(pfx, :ip4) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.6
     leadzero = String.match?(pfx, ~r/(^|[\.\/])0[0-9]/)
     fournums = String.match?(pfx, ~r/^\d+\.\d+\.\d+\.\d+/)
 
+    warn =
+      cond do
+        String.match?(pfx, ~r/\/0$/) -> :wzero_mask
+        String.match?(pfx, ~r/\/32$/) -> :wmax_mask
+        true -> :ok
+      end
+
     if fournums and not leadzero,
-      do: {:ok, Pfx.new(pfx)},
+      do: {warn, Pfx.new(pfx)},
       else: {:error, pfx}
   rescue
     _ -> {:error, pfx}
   end
 
   defp pfxparse(pfx, :ip6) do
-    {:ok, Pfx.new(pfx)}
+    warn =
+      cond do
+        String.match?(pfx, ~r/\/0$/) -> :wzero_mask
+        String.match?(pfx, ~r/\/128$/) -> :wmax_mask
+        true -> :ok
+      end
+
+    {warn, Pfx.new(pfx)}
   rescue
     _ -> {:error, pfx}
   end
@@ -429,17 +453,19 @@ defmodule Spf.Parser do
     domain = expand(ctx, spec)
 
     dual = List.keyfind(args, :dual_cidr, 0, [])
-    cidr = cidr(dual)
+    {warn, cidr} = cidr(ctx, dual)
 
     term = spf_term(ctx, range)
 
-    if domain == :einvalid or cidr == :einvalid do
+    if domain == :einvalid or warn == :error do
       error(ctx, :parse, :syntax_error, "syntax error #{term}", :permerror)
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
-      |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+      |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
+      |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
+      |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
     end
   end
 
@@ -461,7 +487,7 @@ defmodule Spf.Parser do
         ast(ctx, {atom, [qual, domain], range})
         |> tick(:num_dnsm)
         |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
-        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
   end
 
@@ -475,18 +501,22 @@ defmodule Spf.Parser do
 
       domain ->
         ast(ctx, {:exp, [domain], range})
-        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
   end
 
   defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
     # IP4, IP6
-    case pfxparse(ip, atom) do
-      {:ok, pfx} ->
-        ast(ctx, {atom, [qual, pfx], range})
+    term = spf_term(ctx, range)
 
+    case pfxparse(ip, atom) do
       {:error, _} ->
-        error(ctx, :parse, :syntax_error, "syntax error for #{spf_term(ctx, range)}", :permerror)
+        error(ctx, :parse, :syntax_error, "syntax error for #{term}", :permerror)
+
+      {warn, pfx} ->
+        ast(ctx, {atom, [qual, pfx], range})
+        |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
+        |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
     end
   end
 
@@ -504,7 +534,7 @@ defmodule Spf.Parser do
         |> tick(:num_dnsm)
         |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
         |> log(:parse, :warn, "#{term} ** usage is not recommended")
-        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
   end
 
@@ -520,7 +550,7 @@ defmodule Spf.Parser do
         ast(ctx, {:redirect, [domain], range})
         |> tick(:num_dnsm)
         |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
-        |> test(:parse, :debug, not String.contains?(term, domain), "MACRO expansion - #{domain}")
+        |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
   end
 

@@ -395,4 +395,51 @@ defmodule SpfcheckTest do
       assert length(warnings) > 0
     end
   end
+
+  describe "warnings about prefix lengths" do
+    test "001 - warn about a/mx/ip4/ip6-mech's with zero prefix" do
+      zonedata = """
+      example.com   TXT v=spf1 a/0 mx/0 ip4:1.1.1.1/0 ip6:acdc::/0 -all
+      """
+
+      ctx = Spf.check("someone@example.com", dns: zonedata)
+
+      warnings =
+        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
+        |> Enum.map(fn {_, _, _, msg} -> msg end)
+        |> Enum.filter(&String.contains?(&1, "ZERO"))
+
+      assert length(warnings) == 4
+    end
+
+    test "002 - warn about a/mx-mech's with macros and zero prefix" do
+      zonedata = """
+      example.com   TXT v=spf1 a:%{d}/0 mx:%{d}/0 -all
+      """
+
+      ctx = Spf.check("someone@example.com", dns: zonedata)
+
+      warnings =
+        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
+        |> Enum.map(fn {_, _, _, msg} -> msg end)
+        |> Enum.filter(&String.contains?(&1, "ZERO"))
+
+      assert length(warnings) == 2
+    end
+
+    test "003 - warn about a/mx/ip4/ip6-mech's with max len4 prefix" do
+      zonedata = """
+      example.com   TXT v=spf1 a/32 mx/32 ip4:1.1.1.1/32 ip6:acdc::/128 -all
+      """
+
+      ctx = Spf.check("someone@example.com", dns: zonedata)
+
+      warnings =
+        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
+        |> Enum.map(fn {_, _, _, msg} -> msg end)
+        |> Enum.filter(&String.contains?(&1, "default mask"))
+
+      assert length(warnings) > 0
+    end
+  end
 end

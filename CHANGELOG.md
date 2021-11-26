@@ -8,18 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] warn for superfluous prefix lengths applicable mechanisms (i.e. /32 resp. /128)
 - [ ] create dot-file that visualizes the records (?)
 
 ### changed
 
-- added SPF domain name in warning when exceeding 512 characters
-- seen before warning changed into multiple entries warning
-- Spf.Context.error function takes facility instead of defaulting to :eval
+- warning when exceeding 512 chars now shows offending SPF domain name
+- "seen before"-warning changed into "multiple entries"-warning (less confusing)
+- parser errors now correctly logged as :parse-errors instead of :eval-errors
 
 ### added
 
 - warning about inconsistent qualifiers in case of multiple entries
+- warning about mx used while domain has null MX record
+- warning for superfluous prefix lengths (/32 resp. /128)
+- warning for zero prefix lengths (/0)
 
 
 ## [v0.2.0] - 2021-11-21
