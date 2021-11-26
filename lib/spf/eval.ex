@@ -340,7 +340,7 @@ defmodule Spf.Eval do
   # All
   defp evalp(ctx, [{:all, [q], range} = _term | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
-    log(ctx, :eval, :info, "#{spf_term(ctx, range)} - matches")
+    log(ctx, :eval, :note, "#{spf_term(ctx, range)} - matches")
     |> tick(:num_checks)
     |> Map.put(:verdict, qualify(q))
     |> Map.put(:reason, "#{spf_term(ctx, range)}")
@@ -367,7 +367,8 @@ defmodule Spf.Eval do
 
   # INCLUDE
   defp evalp(ctx, [{:include, [q, domain], range} = _term | tail]) do
-    # if ctx.map[domain] do
+    term = spf_term(ctx, range)
+
     if loop?(ctx, domain) do
       error(
         ctx,
@@ -378,34 +379,30 @@ defmodule Spf.Eval do
       )
     else
       ctx =
-        log(ctx, :eval, :note, "#{spf_term(ctx, range)} - recurse")
+        log(ctx, :eval, :note, "#{term} - recurse")
         |> push(domain)
         |> evaluate()
-        |> tap(&log(&1, :eval, :note, "#{spf_term(ctx, range)} - verdict #{&1.verdict}"))
+        |> then(&log(&1, :eval, :note, "spf[#{&1.nth}] verdict #{&1.verdict}"))
 
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
           pop(ctx)
-          |> tap(&log(&1, :eval, :info, "#{spf_term(&1, range)} - no match"))
+          |> log(:eval, :note, "#{term} - no match")
           |> evalp(tail)
 
         :pass ->
-          ctx = pop(ctx)
-
-          ctx
+          pop(ctx)
           |> Map.put(:verdict, qualify(q))
-          |> log(:eval, :info, "#{spf_term(ctx, range)} - match")
-          |> Map.put(:reason, "#{spf_term(ctx, range)} - matched")
+          |> log(:eval, :note, "#{term} - match")
+          |> Map.put(:reason, "#{term} - matched")
 
         v when v in [:none, :permerror] ->
-          ctx = pop(ctx)
-          error(ctx, :eval, :include, "#{spf_term(ctx, range)} - permanent error", :permerror)
+          pop(ctx)
+          |> error(:eval, :include, "#{term} - permanent error", :permerror)
 
         :temperror ->
-          ctx = pop(ctx)
-
-          ctx
-          |> log(:eval, :warn, "#{spf_term(ctx, range)} - temp error")
+          pop(ctx)
+          |> log(:eval, :warn, "#{term} - temp error")
       end
     end
   end

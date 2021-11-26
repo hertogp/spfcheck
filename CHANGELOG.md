@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### added
 
-- case of multiple entries, warn about inconsistencies (if any)
+- warning about inconsistent qualifiers in case of multiple entries
 
 
 ## [v0.2.0] - 2021-11-21
