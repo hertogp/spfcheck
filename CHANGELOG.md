@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+- [ ] add warning when a new prefix has a supernet parent
+- [ ] add warning when a new prefix has a supernet parent and are inconsistent
+- [ ] add debug logging during context creation
 - [ ] add flags to customize title & author in markdown's metadata
 - [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
 

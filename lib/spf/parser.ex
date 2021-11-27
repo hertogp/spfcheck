@@ -507,6 +507,9 @@ defmodule Spf.Parser do
 
   defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
     # IP4, IP6
+    # TODO: have ip4/6 tokens as {:ip4/6, [qual, [ip, {:dual_cidr, .., ..}]], range}
+    # TODO: have only cidr() check/warn for prefix lengths, eliminate that
+    # check in pfxparse() (DRY principle)
     term = spf_term(ctx, range)
 
     case pfxparse(ip, atom) do
