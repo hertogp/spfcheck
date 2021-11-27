@@ -143,8 +143,8 @@ explanation: example.com: 127.0.0.1 is not one of our MTAs
 
 `spfcheck` counts the number of dns mechanisms seen (dnsm), the number of
 queries performed (dnsq) and the number of void dns queries seen (dnsv).
-If the evaluation took more than `10` dns mechanisms, the verdict is modified
-accordingly.
+If the evaluation took more than `10` dns mechanisms or saw more than `2`
+void DNS lookups, the verdict is modified accordingly.
 
 ## Helo flag
 
