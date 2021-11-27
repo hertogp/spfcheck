@@ -104,24 +104,27 @@ ip         : 127.0.0.1
 sender     : example.com
 verdict    : pass
 reason     : spf[0] +all
+owner      : example.com
+contact    : noc@dns.icann.org
 num_spf    : 1
 num_dnsm   : 0
 num_dnsq   : 1
 num_dnsv   : 0
 num_checks : 1
-num_warn   : 0
+num_warn   : 1
 num_error  : 0
-duration   : 1
+duration   : 0
 explanation:
+
 
 # Or using a file
 
 % cat tmp/zonedata.txt
 # comments are ignored as are empty lines
 
-example.com     TXT  v=spf1 -all exp=why.%{d}
-example.com     TXT  just another txt record
-why.example.com TXT  %{d}: %{i} is not one of our MTAs
+example.com TXT v=spf1 -all exp=why.%{d}
+example.com TXT just another txt record
+why.example.com TXT %{d}: %{i} is not one of our MTA's
 
 % spfcheck example.com -v 0 -d tmp/zonedata.txt
 
@@ -130,6 +133,8 @@ ip         : 127.0.0.1
 sender     : example.com
 verdict    : fail
 reason     : spf[0] -all
+owner      : example.com
+contact    : noc@dns.icann.org
 num_spf    : 1
 num_dnsm   : 0
 num_dnsq   : 2
@@ -138,13 +143,15 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 1
-explanation: example.com: 127.0.0.1 is not one of our MTAs
+explanation: example.com: 127.0.0.1 is not one of our MTA's
 ```
 
 `spfcheck` counts the number of dns mechanisms seen (dnsm), the number of
 queries performed (dnsq) and the number of void dns queries seen (dnsv).
 If the evaluation took more than `10` dns mechanisms or saw more than `2`
-void DNS lookups, the verdict is modified accordingly.
+void DNS lookups, the verdict is modified accordingly.  The soa queries
+used to retrieve/find the owner and contact information are not included
+in the dns counters.
 
 ## Helo flag
 
