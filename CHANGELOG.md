@@ -8,6 +8,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+- [ ] add flag to customize which dns server(s) to use
+- [ ] add flags to customize title & author in markdown's metadata
+- [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
 
 ### changed
 
@@ -19,9 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [x] unreachable-warning when new prefix is subnet of an existing supernet
 - [x] overlapping-warning when new prefix is supernet of an existing subnet
 - [x] "inconsistent qualifiers" for overlapping prefixes
-- [ ] add debug logging during context creation
-- [ ] add flags to customize title & author in markdown's metadata
-- [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
+- [x] add info/debug logging during context creation
 
 
 ## [v0.3.0] - 2021-11-26

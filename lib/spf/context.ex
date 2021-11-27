@@ -337,20 +337,21 @@ defmodule Spf.Context do
     # note: check validity of user supplied IP address, default to 127.0.0.1
     ip = Keyword.get(opts, :ip, "127.0.0.1")
 
-    pfx =
+    {ipinvalid, pfx} =
       try do
-        Pfx.new(ip)
+        {false, Pfx.new(ip)}
       rescue
-        ArgumentError -> Pfx.new("127.0.0.1")
+        ArgumentError -> {true, Pfx.new("127.0.0.1")}
       end
 
-    # extract IPv4 address from an IPv4-mapped IPv6 address
-    pfx =
-      if Pfx.member?(pfx, "::FFFF:0:0/96"),
-        do: Pfx.cut(pfx, -1, -32),
-        else: pfx
+    {xtracted, pfx} =
+      case Pfx.member?(pfx, "::FFFF:0:0/96") do
+        true -> {true, Pfx.cut(pfx, -1, -32)}
+        false -> {false, pfx}
+      end
 
-    atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
+    # atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
+    atype = if pfx.maxlen == 32, do: :a, else: :aaaa
 
     %{
       ast: [],
@@ -395,7 +396,22 @@ defmodule Spf.Context do
       verdict: :neutral
     }
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
-    |> log(:ctx, :debug, "created context for #{domain}")
+    |> log(:ctx, :info, "sender is '#{sender}'")
+    |> log(:ctx, :info, "local part set to '#{local}'")
+    |> log(:ctx, :info, "domain part set to '#{domain}'")
+    |> log(:ctx, :info, "ip is '#{pfx}'")
+    |> test(:ctx, :error, ipinvalid, "ip '#{ip}' is invalid, defaults to '#{pfx}'")
+    |> test(:ctx, :note, xtracted, "'#{pfx}' was extracted from IPv4-mapped IPv6 address '#{ip}'")
+    |> log(:ctx, :debug, "atype set to '#{atype}'")
+    |> log(:ctx, :info, "helo set to '#{helo}'")
+    |> test(:ctx, :debug, helo == sender, "helo defaults to sender value")
+    |> then(&log(&1, :ctx, :info, "DNS cache preloaded with #{map_size(&1.dns)} entrie(s)"))
+    |> then(&log(&1, :ctx, :info, "verbosity level #{&1.verbosity}"))
+    |> then(&log(&1, :ctx, :debug, "DNS timeout set to #{&1.dns_timeout}"))
+    |> then(&log(&1, :ctx, :debug, "max DNS mechanisms set to #{&1.max_dnsm}"))
+    |> then(&log(&1, :ctx, :debug, "max void DNS lookups set to #{&1.max_dnsv}"))
+    |> then(&log(&1, :ctx, :debug, "verdict defaults to '#{&1.verdict}'"))
+    |> log(:ctx, :info, "created context for '#{domain}'")
     |> log(:spf, :note, "spfcheck(#{domain}, #{pfx}, #{sender})")
   end
 
