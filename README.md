@@ -167,6 +167,7 @@ The goal is to go down the rabbit hole as far as possible and check the entire
 nested SPF policy for given `sender`.  Notes:
 - if given an IPv4-mapped IPv6 address, the IPv4 address is extracted and used
 - if given IP address is invalid, it defaults to 127.0.0.1
+- the given ip may also be a prefix rather than a full address
 
 ```txt
 % spfcheck example.com --no-color -i "::ffff:1.2.3.4"
@@ -189,6 +190,39 @@ ip         : 1.2.3.4
 sender     : example.com
 verdict    : fail
 reason     : spf[0] -all
+owner      : example.com
+contact    : noc@dns.icann.org
+num_spf    : 1
+num_dnsm   : 0
+num_dnsq   : 1
+num_dnsv   : 0
+num_checks : 1
+num_warn   : 0
+num_error  : 0
+duration   : 0
+explanation:
+
+# or check for some prefix
+
+% spfcheck example.com -i 1.1.255.0/24 -d "example.com txt v=spf1 ip4:1.1.0.0/16 -all" --no-color
+example.com %spf[0]-ctx-info:   > sender is 'example.com'
+example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
+example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
+example.com %spf[0]-ctx-info:   > ip is '1.1.255.0/24'
+example.com %spf[0]-ctx-info:   > helo set to 'example.com'
+example.com %spf[0]-ctx-info:   > DNS cache preloaded with 1 entrie(s)
+example.com %spf[0]-ctx-info:   > verbosity level 4
+example.com %spf[0]-ctx-info:   > created context for 'example.com'
+example.com %spf[0]-spf-note:   > spfcheck(example.com, 1.1.255.0/24, example.com)
+example.com %spf[0]-dns-info:   > DNS QUERY (1) [cache] txt example.com - ["v=spf1 ip4:1.1.0.0/16 -all"]
+example.com %spf[0]-eval-note:  > spf[0] ip4:1.1.0.0/16 - matches 1.1.255.0/24
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+
+domain     : example.com
+ip         : 1.1.255.0/24
+sender     : example.com
+verdict    : pass
+reason     : spf[0] ip4:1.1.0.0/16
 owner      : example.com
 contact    : noc@dns.icann.org
 num_spf    : 1
