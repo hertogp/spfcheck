@@ -342,7 +342,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.3.0"}
+    {:spfcheck, "~> 0.4.0"}
   ]
 end
 ```

@@ -8,21 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] add flag to customize which dns server(s) to use
+- [ ] add flag to customize which nameserver to use
 - [ ] add flags to customize title & author in markdown's metadata
 - [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
 
+## [v0.4.0] - 2021-11-27
+
 ### changed
 
-- [x] prefixes are stored on exact match, not longest prefix match
-- [x] multiple entries warning now means the exact same prefix was seen multiple times
+- prefixes are stored on exact match, not longest prefix match
+- multiple entries warning now means the exact same prefix was seen multiple times
 
 ### added
 
-- [x] unreachable-warning when new prefix is subnet of an existing supernet
-- [x] overlapping-warning when new prefix is supernet of an existing subnet
-- [x] inconsistent-warning for overlapping prefixes having different qualifiers
-- [x] notifications during context creation
+- unreachable-warning when new prefix is subnet of an existing supernet
+- overlapping-warning when new prefix is supernet of an existing subnet
+- inconsistent-warning for overlapping prefixes having different qualifiers
+- notifications during context creation
 
 
 ## [v0.3.0] - 2021-11-26
