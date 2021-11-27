@@ -12,13 +12,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### changed
 
 - [x] prefixes are stored on exact match, not longest prefix match
-- [x] "multiple entries" now means the exact same prefix was seen multiple times
+- [x] multiple entries warning now means the exact same prefix was seen multiple times
 
 ### added
 
-- [ ] "unreachable term"-warning when new prefix is subnet of an existing supernet
-- [ ] "overlapping term"-warning when new prefix is supernet of an existing subnet
-- [ ] "inconsistent qualifiers" for overlapping prefixes
+- [x] unreachable-warning when new prefix is subnet of an existing supernet
+- [x] overlapping-warning when new prefix is supernet of an existing subnet
+- [x] "inconsistent qualifiers" for overlapping prefixes
 - [ ] add debug logging during context creation
 - [ ] add flags to customize title & author in markdown's metadata
 - [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)

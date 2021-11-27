@@ -88,25 +88,47 @@ defmodule Spf.Context do
 
   # Helpers
 
+  @spec ipt_values(list, prefix()) :: list
+  defp ipt_values(keyvals, k) do
+    # filter & turn keyvals [{pfx, [{q, nth, "term"}]}] into [{q, nth, "term"}]
+    keyvals
+    |> Enum.filter(fn {p, _vals} -> p != k end)
+    |> Enum.map(&elem(&1, 1))
+    |> List.flatten()
+    |> Enum.reverse()
+  end
+
   @spec ipt_update({prefix, iptval}, t) :: t
   defp ipt_update({k, v}, ctx) do
-    # TODO: add warning if a supernet exists (use Iptrie.less)
-    # TODO: add warning if a subnet exists (use Iptrie.more)
+    # less specific entries (if any)
+    less = Iptrie.less(ctx.ipt, k) |> ipt_values(k)
+    less_n = length(less)
+    less_t = Enum.map(less, &elem(&1, 2)) |> Enum.join(", ")
+    less_q = Enum.map([v | less], &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
 
-    entries =
-      case Iptrie.get(ctx.ipt, k) do
-        nil -> [v]
-        {_, values} -> [v | values]
-      end
+    # more specific entries (if any)
+    more = Iptrie.more(ctx.ipt, k) |> ipt_values(k)
+    more_n = length(more)
+    more_t = Enum.map(more, &elem(&1, 2)) |> Enum.join(", ")
+    more_q = Enum.map([v | more], &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
 
-    len = length(entries)
-    numq = Enum.map(entries, &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
+    # same prefix entries (if any) -> [{q, nth, "term"}]
+    other = Iptrie.get(ctx.ipt, k, {k, []}) |> elem(1)
+    other_n = length(other)
+    other_t = Enum.map(other, &elem(&1, 2)) |> Enum.reverse() |> Enum.join(", ")
+    other_q = Enum.map([v | other], &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
+
+    t = elem(v, 2)
 
     ctx
-    |> Map.put(:ipt, Iptrie.put(ctx.ipt, k, entries))
-    |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
-    |> test(:ipt, :warn, len > 1, "multiple entries (#{len}) for #{k} -> #{inspect(entries)}")
-    |> test(:ipt, :warn, numq > 1, "inconsistent qualifiers for #{k}")
+    |> Map.put(:ipt, Iptrie.put(ctx.ipt, k, [v | other]))
+    |> log(:ipt, :debug, "#{t} - adds #{k} -> #{inspect(v)}")
+    |> test(:ipt, :warn, other_n > 0, "#{t} - multiple entries, already have #{k} -> #{other_t}")
+    |> test(:ipt, :warn, other_q > 1, "#{t} - inconsistent with #{other_t}")
+    |> test(:ipt, :warn, less_n > 0, "#{t} - unreachable due to less specific #{less_t}")
+    |> test(:ipt, :warn, less_q > 1, "#{t} - inconsistent with less specific #{less_t}")
+    |> test(:ipt, :warn, more_n > 0, "#{t} - overlaps with more specific #{more_t}")
+    |> test(:ipt, :warn, more_q > 1, "#{t} - inconsistent with more specific #{more_t}")
   end
 
   @spec prefix(binary, [non_neg_integer]) :: :error | prefix
