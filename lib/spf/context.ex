@@ -92,17 +92,21 @@ defmodule Spf.Context do
   defp ipt_update({k, v}, ctx) do
     # TODO: add warning if a supernet exists (use Iptrie.less)
     # TODO: add warning if a subnet exists (use Iptrie.more)
-    # TODO: BUG: use Iptrie.get instead of lookup -> latter may find more specifics
-    # TODO: BUG: Iptrie.update uses longest prefix match! use get, then put !!!
-    ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
-    {k, values} = Iptrie.lookup(ipt, k)
-    seen_before = length(values) > 1
-    numq = Enum.map(values, &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
 
-    Map.put(ctx, :ipt, ipt)
+    entries =
+      case Iptrie.get(ctx.ipt, k) do
+        nil -> [v]
+        {_, values} -> [v | values]
+      end
+
+    len = length(entries)
+    numq = Enum.map(entries, &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
+
+    ctx
+    |> Map.put(:ipt, Iptrie.put(ctx.ipt, k, entries))
     |> log(:ipt, :debug, "UPDATE: #{k} -> #{inspect(v)}")
-    |> test(:ipt, :warn, seen_before, "#{length(values)} entries for #{k} -> #{inspect(values)}")
-    |> test(:ipt, :warn, numq > 1, "inconsistent entries for #{k} -> #{inspect(values)}")
+    |> test(:ipt, :warn, len > 1, "multiple entries (#{len}) for #{k} -> #{inspect(entries)}")
+    |> test(:ipt, :warn, numq > 1, "inconsistent qualifiers for #{k}")
   end
 
   @spec prefix(binary, [non_neg_integer]) :: :error | prefix

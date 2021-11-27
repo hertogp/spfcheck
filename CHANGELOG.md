@@ -11,8 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### changed
 
-- [ ] prefixes are stored on exact match, not longest prefix match:
-- [ ] "multiple entries" now means the exact same prefix was seen multiple times
+- [x] prefixes are stored on exact match, not longest prefix match
+- [x] "multiple entries" now means the exact same prefix was seen multiple times
 
 ### added
 
