@@ -90,6 +90,10 @@ defmodule Spf.Context do
 
   @spec ipt_update({prefix, iptval}, t) :: t
   defp ipt_update({k, v}, ctx) do
+    # TODO: add warning if a supernet exists (use Iptrie.less)
+    # TODO: add warning if a subnet exists (use Iptrie.more)
+    # TODO: BUG: use Iptrie.get instead of lookup -> latter may find more specifics
+    # TODO: BUG: Iptrie.update uses longest prefix match! use get, then put !!!
     ipt = Iptrie.update(ctx.ipt, k, [v], fn list -> [v | list] end)
     {k, values} = Iptrie.lookup(ipt, k)
     seen_before = length(values) > 1

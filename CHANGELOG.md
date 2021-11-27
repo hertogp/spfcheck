@@ -8,8 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] add warning when a new prefix has a supernet parent
-- [ ] add warning when a new prefix has a supernet parent and are inconsistent
+
+### changed
+
+- [ ] prefixes are stored on exact match, not longest prefix match:
+- [ ] "multiple entries" now means the exact same prefix was seen multiple times
+
+### added
+
+- [ ] "unreachable term"-warning when new prefix is subnet of an existing supernet
+- [ ] "overlapping term"-warning when new prefix is supernet of an existing subnet
+- [ ] "inconsistent qualifiers" for overlapping prefixes
 - [ ] add debug logging during context creation
 - [ ] add flags to customize title & author in markdown's metadata
 - [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
