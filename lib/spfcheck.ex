@@ -8,25 +8,31 @@ defmodule Spfcheck do
   alias IO.ANSI
 
   @options [
+    author: :string,
     color: :boolean,
     dns: :string,
     helo: :string,
     help: :boolean,
     ip: :string,
     markdown: :boolean,
+    nameserver: :keep,
     report: :string,
+    title: :string,
     verbosity: :integer,
     width: :integer
   ]
 
   @aliases [
+    a: :author,
     H: :help,
     c: :color,
     d: :dns,
     h: :helo,
     i: :ip,
     m: :markdown,
+    n: :nameserver,
     r: :report,
+    t: :title,
     v: :verbosity,
     w: :width
   ]
@@ -74,6 +80,7 @@ defmodule Spfcheck do
       do: Application.put_env(:elixir, :ansi_enabled, true),
       else: Application.put_env(:elixir, :ansi_enabled, false)
 
+    # opts = Keyword.put(opts, :nameservers, nameservers)
     opts = Keyword.put(opts, :log, &log/4)
 
     if [] == senders,
@@ -149,8 +156,8 @@ defmodule Spfcheck do
   end
 
   # skip comments and empty lines
-  defp do_stdin(_parsed, "#" <> _comment), do: nil
-  defp do_stdin(_parsed, ""), do: nil
+  defp do_stdin(_opts, "#" <> _comment), do: nil
+  defp do_stdin(_opts, ""), do: nil
 
   defp do_stdin(opts, line) do
     argv = String.split(line, ~r/\s+/, trim: true)
@@ -181,10 +188,12 @@ defmodule Spfcheck do
         topics -> topics
       end
 
-    markdown = length(topics) > 1 and Keyword.get(opts, :markdown, true)
+    markdown =
+      (length(topics) > 1 and Keyword.get(opts, :markdown, true)) or
+        (length(topics) == 1 and Keyword.get(opts, :markdown, false))
 
     if Keyword.get(opts, :first, nil) == ctx.domain,
-      do: topic(ctx, "m", markdown, width)
+      do: meta_data(ctx, markdown, opts)
 
     if markdown,
       do: IO.puts("\n# #{ctx.domain}"),
@@ -194,12 +203,12 @@ defmodule Spfcheck do
   end
 
   # Header (meta)
-  defp topic(_ctx, "m", markdown, _width) do
+  defp meta_data(_ctx, markdown, opts) do
     if markdown do
       meta = """
       ---
-      title: SPF report
-      author: spfcheck
+      title: #{Keyword.get(opts, :title, "SPF report")}
+      author: #{Keyword.get(opts, :author, "spfcheck")}
       date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
       ...
       """

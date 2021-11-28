@@ -545,15 +545,27 @@ defmodule Spf.DNS do
 
   @spec query(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
   defp query(ctx, name, type, stats) do
+    opts = []
     timeout = Map.get(ctx, :dns_timeout, 2000)
+    opts = Keyword.put(opts, :timeout, timeout)
+
+    # nameservers = Map.get(ctx, :nameservers)
+    # opts = if nameservers, do: Keyword.put(opts, :nameservers, nameservers), else: opts
+    opts =
+      case Map.get(ctx, :nameservers) do
+        nil -> opts
+        list -> Keyword.put(opts, :nameservers, list)
+      end
 
     # resolve and update the cache
     ctx =
       name
       |> String.to_charlist()
-      |> :inet_res.resolve(:in, type, [{:timeout, timeout}])
+      |> :inet_res.resolve(:in, type, opts)
       |> rrentries()
       |> cache(ctx, name, type)
+
+    # |> :inet_res.resolve(:in, type, [{:timeout, timeout}])
 
     # get result (or not) from cache
     result =

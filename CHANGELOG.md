@@ -8,9 +8,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] add flag to customize which nameserver to use
-- [ ] add flags to customize title & author in markdown's metadata
 - [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
+
+### added
+
+- flag to customize which nameserver to use
+- flag to set author information in markdown's metadata
+- flag to set title information in markdown's metadata
+
 
 ## [v0.4.0] - 2021-11-27
 

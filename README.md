@@ -20,15 +20,18 @@ Usage: spfcheck [options] [sender ...]
 where sender = [localpart@]domain and localpart defaults to 'postmaster'
 
 Options:
-  -H, --help           print this message and exit
-  -d, --dns=filepath   file with DNS RR records to prepopulate the DNS cache
-  -h, --helo=string    sending MTA helo/ehlo identity (defaults to nil)
-  -i, --ip=string      sending MTA IPv4/IPv6 address (defaults to 127.0.0.1)
-  -r, --report=string  either "all" or one of more letters of "vsewpdat" (see below)
-  -v, --verbosity      set logging noise level (0..5), default is 4 (informational)
-  -w, --width=NUM      limits line length to increase readability (defaults to 60)
-  --no-color           turn off colors for log messages
-  --no-markdown        turn off markdown formatting for reports
+  -H, --help              print this message and exit
+  -a, --author=string     sets author in the markdown metadata (default spfcheck)
+  -d, --dns=filepath      file with DNS RR records to prepopulate the DNS cache
+  -h, --helo=string       sending MTA helo/ehlo identity (defaults to nil)
+  -i, --ip=string         sending MTA IPv4/IPv6 address (defaults to 127.0.0.1)
+  -n, --nameserver=string an IPv4/IPv6 address of a nameserver to use
+  -r, --report=string     either "all" or one of more letters of "vsewpdat" (see below)
+  -t, --title=string      sets title in the markdown metadata (default "SPF report")
+  -v, --verbosity         set logging noise level (0..5), default is 4 (informational)
+  -w, --width=NUM         limits line length to increase readability (defaults to 60)
+  --no-color              turn off colors for log messages
+  --no-markdown           turn off markdown formatting for reports
 ```
 
 The default is to simply print the verdict and some stats to stdout and print
@@ -236,7 +239,60 @@ duration   : 0
 explanation: 
 ```
 
-## No color
+## Nameserver flag
+
+Use `-n ip` or `--nameserver ip` to specify an IPv4 or IPv6 address of a,
+possibly external, recursive nameserver to use for an SPF policy evaluation
+instead of using the system default settings.  Specify multiple nameservers
+by repeating the option with different IP addresses, in which case they will be
+tried in the order listed.
+
+```
+% spfcheck example.com -n 2001:4860:4860::8888 -v 5 --no-color
+example.com %spf[0]-ctx-info:   > sender is 'example.com'
+example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
+example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
+example.com %spf[0]-ctx-info:   > ip is '127.0.0.1'
+example.com %spf[0]-ctx-debug:  > atype set to 'a'
+example.com %spf[0]-ctx-info:   > helo set to 'example.com'
+example.com %spf[0]-ctx-debug:  > helo defaults to sender value
+example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
+example.com %spf[0]-ctx-info:   > verbosity level 5
+example.com %spf[0]-ctx-debug:  > DNS timeout set to 2000
+example.com %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
+example.com %spf[0]-ctx-debug:  > max void DNS lookups set to 2
+example.com %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
+example.com %spf[0]-ctx-debug:  > using nameserver(s) [{{8193, 18528, 18528, 0, 0, 0, 0, 34952}, 53}]
+example.com %spf[0]-ctx-info:   > created context for 'example.com'
+example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-eval-note:  > spf[0] -all - matches
+example.com %spf[0]-dns-debug:  > added {example.com, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+
+domain     : example.com
+ip         : 127.0.0.1
+sender     : example.com
+verdict    : fail
+reason     : spf[0] -all
+owner      : example.com
+contact    : noc@dns.icann.org
+num_spf    : 1
+num_dnsm   : 0
+num_dnsq   : 1
+num_dnsv   : 0
+num_checks : 1
+num_warn   : 0
+num_error  : 0
+duration   : 0
+explanation: 
+```
+
+
+
+## No color flag
 
 The `--no-color` flag disables the use of colors in log messages, which is
 better when redirecting logging to a file.
@@ -306,16 +362,73 @@ The `-r` flag can be used to print out some information, topics include:
 - `a` the AST for the (first) SPF record
 - `t` the tokens for the (last) SPF record seen
 
-In case no `-r` flag is used, spfcheck will simply print out the verdict.
+In case no `-r` flag is used, spfcheck will simply print out the verdict
+without any markdown formatting.  If only one topic is to be reported, the
+default is to omit markdown formatting as well unless requested explicitly with
+the `-m` flag.
 
 ```txt
-% spfcheck example.com -v 0 -r s --no-markdown
+% spfcheck example.com example.net example.org -v 0 -r s
+
 [0] example.com -- (example.com, noc@dns.icann.org)
+    v=spf1 -all
+
+
+[0] example.net -- (example.net, noc@dns.icann.org)
+    v=spf1 -all
+
+
+[0] example.org -- (example.org, noc@dns.icann.org)
     v=spf1 -all
 ```
 
-Here, the SPF section lists all SPF records seen along with the authoritative
-domain and its DNS admin email.
+Alternatively a simple markdown report can be generated.  Use the `-t` and
+`-a` flags to customize the title and author information respectively.
+The report below shows the SPF records used by several example domains.  If
+they had included other SPF records, those would show as well.
+
+```txt
+% spfcheck example.com example.net example.org -v 0 -r s -m \
+  -t "Spf records used by Example domains" -a mail@example.com
+
+    ---
+    title: Spf records used by Example domains
+    author: mail@example.com
+    date: 2021-11-28 12:44:30
+    ...
+
+
+    # example.com
+
+    ## SPF
+
+    ```
+    [0] example.com -- (example.com, noc@dns.icann.org)
+        v=spf1 -all
+
+    ```
+
+    # example.net
+
+    ## SPF
+
+    ```
+    [0] example.net -- (example.net, noc@dns.icann.org)
+        v=spf1 -all
+
+    ```
+
+    # example.org
+
+    ## SPF
+
+    ```
+    [0] example.org -- (example.org, noc@dns.icann.org)
+        v=spf1 -all
+
+    ```
+
+```
 
 ## Verbosity flag
 

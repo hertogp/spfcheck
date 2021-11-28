@@ -40,6 +40,7 @@ defmodule Spf.Context do
           :max_dnsm => non_neg_integer(),
           :max_dnsv => non_neg_integer(),
           :msg => list(),
+          :nameservers => list(),
           :nth => non_neg_integer(),
           :num_checks => non_neg_integer(),
           :num_dnsm => non_neg_integer(),
@@ -301,16 +302,17 @@ defmodule Spf.Context do
   Returns a new `t:Spf.Context.t/0` for given `sender`.
 
   Options include:
-  - `dns:`, filepath or binary with zonedata (defaults to nil)
-  - `helo:`, sender's helo string to use (defaults to `sender`)
-  - `ip:`, sender ip to use (defaults to `127.0.0.1`)
-  - `log:`, user supplied log function (defaults to nil)
-  - `verbosity:`, log level `0..5` to use (defaults to `4`)
+  - `:dns`, filepath or binary with zonedata (defaults to nil)
+  - `:helo`, sender's helo string to use (defaults to `sender`)
+  - `:ip`, sender ip to use (defaults to `127.0.0.1`)
+  - `:log`, user supplied log function (defaults to nil)
+  - `:verbosity`, log level `0..5` to use (defaults to `4`)
+  - `:nameserver`, IPv4 or IPv6 address of a nameserver to use instead of the default
 
   The initial `domain` is derived from given `sender`.  The default for
   `ip` is likely to traverse all SPF mechanisms during evaluation, gathering
-  as much information as possible.  Set `ip:` to a real IPv4 or IPv6 address
-  to check a policy for that specific address.
+  as much information as possible.  Set `:ip` to a real IPv4 or IPv6 address
+  to check an SPF policy for that specific address.
 
   The context is used for the entire SPF evaluation, including during any
   recursive calls.  When evaluating an `include` mechanism, the current state (a
@@ -321,6 +323,14 @@ defmodule Spf.Context do
 
   When evaluating a `redirect` modifier, the current state is altered for the
   new domain specified by the modifier.
+
+  Specify more than one recursive nameserver by repeating the `:nameserver`
+  option in the Keyword list.  They will be tried in the order listed.  Mainly
+  useful when the local default recursive nameserver is having problems, or
+  when an external nameserver is to be used for checking an SPF policy instead
+  of an internal nameserver.  As an example, use in opts `[nameserver:
+  "2001:4860:4860::8888", nameserver: "2001:4860:4860::8844"]` to use the IPv6
+  dns.google servers.
 
   """
   @spec new(binary, Keyword.t()) :: t
@@ -353,6 +363,18 @@ defmodule Spf.Context do
     # atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
     atype = if pfx.maxlen == 32, do: :a, else: :aaaa
 
+    # pickup any user provided nameserver (if any)
+    nameservers =
+      Keyword.take(opts, [:nameserver])
+      |> Enum.map(fn {_, ip} -> Pfx.parse(ip) end)
+      |> Enum.filter(fn {res, _} -> res == :ok end)
+      |> Enum.map(fn {_, ip} -> Pfx.marshall(ip, {0, 0, 0, 0}) end)
+      |> Enum.map(fn ip -> {ip, 53} end)
+      |> case do
+        [] -> nil
+        list -> list
+      end
+
     %{
       ast: [],
       atype: atype,
@@ -375,6 +397,7 @@ defmodule Spf.Context do
       max_dnsm: 10,
       max_dnsv: 2,
       msg: [],
+      nameservers: nameservers,
       nth: 0,
       num_checks: 0,
       num_dnsm: 0,
@@ -399,8 +422,8 @@ defmodule Spf.Context do
     |> log(:ctx, :info, "sender is '#{sender}'")
     |> log(:ctx, :info, "local part set to '#{local}'")
     |> log(:ctx, :info, "domain part set to '#{domain}'")
-    |> log(:ctx, :info, "ip is '#{pfx}'")
-    |> test(:ctx, :error, ipinvalid, "ip '#{ip}' is invalid, defaults to '#{pfx}'")
+    |> log(:ctx, :info, "ip set to '#{pfx}'")
+    |> test(:ctx, :error, ipinvalid, "ip '#{ip}' is invalid, so using '#{pfx}' instead")
     |> test(:ctx, :note, xtracted, "'#{pfx}' was extracted from IPv4-mapped IPv6 address '#{ip}'")
     |> log(:ctx, :debug, "atype set to '#{atype}'")
     |> log(:ctx, :info, "helo set to '#{helo}'")
@@ -411,6 +434,8 @@ defmodule Spf.Context do
     |> then(&log(&1, :ctx, :debug, "max DNS mechanisms set to #{&1.max_dnsm}"))
     |> then(&log(&1, :ctx, :debug, "max void DNS lookups set to #{&1.max_dnsv}"))
     |> then(&log(&1, :ctx, :debug, "verdict defaults to '#{&1.verdict}'"))
+    |> test(:ctx, :debug, nameservers != nil, "nameservers set to #{inspect(nameservers)}")
+    |> test(:ctx, :debug, nameservers == nil, "nameservers set to default")
     |> log(:ctx, :info, "created context for '#{domain}'")
     |> log(:spf, :note, "spfcheck(#{domain}, #{pfx}, #{sender})")
   end
