@@ -454,10 +454,10 @@ defmodule Spf.Context do
   @spec new(binary, Keyword.t()) :: t
   def new(sender, opts \\ []) do
     @context
+    |> Map.put(:log, Keyword.get(opts, :log, nil))
     |> opt_sender(sender, opts)
     |> opt_ip(opts)
     |> opt_nameserver(opts)
-    |> Map.put(:log, Keyword.get(opts, :log, nil))
     |> Map.put(:t0, DateTime.utc_now() |> DateTime.to_unix())
     |> Map.put(:verbosity, Keyword.get(opts, :verbosity, 4))
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
