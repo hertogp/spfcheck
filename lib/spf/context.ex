@@ -455,11 +455,11 @@ defmodule Spf.Context do
   def new(sender, opts \\ []) do
     @context
     |> Map.put(:log, Keyword.get(opts, :log, nil))
+    |> Map.put(:verbosity, Keyword.get(opts, :verbosity, 4))
     |> opt_sender(sender, opts)
     |> opt_ip(opts)
     |> opt_nameserver(opts)
     |> Map.put(:t0, DateTime.utc_now() |> DateTime.to_unix())
-    |> Map.put(:verbosity, Keyword.get(opts, :verbosity, 4))
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
     |> then(&log(&1, :ctx, :info, "DNS cache preloaded with #{map_size(&1.dns)} entrie(s)"))
     |> then(&log(&1, :ctx, :info, "verbosity level #{&1.verbosity}"))

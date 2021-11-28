@@ -83,11 +83,11 @@ domains (and options) to check.  In this case, the verdict(s) are output on
 stdout in csv-format as each domain is (sequentially) evaluated.
 
 ```txt
-% cat senders.txt
+% cat tmp/domains.txt
 example.com
 me@example.net -i 1.2.3.4
 
-% cat domains.txt | spfcheck -v 0
+% cat tmp/domains.txt | spfcheck -v 0
 domain,ip,sender,verdict,reason,owner,contact,num_spf,num_dnsm,num_dnsq,num_dnsv,num_checks,num_warn,num_error,duration,explanation
 "example.com","127.0.0.1","example.com",:fail,"spf[0] -all","example.com","noc@dns.icann.org",1,0,1,0,1,0,0,1,""
 "example.net","1.2.3.4","me@example.net",:fail,"spf[0] -all","example.net","noc@dns.icann.org",1,0,1,0,1,0,0,0,""
