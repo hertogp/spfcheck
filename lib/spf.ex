@@ -23,11 +23,15 @@ defmodule Spf do
   Check SPF for given `sender` and possible options.
 
   Options include:
-  - `dns:` filepath or zonedata to pre-populate the context's DNS cache
-  - `helo:` the helo presented by sending MTA, defaults to `sender`
-  - `ip:` ipv4 or ipv6 address, in binary, of sending MTA, defaults to `127.0.0.1`
-  - `log:` a user log/4 function to relay notifications, defaults to `nil`
-  - `verbosity` how verbose the notifications should be (0..5), defaults to `3`
+  - `:dns` filepath or zonedata to pre-populate the context's DNS cache
+  - `:helo` the helo presented by sending MTA, defaults to `sender`
+  - `:ip` ipv4 or ipv6 address, in binary, of sending MTA, defaults to `127.0.0.1`
+  - `:log` a user log/4 function to relay notifications, defaults to `nil`
+  - `:verbosity` how verbose the notifications should be (0..5), defaults to `3`
+  - `:nameserver` an IPv4 or IPv6 address to use as recursive nameserver
+
+  The keyword list may contain multiple entries of the `:nameserver` option, in
+  which case they will be tried in the order listed.
 
   ## Examples
 

@@ -3,7 +3,7 @@ defmodule Spfcheck.MixProject do
 
   # Before publishing to Hex:
   # - update CHANGELOG.md for changes in new version
-  # - set new version tag in mix.exs, README.md
+  # - set new version tag in mix.exs, README.md, CHANGELOG.md
   # - git is up-to-date
   # - github workflows are ok
   # - mix docs
@@ -15,7 +15,7 @@ defmodule Spfcheck.MixProject do
   # mix hex.publish
 
   @source_url "https://github.com/hertogp/spfcheck"
-  @version "0.4.0"
+  @version "0.5.0"
   def project do
     [
       app: :spfcheck,

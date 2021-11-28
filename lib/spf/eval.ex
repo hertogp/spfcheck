@@ -8,7 +8,6 @@ defmodule Spf.Eval do
   import Spf.Context
 
   @type dns_result :: Spf.DNS.dns_result()
-  @type context :: Spf.Context.t()
 
   # API
 
@@ -46,7 +45,7 @@ defmodule Spf.Eval do
   so it can dump it to screen or somewhere else.
 
   """
-  @spec evaluate(context) :: context
+  @spec evaluate(Spf.Context.t()) :: Spf.Context.t()
   def evaluate(ctx) do
     ctx
     |> check_domain()
@@ -99,7 +98,7 @@ defmodule Spf.Eval do
   defp ascii?(string) when is_binary(string),
     do: string == for(<<c <- string>>, c < 128, into: "", do: <<c>>)
 
-  @spec evalname(context, binary, list, any) :: context
+  @spec evalname(Spf.Context.t(), binary, list, any) :: Spf.Context.t()
   defp evalname(ctx, domain, dual, value) do
     {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
 
@@ -112,7 +111,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec explain(context) :: context
+  @spec explain(Spf.Context.t()) :: Spf.Context.t()
   defp explain(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.2
     # - donot track void answers
@@ -139,7 +138,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec check_limits(context) :: context
+  @spec check_limits(Spf.Context.t()) :: Spf.Context.t()
   defp check_limits(ctx) do
     # only check for original SPF record, so we donot prematurely stop processing
     if ctx.nth == 0 do
@@ -172,7 +171,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec match(context, tuple, list) :: context
+  @spec match(Spf.Context.t(), tuple, list) :: Spf.Context.t()
   defp match(%{error: error} = ctx, _term, _tail) when error != nil,
     # a fatal error was already recorded, so bailout
     do: ctx
@@ -196,7 +195,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec validate(binary, context, tuple) :: context
+  @spec validate(binary, Spf.Context.t(), tuple) :: Spf.Context.t()
   defp validate(name, ctx, {:ptr, [q, domain], range} = _term) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
@@ -211,7 +210,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec verdict(context) :: nil | atom
+  @spec verdict(Spf.Context.t()) :: nil | atom
   defp verdict(ctx) do
     # used by match/1 to check if we currently have a match
     # - ipt[prefix] -> [{q, nth, token}] => list of tokens and SPF-id that added the prefix
@@ -241,7 +240,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec check_domain(context) :: context
+  @spec check_domain(Spf.Context.t()) :: Spf.Context.t()
   defp check_domain(ctx) do
     # check domain, if not a legal fqdn -> evaluation result is :none
     # since there is no domain to actually check
@@ -258,7 +257,7 @@ defmodule Spf.Eval do
     end
   end
 
-  @spec grep_spf(context) :: context
+  @spec grep_spf(Spf.Context.t()) :: Spf.Context.t()
   defp grep_spf(ctx) do
     # either set ctx.spf to an SPF record, or set ctx.error to some atom error
     {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, type: :txt, stats: false)
@@ -314,7 +313,7 @@ defmodule Spf.Eval do
     |> check_limits()
   end
 
-  @spec evalp(context, list) :: context
+  @spec evalp(Spf.Context.t(), list) :: Spf.Context.t()
   defp evalp(ctx, []),
     # Nomore Terms
     do: ctx

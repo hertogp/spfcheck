@@ -22,14 +22,17 @@ where sender = [localpart@]domain and localpart defaults to 'postmaster'
 Options:
   -H, --help              print this message and exit
   -a, --author=string     sets author in the markdown metadata (default spfcheck)
+  -c, --color             use color for log messages on stderr (default is true)
   -d, --dns=filepath      file with DNS RR records to prepopulate the DNS cache
   -h, --helo=string       sending MTA helo/ehlo identity (defaults to nil)
   -i, --ip=string         sending MTA IPv4/IPv6 address (defaults to 127.0.0.1)
+  -m, --markdown          use markdown format for output (default depends, see Report flag)
   -n, --nameserver=string an IPv4/IPv6 address of a nameserver to use
   -r, --report=string     either "all" or one of more letters of "vsewpdat" (see below)
   -t, --title=string      sets title in the markdown metadata (default "SPF report")
-  -v, --verbosity         set logging noise level (0..5), default is 4 (informational)
+  -v, --verbosity=number  set logging noise level (0..5), default is 4 (informational)
   -w, --width=NUM         limits line length to increase readability (defaults to 60)
+  and
   --no-color              turn off colors for log messages
   --no-markdown           turn off markdown formatting for reports
 ```
@@ -249,10 +252,11 @@ tried in the order listed.
 
 ```
 % spfcheck example.com -n 2001:4860:4860::8888 -v 5 --no-color
+
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
 example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
 example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip is '127.0.0.1'
+example.com %spf[0]-ctx-info:   > ip set to '127.0.0.1'
 example.com %spf[0]-ctx-debug:  > atype set to 'a'
 example.com %spf[0]-ctx-info:   > helo set to 'example.com'
 example.com %spf[0]-ctx-debug:  > helo defaults to sender value
@@ -262,7 +266,7 @@ example.com %spf[0]-ctx-debug:  > DNS timeout set to 2000
 example.com %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
 example.com %spf[0]-ctx-debug:  > max void DNS lookups set to 2
 example.com %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
-example.com %spf[0]-ctx-debug:  > using nameserver(s) [{{8193, 18528, 18528, 0, 0, 0, 0, 34952}, 53}]
+example.com %spf[0]-ctx-debug:  > nameservers set to [{{8193, 18528, 18528, 0, 0, 0, 0, 34952}, 53}]
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
 example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
@@ -287,9 +291,8 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 0
-explanation: 
+explanation:
 ```
-
 
 
 ## No color flag
@@ -309,7 +312,7 @@ me@example.net -i 1.2.3.4
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
 example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
 example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip is '127.0.0.1'
+example.com %spf[0]-ctx-info:   > ip set to '127.0.0.1'
 example.com %spf[0]-ctx-debug:  > atype set to 'a'
 example.com %spf[0]-ctx-info:   > helo set to 'example.com'
 example.com %spf[0]-ctx-debug:  > helo defaults to sender value
@@ -319,6 +322,7 @@ example.com %spf[0]-ctx-debug:  > DNS timeout set to 2000
 example.com %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
 example.com %spf[0]-ctx-debug:  > max void DNS lookups set to 2
 example.com %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
+example.com %spf[0]-ctx-debug:  > nameservers set to default
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
 example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
@@ -330,7 +334,7 @@ example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.or
 example.net %spf[0]-ctx-info:   > sender is 'me@example.net'
 example.net %spf[0]-ctx-info:   > local part set to 'me'
 example.net %spf[0]-ctx-info:   > domain part set to 'example.net'
-example.net %spf[0]-ctx-info:   > ip is '1.2.3.4'
+example.net %spf[0]-ctx-info:   > ip set to '1.2.3.4'
 example.net %spf[0]-ctx-debug:  > atype set to 'a'
 example.net %spf[0]-ctx-info:   > helo set to 'me@example.net'
 example.net %spf[0]-ctx-debug:  > helo defaults to sender value
@@ -340,11 +344,12 @@ example.net %spf[0]-ctx-debug:  > DNS timeout set to 2000
 example.net %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
 example.net %spf[0]-ctx-debug:  > max void DNS lookups set to 2
 example.net %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
+example.net %spf[0]-ctx-debug:  > nameservers set to default
 example.net %spf[0]-ctx-info:   > created context for 'example.net'
 example.net %spf[0]-spf-note:   > spfcheck(example.net, 1.2.3.4, me@example.net)
-example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "5fpl1ghm7scnth0907z0pft8c79lvc8t"
 example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "v=spf1 -all"
-example.net %spf[0]-dns-info:   > DNS QUERY (1) txt example.net - ["v=spf1 -all", "5fpl1ghm7scnth0907z0pft8c79lvc8t"]
+example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "5fpl1ghm7scnth0907z0pft8c79lvc8t"
+example.net %spf[0]-dns-info:   > DNS QUERY (1) txt example.net - ["5fpl1ghm7scnth0907z0pft8c79lvc8t", "v=spf1 -all"]
 example.net %spf[0]-eval-note:  > spf[0] -all - matches
 example.net %spf[0]-dns-debug:  > added {example.net, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
 example.net %spf[0]-dns-info:   > DNS QUERY (2) soa example.net - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
@@ -489,7 +494,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.4.0"}
+    {:spfcheck, "~> 0.5.0"}
   ]
 end
 ```

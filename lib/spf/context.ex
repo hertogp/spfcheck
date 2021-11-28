@@ -35,12 +35,12 @@ defmodule Spf.Context do
           :ip => binary(),
           :ipt => Iptrie.t(),
           :local => binary(),
-          :log => function(),
+          :log => nil | function(),
           :map => map(),
           :max_dnsm => non_neg_integer(),
           :max_dnsv => non_neg_integer(),
           :msg => list(),
-          :nameservers => list(),
+          :nameservers => nil | list(),
           :nth => non_neg_integer(),
           :num_checks => non_neg_integer(),
           :num_dnsm => non_neg_integer(),
@@ -87,6 +87,50 @@ defmodule Spf.Context do
   """
   @type iptval :: {Spf.Tokens.q(), non_neg_integer, binary}
 
+  @context %{
+    :ast => [],
+    :atype => :a,
+    :contact => "",
+    :depth => 0,
+    :dns => %{},
+    :dns_timeout => 2000,
+    :domain => "",
+    :duration => 0,
+    :error => nil,
+    :explain => nil,
+    :explain_string => "",
+    :explanation => "",
+    :helo => "",
+    :ip => "",
+    :ipt => Iptrie.new(),
+    :local => "",
+    :log => nil,
+    :map => %{},
+    :max_dnsm => 10,
+    :max_dnsv => 2,
+    :msg => [],
+    :nameservers => nil,
+    :nth => 0,
+    :num_checks => 0,
+    :num_dnsm => 0,
+    :num_dnsq => 0,
+    :num_dnsv => 0,
+    :num_error => 0,
+    :num_spf => 1,
+    :num_warn => 0,
+    :owner => "",
+    :reason => "",
+    :sender => "",
+    :spf => "",
+    :spf_rest => "",
+    :spf_tokens => [],
+    :stack => [],
+    :t0 => 0,
+    :traces => %{},
+    :verbosity => 4,
+    :verdict => :neutral
+  }
+
   # Helpers
 
   @spec ipt_values(list, prefix()) :: list
@@ -130,6 +174,80 @@ defmodule Spf.Context do
     |> test(:ipt, :warn, less_q > 1, "#{t} - inconsistent with less specific #{less_t}")
     |> test(:ipt, :warn, more_n > 0, "#{t} - overlaps with more specific #{more_t}")
     |> test(:ipt, :warn, more_q > 1, "#{t} - inconsistent with more specific #{more_t}")
+  end
+
+  @spec opt_ip(t, Keyword.t()) :: t
+  defp opt_ip(ctx, opts) do
+    # IPV4-mapped IPv6 addresses are converted to the mapped IPv4 address
+    # note: check validity of user supplied IP address, default to 127.0.0.1
+    ip = Keyword.get(opts, :ip, "127.0.0.1")
+
+    {ipinvalid, pfx} =
+      try do
+        {false, Pfx.new(ip)}
+      rescue
+        ArgumentError -> {true, Pfx.new("127.0.0.1")}
+      end
+
+    {xtracted, pfx} =
+      case Pfx.member?(pfx, "::FFFF:0:0/96") do
+        true -> {true, Pfx.cut(pfx, -1, -32)}
+        false -> {false, pfx}
+      end
+
+    # atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
+    atype = if pfx.maxlen == 32, do: :a, else: :aaaa
+
+    ctx
+    |> Map.put(:atype, atype)
+    |> Map.put(:ip, "#{pfx}")
+    |> log(:ctx, :info, "ip set to '#{pfx}'")
+    |> test(:ctx, :error, ipinvalid, "ip '#{ip}' is invalid, so using '#{pfx}' instead")
+    |> test(:ctx, :note, xtracted, "'#{pfx}' was extracted from IPv4-mapped IPv6 address '#{ip}'")
+    |> log(:ctx, :debug, "atype set to '#{atype}'")
+  end
+
+  @spec opt_nameserver(t, Keyword.t()) :: t
+  defp opt_nameserver(ctx, opts) do
+    # pickup any user provided nameserver (if any)
+    nameservers =
+      Keyword.take(opts, [:nameserver])
+      |> Enum.map(fn {_, ip} -> Pfx.parse(ip) end)
+      |> Enum.filter(fn {res, _} -> res == :ok end)
+      |> Enum.map(fn {_, ip} -> Pfx.marshall(ip, {0, 0, 0, 0}) end)
+      |> Enum.map(fn ip -> {ip, 53} end)
+      |> case do
+        [] -> nil
+        list -> list
+      end
+
+    ctx
+    |> Map.put(:nameservers, nameservers)
+    |> test(:ctx, :debug, nameservers != nil, "nameservers set to #{inspect(nameservers)}")
+    |> test(:ctx, :debug, nameservers == nil, "nameservers set to default")
+  end
+
+  @spec opt_sender(t, binary, Keyword.t()) :: t
+  defp opt_sender(ctx, sender, opts) do
+    helo = Keyword.get(opts, :helo, sender)
+    {local, domain} = split(sender)
+
+    {local, domain} =
+      if String.length(domain) < 1,
+        do: split(helo),
+        else: {local, domain}
+
+    ctx
+    |> Map.put(:sender, sender)
+    |> Map.put(:local, local)
+    |> Map.put(:domain, domain)
+    |> Map.put(:helo, helo)
+    |> Map.put(:map, %{0 => domain, domain => 0})
+    |> log(:ctx, :info, "sender is '#{sender}'")
+    |> log(:ctx, :info, "local part set to '#{local}'")
+    |> log(:ctx, :info, "domain part set to '#{domain}'")
+    |> log(:ctx, :info, "helo set to '#{helo}'")
+    |> test(:ctx, :debug, helo == sender, "helo defaults to sender value")
   end
 
   @spec prefix(binary, [non_neg_integer]) :: :error | prefix
@@ -335,109 +453,22 @@ defmodule Spf.Context do
   """
   @spec new(binary, Keyword.t()) :: t
   def new(sender, opts \\ []) do
-    helo = Keyword.get(opts, :helo, sender)
-    {local, domain} = split(sender)
-
-    {local, domain} =
-      if String.length(domain) < 1,
-        do: split(helo),
-        else: {local, domain}
-
-    # IPV4-mapped IPv6 addresses are converted to the mapped IPv4 address
-    # note: check validity of user supplied IP address, default to 127.0.0.1
-    ip = Keyword.get(opts, :ip, "127.0.0.1")
-
-    {ipinvalid, pfx} =
-      try do
-        {false, Pfx.new(ip)}
-      rescue
-        ArgumentError -> {true, Pfx.new("127.0.0.1")}
-      end
-
-    {xtracted, pfx} =
-      case Pfx.member?(pfx, "::FFFF:0:0/96") do
-        true -> {true, Pfx.cut(pfx, -1, -32)}
-        false -> {false, pfx}
-      end
-
-    # atype = if pfx.maxlen == 32 or Pfx.member?(pfx, "::FFFF:0/96"), do: :a, else: :aaaa
-    atype = if pfx.maxlen == 32, do: :a, else: :aaaa
-
-    # pickup any user provided nameserver (if any)
-    nameservers =
-      Keyword.take(opts, [:nameserver])
-      |> Enum.map(fn {_, ip} -> Pfx.parse(ip) end)
-      |> Enum.filter(fn {res, _} -> res == :ok end)
-      |> Enum.map(fn {_, ip} -> Pfx.marshall(ip, {0, 0, 0, 0}) end)
-      |> Enum.map(fn ip -> {ip, 53} end)
-      |> case do
-        [] -> nil
-        list -> list
-      end
-
-    %{
-      ast: [],
-      atype: atype,
-      contact: "",
-      depth: 0,
-      dns: %{},
-      dns_timeout: 2000,
-      domain: domain,
-      duration: 0,
-      error: nil,
-      explain: nil,
-      explain_string: "",
-      explanation: "",
-      helo: helo,
-      ip: "#{pfx}",
-      ipt: Iptrie.new(),
-      local: local,
-      log: Keyword.get(opts, :log, nil),
-      map: %{0 => domain, domain => 0},
-      max_dnsm: 10,
-      max_dnsv: 2,
-      msg: [],
-      nameservers: nameservers,
-      nth: 0,
-      num_checks: 0,
-      num_dnsm: 0,
-      num_dnsq: 0,
-      num_dnsv: 0,
-      num_error: 0,
-      num_spf: 1,
-      num_warn: 0,
-      owner: "",
-      reason: "",
-      sender: sender,
-      spf: "",
-      spf_rest: "",
-      spf_tokens: [],
-      stack: [],
-      t0: DateTime.utc_now() |> DateTime.to_unix(),
-      traces: %{},
-      verbosity: Keyword.get(opts, :verbosity, 4),
-      verdict: :neutral
-    }
+    @context
+    |> opt_sender(sender, opts)
+    |> opt_ip(opts)
+    |> opt_nameserver(opts)
+    |> Map.put(:log, Keyword.get(opts, :log, nil))
+    |> Map.put(:t0, DateTime.utc_now() |> DateTime.to_unix())
+    |> Map.put(:verbosity, Keyword.get(opts, :verbosity, 4))
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
-    |> log(:ctx, :info, "sender is '#{sender}'")
-    |> log(:ctx, :info, "local part set to '#{local}'")
-    |> log(:ctx, :info, "domain part set to '#{domain}'")
-    |> log(:ctx, :info, "ip set to '#{pfx}'")
-    |> test(:ctx, :error, ipinvalid, "ip '#{ip}' is invalid, so using '#{pfx}' instead")
-    |> test(:ctx, :note, xtracted, "'#{pfx}' was extracted from IPv4-mapped IPv6 address '#{ip}'")
-    |> log(:ctx, :debug, "atype set to '#{atype}'")
-    |> log(:ctx, :info, "helo set to '#{helo}'")
-    |> test(:ctx, :debug, helo == sender, "helo defaults to sender value")
     |> then(&log(&1, :ctx, :info, "DNS cache preloaded with #{map_size(&1.dns)} entrie(s)"))
     |> then(&log(&1, :ctx, :info, "verbosity level #{&1.verbosity}"))
     |> then(&log(&1, :ctx, :debug, "DNS timeout set to #{&1.dns_timeout}"))
     |> then(&log(&1, :ctx, :debug, "max DNS mechanisms set to #{&1.max_dnsm}"))
     |> then(&log(&1, :ctx, :debug, "max void DNS lookups set to #{&1.max_dnsv}"))
     |> then(&log(&1, :ctx, :debug, "verdict defaults to '#{&1.verdict}'"))
-    |> test(:ctx, :debug, nameservers != nil, "nameservers set to #{inspect(nameservers)}")
-    |> test(:ctx, :debug, nameservers == nil, "nameservers set to default")
-    |> log(:ctx, :info, "created context for '#{domain}'")
-    |> log(:spf, :note, "spfcheck(#{domain}, #{pfx}, #{sender})")
+    |> then(&log(&1, :ctx, :info, "created context for '#{&1.domain}'"))
+    |> then(&log(&1, :spf, :note, "spfcheck(#{&1.domain}, #{&1.ip}, #{&1.sender})"))
   end
 
   @doc """
