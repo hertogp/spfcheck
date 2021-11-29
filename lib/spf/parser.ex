@@ -6,12 +6,11 @@ defmodule Spf.Parser do
   functions take an SPF [`context`](`t:Spf.Context.t/0`) as their only argument.
 
   """
-  import NimbleParsec
   import Spf.Context
+  import Spf.Tokenizer
   alias Spf.DNS
   alias Spf.Eval
 
-  @type context :: Spf.Context.t()
   @type token :: Spf.Tokens.token()
 
   # API
@@ -22,7 +21,7 @@ defmodule Spf.Parser do
 
   In case of any syntax errors, sets the explanation string to an empty string.
   """
-  @spec explain(context) :: context
+  @spec explain(Spf.Context.t()) :: Spf.Context.t()
   def explain(%{explain_string: explain} = context) do
     case tokenize_exp(explain) do
       {:error, _, _, _, _, _} ->
@@ -80,7 +79,7 @@ defmodule Spf.Parser do
   In the absence of an error, `context.ast` is fit for evaluation.
 
   """
-  @spec parse(context) :: context
+  @spec parse(Spf.Context.t()) :: Spf.Context.t()
   def parse(context)
 
   def parse(%{error: error} = ctx) when error != nil,
@@ -103,14 +102,9 @@ defmodule Spf.Parser do
     |> check(:all_last)
   end
 
-  # LEXERs
-
-  defparsecp(:tokenize_spf, Spf.Tokens.tokenize_spf())
-  defparsecp(:tokenize_exp, Spf.Tokens.tokenize_exp())
-
   # HELPERS
 
-  @spec ast(context, token) :: context
+  @spec ast(Spf.Context.t(), token) :: Spf.Context.t()
   defp ast(ctx, {_type, _tokval, _range} = token) do
     # add a token to the AST if possible, otherwise put in an :error
     case token do
@@ -138,7 +132,7 @@ defmodule Spf.Parser do
     end
   end
 
-  @spec cidr(context, [] | token) :: {atom, list} | {:error, :einvalid}
+  @spec cidr(Spf.Context.t(), [] | token) :: {atom, list} | {:error, :einvalid}
   defp cidr(_ctx, []),
     do: {:ok, [32, 128]}
 
@@ -173,7 +167,7 @@ defmodule Spf.Parser do
   # - :einvalid (in case tokenization saw errors)
   # note: the consequence of an :einvalid for an expansion is determined at eval-time
 
-  @spec expand(context, list | token) :: binary | :einvalid
+  @spec expand(Spf.Context.t(), list | token) :: binary | :einvalid
   defp expand(ctx, []),
     do: ctx.domain
 
@@ -188,7 +182,7 @@ defmodule Spf.Parser do
     |> drop_labels()
   end
 
-  @spec expand(context, atom, list) :: binary
+  @spec expand(Spf.Context.t(), atom, list) :: binary
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
     macro(ctx, ltr)
     |> String.split(delimiters)
@@ -210,7 +204,7 @@ defmodule Spf.Parser do
        when token_type in [:literal, :toplabel, :whitespace, :unknown],
        do: str
 
-  @spec macro(context, non_neg_integer) :: binary
+  @spec macro(Spf.Context.t(), non_neg_integer) :: binary
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
     do: macro(ctx, letter + 32) |> URI.encode_www_form()
 
@@ -234,9 +228,13 @@ defmodule Spf.Parser do
   defp macro_c(ip) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
     # - use inet.ntoa to get shorthand ip6 (appease v-macro-ip6 test)
-    addr = Pfx.new(ip) |> Pfx.marshall({0, 0, 0, 0})
+    # addr = Pfx.new(ip) |> Pfx.marshall({0, 0, 0, 0})
 
-    :inet.ntoa(addr)
+    # :inet.ntoa(addr)
+    # |> List.to_string()
+    Pfx.new(ip)
+    |> Pfx.marshall({0, 0, 0, 0})
+    |> :inet.ntoa()
     |> List.to_string()
   end
 
@@ -252,7 +250,7 @@ defmodule Spf.Parser do
     end
   end
 
-  @spec macro_p(context) :: binary
+  @spec macro_p(Spf.Context.t()) :: binary
   defp macro_p(ctx) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
     # "p" macro expands to a validated domain name of <ip>
@@ -325,7 +323,7 @@ defmodule Spf.Parser do
   # CHECKS
   # - checks performed by Spf.Parser at various stages
 
-  @spec check(context, atom) :: context
+  @spec check(Spf.Context.t(), atom) :: Spf.Context.t()
   defp check(ctx, :spf_length) do
     case String.length(ctx.spf) do
       len when len > 512 ->
@@ -446,7 +444,7 @@ defmodule Spf.Parser do
 
   # PARSER
 
-  @spec parse(token, context) :: context
+  @spec parse(token, Spf.Context.t()) :: Spf.Context.t()
   defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
     spec = List.keyfind(args, :domspec, 0, [])

@@ -170,10 +170,13 @@ defmodule Spfcheck do
     end
   end
 
+  @spec csv_result(Spf.Context.t()) :: nil
   defp csv_result(ctx) do
     Enum.map(@csv_fields, fn field -> "#{inspect(ctx[field])}" end)
     |> Enum.join(",")
     |> IO.puts()
+
+    nil
   end
 
   # Report topics
