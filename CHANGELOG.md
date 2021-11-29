@@ -8,13 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [x] change multiple entries warning to redundant-warning
 - [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
 
-- [x] change inconsistent warning to report only the terms inconsistent with current term
-- [ ] maybe change warnings based on more/less specifics so reported source terms are unique
-      At the moment an a-term with N-ip's is reporten N-times once its /24 is
-      also a term.
+### changed
+
+- a less confusing redundant-warning replaces the multiple-entries warning
+- inconsistent warnings now report only the terms inconsistent with current term
+
 
 ## [v0.5.0] - 2021-11-28
 
