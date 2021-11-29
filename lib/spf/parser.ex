@@ -1,6 +1,6 @@
 defmodule Spf.Parser do
   @moduledoc """
-  Functions to parse an SPF string or explain string for a given SPF [`context`](`t:context/0`).
+  Functions to parse an SPF string or explain string for a given SPF [`context`](`t:Spf.Context.t/0`).
 
   The parser also performs expansion during the semantic checks, so both
   functions take an SPF [`context`](`t:Spf.Context.t/0`) as their only argument.
@@ -16,7 +16,7 @@ defmodule Spf.Parser do
   # API
 
   @doc """
-  Parse [`context`](`t:context/0`)'s explain string and store the result under
+  Parse [`context`](`t:Spf.Context.t/0`)'s explain string and store the result under
   the `:explanation` key.
 
   In case of any syntax errors, sets the explanation string to an empty string.
@@ -33,7 +33,7 @@ defmodule Spf.Parser do
   end
 
   @doc """
-  Parse [`context`](`t:context/0`)'s SPF string and store the result under the
+  Parse [`context`](`t:Spf.Context.t/0`)'s SPF string and store the result under the
   `:ast` key.
 
   The parser will parse the entire record so as to find as many problems as
@@ -41,7 +41,7 @@ defmodule Spf.Parser do
 
   The parser will log notifications for:
   - ignoring an include'd explain modifier
-  - for each DNS mechanism encountered
+  - for each DNS mechanism encountered (at :debug level)
 
   The parser will log warnings for:
   - an SPF string length longer than 512 characters
@@ -71,7 +71,7 @@ defmodule Spf.Parser do
   `context.reason` show the details of the last error seen.  If given `context`
   also has a function reference stored in `context.log`, it is called with
   4 arguments:
-  - [`context`](`t:context/0`)
+  - [`context`](`t:Spf.Context.t/0`)
   - `facility`, an atom denoting which part sent the message
   - `severity`, an atom like :info, :warn, :error, :debug
   - `msg`, the message string

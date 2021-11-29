@@ -792,8 +792,8 @@ defmodule Spf.DNS do
   defp rr_line(line) do
     # return {:ok, [{name, type, rdata}] or {:error, reason}
     #
-    # :NOTE: rfc7208's tst:13.9 (macro-mania-in-domain) has a space in a domain
-    # - `name type rdata` is tried first for known types, if that fails
+    # :NOTE: rfc7208's tst:13.9 (macro-mania-in-domain) has a space in a domain, hence:
+    # - `name type rdata` is tried first for *known* types, if that fails
     # - `name error` is assumed and the line is split on the last word
     split =
       case String.split(line, @rgxtypes, parts: 2, include_captures: true) do
@@ -801,7 +801,6 @@ defmodule Spf.DNS do
         _ -> String.split(line, ~r/\S+$/, include_captures: true, trim: true)
       end
 
-    # split = String.split(line, ~r/\s+/, parts: 3)
     alltypes = Enum.map(@rrtypes, fn {name, _type} -> name end)
 
     case split do
@@ -817,7 +816,10 @@ defmodule Spf.DNS do
          {:ok, data} <- rr_line_data(types, rr_line_unquote(rdata)) do
       {:ok, for(type <- types, do: {domain, type, data})}
     else
-      error -> error
+      error ->
+        if length(types) > 1,
+          do: {:error, :malformed_rr},
+          else: error
     end
   end
 
@@ -884,7 +886,9 @@ defmodule Spf.DNS do
   end
 
   defp rr_line_unquote(rdata) do
-    # Returns an unquote'd rdata (NOT changing case) or an rdata error-tuple
+    # Returns either:
+    # - an unquote'd rdata (NOT changing case) or
+    # - a known, supported rdata error-tuple
     rdata = no_quotes(rdata)
 
     case @rrerrors[String.downcase(rdata)] do
