@@ -247,7 +247,7 @@ defmodule Spf.Context do
     |> Map.put(:local, local)
     |> Map.put(:domain, domain)
     |> Map.put(:helo, helo)
-    |> Map.put(:map, %{0 => domain, domain => 0})
+    |> Map.put(:map, %{0 => domain, domain => []})
     |> log(:ctx, :info, "sender is '#{sender}'")
     |> log(:ctx, :info, "local part set to '#{local}'")
     |> log(:ctx, :info, "domain part set to '#{domain}'")
@@ -522,7 +522,7 @@ defmodule Spf.Context do
     |> tick(:depth)
     |> trace(domain)
     |> Map.put(:stack, [state | context.stack])
-    |> Map.put(:map, Map.merge(context.map, %{nth => domain, domain => nth}))
+    |> Map.put(:map, Map.merge(context.map, %{nth => domain, domain => ""}))
     |> Map.put(:domain, domain)
     |> Map.put(:nth, nth)
     |> Map.put(:ast, [])
@@ -547,7 +547,7 @@ defmodule Spf.Context do
     |> Map.put(:nth, context.num_spf)
     |> Map.put(
       :map,
-      Map.merge(context.map, %{context.num_spf => domain, domain => context.num_spf})
+      Map.merge(context.map, %{context.num_spf => domain, domain => ""})
     )
     |> Map.put(:domain, domain)
     |> Map.put(:error, nil)

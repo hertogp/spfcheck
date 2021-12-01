@@ -100,6 +100,7 @@ defmodule Spf.Parser do
     |> check(:all_no_redirect)
     |> check(:redirect_last)
     |> check(:all_last)
+    |> then(&Map.update(&1, :map, %{}, fn m -> Map.put(m, &1.domain, spf) end))
   end
 
   # HELPERS
@@ -121,7 +122,7 @@ defmodule Spf.Parser do
           log(ctx, :parse, :info, "#{term} - ignored (included explain)")
         else
           if ctx.explain do
-            error(ctx, :parse, :repeated_modifier, "repeated modifier #{term}", :permerror)
+            error(ctx, :parse, :repeated_modifier, "#{term} - repeated modifier", :permerror)
           else
             Map.put(ctx, :explain, token)
           end
@@ -456,7 +457,7 @@ defmodule Spf.Parser do
     term = spf_term(ctx, range)
 
     if domain == :einvalid or warn == :error do
-      error(ctx, :parse, :syntax_error, "syntax error #{term}", :permerror)
+      error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
@@ -470,7 +471,7 @@ defmodule Spf.Parser do
   defp parse({:all, [qual], range}, ctx) do
     # All
     ast(ctx, {:all, [qual], range})
-    |> test(:parse, :warn, qual in [??, ?+], "usage of #{spf_term(ctx, range)} is not advisable")
+    |> test(:parse, :warn, qual in [??, ?+], "#{spf_term(ctx, range)} - usage not advisable")
   end
 
   defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
@@ -479,7 +480,7 @@ defmodule Spf.Parser do
 
     case(expand(ctx, domspec)) do
       :einvalid ->
-        error(ctx, :parse, :syntax_error, "syntax error #{term}", :permerror)
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       domain ->
         ast(ctx, {atom, [qual, domain], range})
@@ -495,7 +496,7 @@ defmodule Spf.Parser do
 
     case expand(ctx, domspec) do
       :einvalid ->
-        error(ctx, :parse, :syntax_error, "syntax error for #{term}", :permerror)
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       domain ->
         ast(ctx, {:exp, [domain], range})
@@ -512,7 +513,7 @@ defmodule Spf.Parser do
 
     case pfxparse(ip, atom) do
       {:error, _} ->
-        error(ctx, :parse, :syntax_error, "syntax error for #{term}", :permerror)
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       {warn, pfx} ->
         ast(ctx, {atom, [qual, pfx], range})
@@ -528,7 +529,7 @@ defmodule Spf.Parser do
 
     case expand(ctx, spec) do
       :einvalid ->
-        error(ctx, :parse, :syntax_error, "syntax error #{term}", :permerror)
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       domain ->
         ast(ctx, {:ptr, [qual, domain], range})
@@ -545,7 +546,7 @@ defmodule Spf.Parser do
 
     case expand(ctx, domspec) do
       :einvalid ->
-        error(ctx, :parse, :syntax_error, "syntax error for #{term}", :permerror)
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       domain ->
         ast(ctx, {:redirect, [domain], range})
@@ -566,7 +567,7 @@ defmodule Spf.Parser do
           ctx,
           :parse,
           :syntax_error,
-          "Unknown SPF version #{spf_term(ctx, range)}",
+          "#{spf_term(ctx, range)} - unknown spf version",
           :permerror
         )
     end
@@ -586,12 +587,12 @@ defmodule Spf.Parser do
 
   defp parse({:unknown, _tokvalue, range} = _token, ctx) do
     # Unknown
-    error(ctx, :parse, :syntax_error, "syntax error for '#{spf_term(ctx, range)}'", :permerror)
+    error(ctx, :parse, :syntax_error, "#{spf_term(ctx, range)} - syntax error", :permerror)
   end
 
   defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
     # Unknown_mod
-    log(ctx, :parse, :warn, "ignored unknown modifier '#{spf_term(ctx, range)}'")
+    log(ctx, :parse, :warn, "#{spf_term(ctx, range)} - unknown modifier ignored")
   end
 
   defp parse(token, ctx),

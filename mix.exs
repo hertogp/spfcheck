@@ -15,7 +15,7 @@ defmodule Spfcheck.MixProject do
   # mix hex.publish
 
   @source_url "https://github.com/hertogp/spfcheck"
-  @version "0.5.0"
+  @version "0.6.0"
   def project do
     [
       app: :spfcheck,
@@ -93,7 +93,10 @@ defmodule Spfcheck.MixProject do
   # process all assets/*.dot files into assets/*.dot.png image files
   defp gen_images(_) do
     for dot <- Path.wildcard("assets/*.dot") do
-      System.cmd("dot", ["-O", "-Tpng", dot])
+      case System.cmd("dot", ["-O", "-Tpng", dot]) do
+        {"", 0} -> IO.puts("ok - #{dot}")
+        res -> IO.puts("not ok - #{dot} #{inspect(res)}")
+      end
     end
   end
 end

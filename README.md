@@ -12,6 +12,22 @@
 
 `spfcheck` is a command line tool to examine and debug SPF records.
 
+Maintaining SPF records as part of your email security can quickly become
+cumbersome, especially when there is a need to include SPF records across
+administrative boundaries.
+
+Use `spfcheck` to:
+- debug an existing policy
+- test new SPF records before publishing in DNS
+- generate a report for an SPF policy
+- visualize an SPF policy
+- generate a csv-file with policy evaluation results for lots of domains
+
+`spfcheck` passes the
+[`rfc7208 test suite`](http://www.open-spf.org/Test_Suite) and should be reasonably
+[`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html) compliant.
+
+
 ## Usage
 
 ```txt
@@ -38,18 +54,16 @@ Options:
 ```
 
 The default is to simply print the verdict and some stats to stdout and print
-notification messages to stderr.  `spfcheck` passes the
-[`rfc7208 test suite`](http://www.open-spf.org/Test_Suite)
-and should be reasonably
-[`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html) compliant.
+notification messages to stderr.
+
 
 ```txt
 % spfcheck example.com --no-color
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
 example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
 example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip is '127.0.0.1'
 example.com %spf[0]-ctx-info:   > helo set to 'example.com'
+example.com %spf[0]-ctx-info:   > ip set to '127.0.0.1'
 example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 4
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
@@ -73,7 +87,7 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 0
-explanation: 
+explanation:
 ```
 
 ## Batchmode
@@ -99,8 +113,19 @@ The `-d` flag can be used to either point to local file with RR-records or
 specify DNS data on the command line.  If the file exists, it is read and used
 to prepopulate the cache. Otherwise, the text will be read as DNS data.  This
 makes it possible to try out records before publishing them in DNS.  That file
-should contain 1 RR record per line using the simple `domain  type  rdata`
-format. All `domain`'s are taken to be relative to root ('.').
+should contain 1 RR record per line using either:
+- `domain  type  rdata`
+- `domain error`
+
+Where:
+- `type` should be one of `A, AAAA, CNAME, MX, NS, PTR, SOA, SPF or TXT`, and
+- `error` should be one of `FORMERR, NXDOMAIN, SERVFAIL, TIMEOUT or ZERO_ANSWERS`
+
+The DNS `type` and `error` are both are case-insensitive and all domains are
+taken relative to root ('.') which is always stripped if present.
+
+For the curious, the RR-type `SPF` is a relic from the past and only used when
+running the rfc7208 testsuite.
 
 ```txt
 % spfcheck example.com -v 0 -d "example.com TXT v=spf1 +all"
@@ -172,8 +197,8 @@ it defaults to `127.0.0.1` as an unlikely address to be authorized by anyone.
 The goal is to go down the rabbit hole as far as possible and check the entire
 nested SPF policy for given `sender`.  Notes:
 - if given an IPv4-mapped IPv6 address, the IPv4 address is extracted and used
-- if given IP address is invalid, it defaults to 127.0.0.1
-- the given ip may also be a prefix rather than a full address
+- if given an invalid IP address, it defaults to 127.0.0.1
+- the given IP may also be a prefix rather than a full address
 
 ```txt
 % spfcheck example.com --no-color -i "::ffff:1.2.3.4"
@@ -250,7 +275,7 @@ instead of using the system default settings.  Specify multiple nameservers
 by repeating the option with different IP addresses, in which case they will be
 tried in the order listed.
 
-```
+```txt
 % spfcheck example.com -n 2001:4860:4860::8888 -v 5 --no-color
 
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
@@ -359,6 +384,7 @@ example.net %spf[0]-dns-info:   > DNS QUERY (2) soa example.net - [{"ns.icann.or
 
 The `-r` flag can be used to print out some information, topics include:
 - `v` the verdict and some statistics
+- `g` a graphviz representation of the SPF policy
 - `s` the spf records seen and their authority information
 - `e` the errors seen
 - `w` the warnings seen
@@ -378,16 +404,14 @@ the `-m` flag.
 [0] example.com -- (example.com, noc@dns.icann.org)
     v=spf1 -all
 
-
 [0] example.net -- (example.net, noc@dns.icann.org)
     v=spf1 -all
-
 
 [0] example.org -- (example.org, noc@dns.icann.org)
     v=spf1 -all
 ```
 
-Alternatively a simple markdown report can be generated.  Use the `-t` and
+Alternatively, a simple markdown report can be generated.  Use the `-t` and
 `-a` flags to customize the title and author information respectively.
 The report below shows the SPF records used by several example domains.  If
 they had included other SPF records, those would show as well.
@@ -434,6 +458,67 @@ they had included other SPF records, those would show as well.
     ```
 
 ```
+
+Use the `g` report topic to visualize a domain's SPF policy as a graphviz directed
+graph.  If markdown is active, the fenced codeblock will have `graphviz` as its
+class, allowing the conversion of the markdown to e.g. a pdf with a picture of
+the SPF policy using pandoc and a graphviz filter.
+
+```txt
+# example of an SPF policy with some problems
+% cat assets/zonedata.db
+
+example.com txt v=spf1 a:%{d1}.org include:spf-a.example.com include:spf-b.example.com redirect=spf-c.example.com
+example.org a 1.2.3.4
+spf-a.example.com txt v=spf1 a mx include:spf-b.example.com ~all
+spf-b.example.com txt v=spf1 include:netblocks4.example.com include:netblocks6.example.com
+netblocks4.example.com txt v=spf1 ip4:10.10.10.0/24 ip4:192.168.0.0/16 ip4:172.16.0.0/12 -all
+netblocks6.example.com txt v=spf1 ip6:2001:db8:2001::/64 ip6:2001:db8:2002::/64 ip6:2001:db8:2003::/64 -all
+spf-c.example.com txt v=spf1 a:bad.%{d2} ip4:1.1.1.1 -all
+bad.example.com a TIMEOUT
+
+
+% spfcheck example.com --no-color -v 2 -d assets/zonedata.db -r g 2> assets/example.com.log> assets/example.com.dot
+% dot -Tpng -O assets/example.com.dot
+% cat assets/example.com.log
+example.com %spf[1]-dns-warn:   | > DNS QUERY (4) a spf-a.example.com - NXDOMAIN
+example.com %spf[1]-dns-warn:   | > DNS QUERY (5) mx spf-a.example.com - NXDOMAIN
+example.com %spf[2]-parse-warn: | | > SPF record has implicit end (?all)
+example.com %spf[5]-parse-warn: | > SPF record has implicit end (?all)
+example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:10.10.10.0/24 - redundant entry, already have: spf[3] ip4:10.10.10.0/24
+example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:192.168.0.0/16 - redundant entry, already have: spf[3] ip4:192.168.0.0/16
+example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:172.16.0.0/12 - redundant entry, already have: spf[3] ip4:172.16.0.0/12
+example.com %spf[7]-ipt-warn:   | | > spf[7] ip6:2001:db8:2001::/64 - redundant entry, already have: spf[4] ip6:2001:db8:2001::/64
+example.com %spf[7]-ipt-warn:   | | > spf[7] ip6:2001:db8:2002::/64 - redundant entry, already have: spf[4] ip6:2001:db8:2002::/64
+example.com %spf[7]-ipt-warn:   | | > spf[7] ip6:2001:db8:2003::/64 - redundant entry, already have: spf[4] ip6:2001:db8:2003::/64
+example.com %spf[8]-dns-warn:   > DNS QUERY (13) [cache] a bad.example.com - :TIMEOUT
+example.com %spf[8]-eval-error: > spf[8] a:bad.%{d2} - timeout
+example.com %spf[8]-dns-warn:   > DNS QUERY (14) soa spf-c.example.com - NXDOMAIN
+```
+
+![SPF policy](assets/example.com.dot.png)
+
+A few notes on interpretation:
+- the check, verdict and reason are on top of the picture
+- the `exp=` modifier is never listed, just the AST per SPF record seen
+- terms with syntax errors are also not listed, but the verdict shows the last erronouos term
+- green means an SPF record itself had no errors nor warnings during parsing and evaluation
+- yellow means at least 1 warning
+- red means at least 1 error
+- the `[n]` means it was the `nth` SPF record that was evaluated
+- multiple `[m][n]..` means the SPF record was evaluated multiple times
+- not all errors are fatal, e.g. a DNS timeout causing a temperror
+- `spf-b.example.com`'s SPF record:
+    - is included twice, hence the double incoming arrows
+    - is evaluated twice, once as the second [2] spf record and once as the fifth [5] record
+    - the two warnings are from the implicit end which is seen twice
+- `netblocks4.example.com` has 3 warnings
+    - it is included twice and the second time around the 3 networks are known already
+- `netblocks6.example.com` also has 3 warnings, due to the same reason
+- only SPF records required to arrive at a verdict are shown
+    - early success or failure, means the graph does not show the full policy
+    - to show as much as possible, use e.g. -i `127.0.0.1` (the default) or e.g.
+      `0.0.0.0`
 
 ## Verbosity flag
 
@@ -494,7 +579,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.5.0"}
+    {:spfcheck, "~> 0.6.0"}
   ]
 end
 ```

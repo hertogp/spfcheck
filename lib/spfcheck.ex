@@ -4,7 +4,6 @@ defmodule Spfcheck do
              |> String.split("<!-- @MODULEDOC -->")
              |> Enum.fetch!(1)
 
-  alias Spf.Context
   alias IO.ANSI
 
   @options [
@@ -177,6 +176,87 @@ defmodule Spfcheck do
     |> IO.puts()
   end
 
+  defp dot_domain({nth, ctx}, acc) do
+    domain = ctx.map[nth]
+    spf = ctx.map[domain]
+
+    Spf.Context.new(domain)
+    |> Map.put(:spf, spf)
+    |> Spf.Parser.parse()
+    |> dot_domain_defs(ctx, acc)
+  end
+
+  defp dot_domain_defs(new, ctx, acc) do
+    nths = Map.keys(ctx.map) |> Enum.filter(fn n -> ctx.map[n] == new.domain end)
+    errs = Enum.filter(ctx.msg, fn {n, _, s, _} -> n in nths and s == :error end) |> length()
+    warn = Enum.filter(ctx.msg, fn {n, _, s, _} -> n in nths and s == :warn end) |> length()
+    nths = Enum.join(nths, "][")
+
+    color =
+      cond do
+        errs > 0 -> "red"
+        warn > 0 -> "yellow"
+        true -> "green"
+      end
+
+    errs = if errs > 0, do: "<TR><TD>#{errs} errors</TD></TR>", else: ""
+    warn = if warn > 0, do: "<TR><TD>#{warn} warnings</TD></TR>", else: ""
+
+    entries =
+      new.ast
+      |> Enum.map(fn {type, _args, range} -> {new.domain, type, String.slice(new.spf, range)} end)
+      |> Enum.with_index(&dot_node_entry/2)
+
+    rows = Enum.map(entries, fn {r, _v} -> r end)
+    vert = Enum.map(entries, fn {_r, v} -> v end) |> Enum.filter(fn v -> v != "" end)
+
+    {_, contact} =
+      case Spf.DNS.authority(new, new.domain) do
+        {:ok, _, owner, email} -> {owner, email}
+        {:error, reason} -> {"DNS error", "#{reason}"}
+      end
+
+    [
+      """
+      "#{new.domain}" [label=<
+        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+        <TR><TD PORT="TOP" BGCOLOR="#{color}">[#{nths}] #{new.domain}</TD></TR>
+        <TR><TD BGCOLOR="lightgray">#{contact}</TD></TR>
+        <TR><TD>v=spf1</TD></TR>
+        #{Enum.join(rows, "\n  ")}
+        #{warn}
+        #{errs}
+        </TABLE>
+        >, shape="plaintext"];
+
+        #{Enum.join(vert, "\n  ")}
+      """
+      | acc
+    ]
+  end
+
+  # return a table row definition + vertice if applicable
+  defp dot_node_entry({domain, :include, term}, idx) do
+    name = String.replace(term, ~r/.*:/, "")
+
+    row = "<TR><TD PORT=\"#{idx}\">include:#{name}</TD></TR>"
+    vtx = "\"#{domain}\":\"#{idx}\" -> \"#{name}\":\"TOP\";"
+    {row, vtx}
+  end
+
+  defp dot_node_entry({domain, :redirect, term}, idx) do
+    name = String.replace(term, ~r/.*=/, "")
+
+    row = "<TR><TD PORT=\"#{idx}\">redirect=#{name}</TD></TR>"
+    vtx = "\"#{domain}\":\"#{idx}\" -> \"#{name}\":\"TOP\";"
+    {row, vtx}
+  end
+
+  defp dot_node_entry({_domain, _, term}, _idx) do
+    row = "<TR><TD>#{term}</TD></TR>"
+    {row, ""}
+  end
+
   # Report topics
   defp report(ctx, opts) do
     report = Keyword.get(opts, :report, "") |> String.downcase() |> String.split("", trim: true)
@@ -185,7 +265,7 @@ defmodule Spfcheck do
     topics =
       case report do
         [] -> ["v"]
-        ["a", "l", "l"] -> ["v", "s", "e", "w", "p", "d", "a", "t"]
+        ["a", "l", "l"] -> ["v", "g", "s", "e", "w", "p", "d", "a", "t"]
         topics -> topics
       end
 
@@ -236,12 +316,10 @@ defmodule Spfcheck do
   # Spf's
   defp topic(ctx, "s", markdown, width) do
     if markdown, do: IO.puts("\n## SPF\n\n```")
-    nths = Map.keys(ctx.map) |> Enum.filter(fn x -> is_integer(x) end) |> Enum.sort()
-
     # donot log DNS stuff to console
     ctx = Map.put(ctx, :verbosity, 0)
 
-    for nth <- nths do
+    for nth <- 0..(ctx.num_spf - 1) do
       domain = ctx.map[nth]
 
       {owner, email} =
@@ -250,7 +328,8 @@ defmodule Spfcheck do
           {:error, reason} -> {"DNS error", "#{reason}"}
         end
 
-      spf = Context.get_spf(ctx, domain) |> text_wrap(width, "\n    ")
+      spf = ctx.map[domain] |> text_wrap(width, "\n    ")
+      spf = if String.length(spf) < 1, do: "No SPF found", else: spf
       IO.puts("[#{nth}] #{domain} -- (#{owner}, #{email})")
       IO.puts("    #{spf}\n")
     end
@@ -350,6 +429,36 @@ defmodule Spfcheck do
 
       if markdown, do: IO.puts("```"), else: IO.puts("")
     end
+  end
+
+  # Graphviz
+  defp topic(ctx, "g", markdown, _width) do
+    if markdown, do: IO.puts("\n## Graphviz\n\n```graphviz")
+
+    domains =
+      for nth <- 0..(ctx.num_spf - 1) do
+        {nth, ctx}
+      end
+
+    gdefs = Enum.reduce(domains, [], &dot_domain/2)
+    # use 0-th domain, not ctx.domain (might be a redirected domain)
+    label = "spfcheck(#{ctx.map[0]}, #{ctx.ip}) -> #{ctx.verdict}"
+
+    digraph = """
+    digraph SPF {
+      label="#{label}\nreason: #{ctx.reason}";
+      labelloc="t";
+      rankdir="LR";
+      ranksep="1.0 equally";
+
+      #{Enum.join(gdefs, "\n\n")}
+
+      }
+    """
+
+    IO.puts(digraph)
+
+    if markdown, do: IO.puts("```")
   end
 
   # AST

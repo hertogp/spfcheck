@@ -8,12 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] add flag to just create a dot-file that visualizes the domain's SPF (?)
+- [ ] add warning when default + is used in mechanisms
+
+## [v0.6.0] - 2021-12-01
+
+## added
+
+- report option "g" to include a graphviz di-graph of the SPF policy
 
 ### changed
 
 - a less confusing redundant-warning replaces the multiple-entries warning
 - inconsistent warnings now report only the terms inconsistent with current term
+- more consistent formatting of logging and verdict's reason
 
 
 ## [v0.5.0] - 2021-11-28

@@ -52,8 +52,6 @@ defmodule Spf.Eval do
     |> grep_spf()
     |> Spf.Parser.parse()
     |> eval()
-
-    # |> check_spf()
   end
 
   @doc """
@@ -322,16 +320,17 @@ defmodule Spf.Eval do
   defp evalp(ctx, [{:a, [q, domain, dual], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.3
     {ctx, dns} = DNS.resolve(ctx, domain, type: ctx.atype)
+    spfterm = spf_term(ctx, range)
 
     case dns do
       {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
         ctx
 
       {:error, reason} ->
-        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "#{spfterm} - #{reason}", :temperror)
 
       {:ok, rrs} ->
-        addip(ctx, rrs, dual, {q, ctx.nth, spf_term(ctx, range)})
+        addip(ctx, rrs, dual, {q, ctx.nth, spfterm})
     end
     |> match(term, tail)
   end
@@ -349,17 +348,18 @@ defmodule Spf.Eval do
   defp evalp(ctx, [{:exists, [q, domain], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
     {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
+    spfterm = spf_term(ctx, range)
 
     case dns do
       {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
         ctx
 
       {:error, reason} ->
-        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "#{spfterm} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
-        |> addip(ctx.ip, [32, 128], {q, ctx.nth, spf_term(ctx, range)})
+        |> addip(ctx.ip, [32, 128], {q, ctx.nth, spfterm})
     end
     |> match(term, tail)
   end
@@ -373,7 +373,7 @@ defmodule Spf.Eval do
         ctx,
         :eval,
         :loop,
-        "loop detected: #{ctx.domain} cannot include #{domain}",
+        "#{term} - loop: #{ctx.domain} cannot include #{domain}",
         :permerror
       )
     else
@@ -423,7 +423,7 @@ defmodule Spf.Eval do
         ctx
 
       {:error, reason} ->
-        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "#{spfterm} - #{reason}", :temperror)
 
       {:ok, [{0, "."}]} ->
         # https://www.rfc-editor.org/rfc/rfc7505.html#section-3
@@ -431,7 +431,7 @@ defmodule Spf.Eval do
 
       {:ok, rrs} when length(rrs) > 10 ->
         # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
-        error(ctx, :eval, :too_many_mtas, "too many mta's for #{spfterm}", :permerror)
+        error(ctx, :eval, :too_many_mtas, "#{spfterm} - too many mta's", :permerror)
 
       {:ok, rrs} ->
         Enum.map(rrs, fn {_pref, name} -> name end)
@@ -443,18 +443,19 @@ defmodule Spf.Eval do
   end
 
   # PTR
-  defp evalp(ctx, [{:ptr, [_q, domain], _range} = term | tail]) do
+  defp evalp(ctx, [{:ptr, [_q, domain], range} = term | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     # https://www.rfc-editor.org/errata/eid4751
     domain = Spf.DNS.normalize(domain)
     {ctx, dns} = DNS.resolve(ctx, Pfx.dns_ptr(ctx.ip), type: :ptr)
+    spfterm = spf_term(ctx, range)
 
     case dns do
       {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
         ctx
 
       {:error, reason} ->
-        error(ctx, :eval, reason, "DNS error #{domain} - #{reason}", :temperror)
+        error(ctx, :eval, reason, "#{spfterm} - #{reason}", :temperror)
 
       {:ok, rrs} ->
         # https://www.rfc-editor.org/errata/eid5227
@@ -477,23 +478,25 @@ defmodule Spf.Eval do
     # - if redirect domain has no SPF -> permerror
     # - if redirect domain is mailformed -> permerror
     # - otherwise its result is the result for this SPF
+    term = spf_term(ctx, range)
+
     if loop?(ctx, domain) do
       error(
         ctx,
         :eval,
         :loop,
-        "loop detected: #{ctx.domain} cannot redirect to #{domain}",
+        "#{term} - loop: #{ctx.domain} cannot redirect to #{domain}",
         :permerror
       )
     else
       ctx =
-        test(ctx, :eval, :warn, length(tail) > 0, "terms after #{spf_term(ctx, range)}?")
-        |> log(:eval, :note, "#{spf_term(ctx, range)} - redirecting to #{domain}")
+        test(ctx, :eval, :warn, length(tail) > 0, "#{spf_term(ctx, range)} - has trailing terms")
+        |> log(:eval, :note, "#{term} - redirecting to #{domain}")
         |> redirect(domain)
         |> evaluate()
 
       if ctx.error in [:no_spf, :nxdomain] do
-        error(ctx, :eval, :no_redir_spf, "no SPF found for #{domain}", :permerror)
+        error(ctx, :eval, :no_redir_spf, "#{term} - no SPF found for #{domain}", :permerror)
       else
         ctx
       end

@@ -72,7 +72,10 @@ defmodule SpfcheckTestSuite do
 
       msg =
         msg <>
-          (Enum.map(ctx.map, fn {d, n} -> "#{n} - #{d}" end) |> Enum.sort() |> Enum.join("\n"))
+          (for nth <- 0..(ctx.num_spf - 1) do
+             "#{nth} - #{ctx.map[nth]}"
+           end
+           |> Enum.join("\n"))
 
       assert "#{ctx.verdict}" in @result, msg
       assert ctx.explanation == @explanation, msg
