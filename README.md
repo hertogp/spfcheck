@@ -44,7 +44,7 @@ Options:
   -i, --ip=string         sending MTA IPv4/IPv6 address (defaults to 127.0.0.1)
   -m, --markdown          use markdown format for output (default depends, see Report flag)
   -n, --nameserver=string an IPv4/IPv6 address of a nameserver to use
-  -r, --report=string     either "all" or one of more letters of "vsewpdat" (see below)
+  -r, --report=string     either "all" or one of more letters of "vgsewpdat" (see below)
   -t, --title=string      sets title in the markdown metadata (default "SPF report")
   -v, --verbosity=number  set logging noise level (0..5), default is 4 (informational)
   -w, --width=NUM         limits line length to increase readability (defaults to 60)
@@ -114,7 +114,7 @@ specify DNS data on the command line.  If the file exists, it is read and used
 to prepopulate the cache. Otherwise, the text will be read as DNS data.  This
 makes it possible to try out records before publishing them in DNS.  That file
 should contain 1 RR record per line using either:
-- `domain  type  rdata`
+- `domain  type  rdata|error`
 - `domain error`
 
 Where:
@@ -122,7 +122,8 @@ Where:
 - `error` should be one of `FORMERR, NXDOMAIN, SERVFAIL, TIMEOUT or ZERO_ANSWERS`
 
 The DNS `type` and `error` are both are case-insensitive and all domains are
-taken relative to root ('.') which is always stripped if present.
+taken relative to root ('.') which is always stripped if present.  Using the
+second format of `domain error` will set the error on all known RR `type`'s.
 
 For the curious, the RR-type `SPF` is a relic from the past and only used when
 running the rfc7208 testsuite.

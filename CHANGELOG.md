@@ -8,7 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] add warning when default + is used in mechanisms
+- [ ] warn if address in a prefix is not the this-network address
+- [ ] warn if policy snoops your sending address via macros
+
+### added
+
+- warning when default '+'-qualifier is used in mechanisms
+
+### changed
+
+- logs use uniform format: "term - message" format as much as possible
+
 
 ## [v0.6.0] - 2021-12-01
 

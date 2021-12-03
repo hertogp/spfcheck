@@ -119,7 +119,7 @@ defmodule Spf.Parser do
         term = spf_term(ctx, range)
 
         if length(ctx.stack) > 0 do
-          log(ctx, :parse, :info, "#{term} - ignored (included explain)")
+          log(ctx, :parse, :info, "#{term} - ignoring included explain")
         else
           if ctx.explain do
             error(ctx, :parse, :repeated_modifier, "#{term} - repeated modifier", :permerror)
@@ -321,14 +321,19 @@ defmodule Spf.Parser do
     _ -> {:error, pfx}
   end
 
+  defp spf_plus(ctx, range),
+    do: String.slice(ctx.spf, range) |> String.starts_with?("+")
+
   # CHECKS
   # - checks performed by Spf.Parser at various stages
-
   @spec check(Spf.Context.t(), atom) :: Spf.Context.t()
   defp check(ctx, :spf_length) do
+    # SPF_LENGTH
+    term = "spf[#{ctx.nth}] #{ctx.domain}"
+
     case String.length(ctx.spf) do
       len when len > 512 ->
-        log(ctx, :parse, :warn, "#{ctx.domain} - SPF TXT length #{len} > 512 characters")
+        log(ctx, :parse, :warn, "#{term} - TXT length #{len} > 512 characters")
 
       _ ->
         ctx
@@ -336,21 +341,32 @@ defmodule Spf.Parser do
   end
 
   defp check(ctx, :spf_residue) do
+    # Spf_residue
+    term = "spf[#{ctx.nth}] #{ctx.domain}"
+
     case String.length(ctx.spf_rest) do
-      len when len > 0 -> log(ctx, :parse, :warn, "SPF string residue #{inspect(ctx.spf_rest)}")
-      _ -> ctx
+      len when len > 0 ->
+        log(ctx, :parse, :warn, "#{term} - SPF residue #{inspect(ctx.spf_rest)}")
+
+      _ ->
+        ctx
     end
   end
 
   defp check(ctx, :explain_reachable) do
+    # Explain_reachable
     # if none of the terms have a fail qualifier, an explain is superfluous
     if ctx.explain != nil do
       Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type != :redirect end)
       |> Enum.map(fn {_type, tokval, _range} -> tokval end)
       |> Enum.filter(fn l -> List.first(l, ?+) == ?- end)
       |> case do
-        [] -> log(ctx, :parse, :warn, "SPF record cannot fail, so explain is never used")
-        _ -> ctx
+        [] ->
+          term = "spf[#{ctx.nth}] #{ctx.domain}"
+          log(ctx, :parse, :warn, "#{term} - SPF cannot fail, explain never used")
+
+        _ ->
+          ctx
       end
     else
       ctx
@@ -358,36 +374,33 @@ defmodule Spf.Parser do
   end
 
   defp check(ctx, :no_implicit) do
+    # No_implicit
     # warn if there's no redirect and no all present
     explicit = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type in [:all, :redirect] end)
 
     case explicit do
-      [] -> log(ctx, :parse, :warn, "SPF record has implicit end (?all)")
+      [] -> log(ctx, :parse, :warn, "spf[#{ctx.nth}] #{ctx.domain} - has implicit end (?all)")
       _ -> ctx
     end
   end
 
   defp check(ctx, :max_redirect) do
+    # Max_redirect
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5
     # redirect modifier is allowed only once
     redirs = Enum.filter(ctx.ast, fn {type, _tokal, _range} -> type == :redirect end)
 
     if length(redirs) > 1 do
       [_, {_, _, range} | _] = redirs
-
-      error(
-        ctx,
-        :parse,
-        :repeated_modifier,
-        "#{spf_term(ctx, range)} - redirect is allowed only once",
-        :permerror
-      )
+      term = spf_term(ctx, range)
+      error(ctx, :parse, :repeated_modifier, "#{term} - redirect allowed only once", :permerror)
     else
       ctx
     end
   end
 
   defp check(ctx, :redirect_last) do
+    # Redirect_last
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.3
     # redirect modifier takes effect after all mechanisms have been evaluated
     # - note this check must come after check :all_no_redirect
@@ -408,6 +421,7 @@ defmodule Spf.Parser do
   end
 
   defp check(ctx, :all_no_redirect) do
+    # All_no_redirect
     # warn on ignoring a superfluous `redirect`
     # - note that this check must come before :redirect_last
     all = Enum.filter(ctx.ast, fn {type, _tokval, _range} -> type == :all end)
@@ -417,8 +431,10 @@ defmodule Spf.Parser do
         nil ->
           ctx
 
-        {redir, ast} ->
-          log(ctx, :parse, :warn, "redirect #{inspect(redir)} ignored: `all` is present")
+        {{:redirect, _, range}, ast} ->
+          term = spf_term(ctx, range)
+
+          log(ctx, :parse, :warn, "#{term} - ignored in the presence of `all`")
           |> Map.put(:ast, ast)
       end
     else
@@ -427,6 +443,7 @@ defmodule Spf.Parser do
   end
 
   defp check(ctx, :all_last) do
+    # All_last
     # warns on terms being ignored
     # - exp is actually part of the context and does not appear in the ast
     # - redirect is (already) removed from ast if all is present
@@ -435,7 +452,7 @@ defmodule Spf.Parser do
     case rest do
       [{_, _, r0} | tail] when tail != [] ->
         Enum.reduce(tail, ctx, fn {_, _, r1}, ctx ->
-          log(ctx, :parse, :warn, "term after #{spf_term(ctx, r0)} ignored: #{spf_term(ctx, r1)}")
+          log(ctx, :parse, :warn, "#{spf_term(ctx, r1)} - ignored, is after #{spf_term(ctx, r0)}")
         end)
 
       _ ->
@@ -455,28 +472,35 @@ defmodule Spf.Parser do
     {warn, cidr} = cidr(ctx, dual)
 
     term = spf_term(ctx, range)
+    plus = spf_plus(ctx, range)
 
     if domain == :einvalid or warn == :error do
       error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
-      |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+      |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
       |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
       |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
       |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
+      |> test(:parse, :warn, plus, "#{term} - use of default '+'")
     end
   end
 
   defp parse({:all, [qual], range}, ctx) do
     # All
+    term = spf_term(ctx, range)
+    plus = spf_plus(ctx, range)
+
     ast(ctx, {:all, [qual], range})
-    |> test(:parse, :warn, qual in [??, ?+], "#{spf_term(ctx, range)} - usage not advisable")
+    |> test(:parse, :warn, qual in [??, ?+], "#{term} - usage not advisable")
+    |> test(:parse, :warn, plus, "#{term} - use of default '+'")
   end
 
   defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
     # Exists, Include
     term = spf_term(ctx, range)
+    plus = spf_plus(ctx, range)
 
     case(expand(ctx, domspec)) do
       :einvalid ->
@@ -485,8 +509,9 @@ defmodule Spf.Parser do
       domain ->
         ast(ctx, {atom, [qual, domain], range})
         |> tick(:num_dnsm)
-        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+        |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
+        |> test(:parse, :warn, plus, "#{term} - use of default '+'")
     end
   end
 
@@ -510,6 +535,7 @@ defmodule Spf.Parser do
     # TODO: have only cidr() check/warn for prefix lengths, eliminate that
     # check in pfxparse() (DRY principle)
     term = spf_term(ctx, range)
+    plus = spf_plus(ctx, range)
 
     case pfxparse(ip, atom) do
       {:error, _} ->
@@ -519,6 +545,7 @@ defmodule Spf.Parser do
         ast(ctx, {atom, [qual, pfx], range})
         |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
         |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
+        |> test(:parse, :warn, plus, "#{term} - use of default '+'")
     end
   end
 
@@ -526,6 +553,7 @@ defmodule Spf.Parser do
     # Ptr
     spec = List.keyfind(args, :domspec, 0, [])
     term = spf_term(ctx, range)
+    plus = spf_plus(ctx, range)
 
     case expand(ctx, spec) do
       :einvalid ->
@@ -534,9 +562,10 @@ defmodule Spf.Parser do
       domain ->
         ast(ctx, {:ptr, [qual, domain], range})
         |> tick(:num_dnsm)
-        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
-        |> log(:parse, :warn, "#{term} ** usage is not recommended")
+        |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
+        |> log(:parse, :warn, "#{term} - usage not recommended")
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
+        |> test(:parse, :warn, plus, "#{term} - use of default '+'")
     end
   end
 
@@ -551,7 +580,7 @@ defmodule Spf.Parser do
       domain ->
         ast(ctx, {:redirect, [domain], range})
         |> tick(:num_dnsm)
-        |> log(:parse, :debug, "DNS MECH (#{ctx.num_dnsm}): #{term}")
+        |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
   end
@@ -575,13 +604,15 @@ defmodule Spf.Parser do
 
   defp parse({:whitespace, [wspace], range}, ctx) do
     # Whitespace
+    record = "spf[#{ctx.nth}] #{ctx.domain}"
+
     ctx =
       if String.length(wspace) > 1,
-        do: log(ctx, :parse, :warn, "repeated whitespace: #{inspect(range)}"),
+        do: log(ctx, :parse, :warn, "#{record} #{inspect(range)} - repeated whitespace"),
         else: ctx
 
     if String.contains?(wspace, "\t"),
-      do: log(ctx, :parse, :warn, "tab as whitespace: #{inspect(range)}"),
+      do: log(ctx, :parse, :warn, "#{record} #{inspect(range)} - has tab"),
       else: ctx
   end
 
@@ -595,7 +626,7 @@ defmodule Spf.Parser do
     log(ctx, :parse, :warn, "#{spf_term(ctx, range)} - unknown modifier ignored")
   end
 
-  defp parse(token, ctx),
+  defp parse({_, _, range}, ctx),
     # CatchAll
-    do: log(ctx, :parse, :error, "Spf.parser.check: no handler available for #{inspect(token)}")
+    do: log(ctx, :parse, :error, "#{spf_term(ctx, range)} - Spf.parser.check has no handler!!")
 end

@@ -194,17 +194,18 @@ defmodule Spf.Eval do
   end
 
   @spec validate(binary, Spf.Context.t(), tuple) :: Spf.Context.t()
-  defp validate(name, ctx, {:ptr, [q, domain], range} = _term) do
+  defp validate(name, ctx, {:ptr, [q, domain], range}) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.5
     {ctx, dns} = DNS.resolve(ctx, name, type: ctx.atype)
+    term = spf_term(ctx, range)
 
     case validate?(dns, ctx.ip, name, domain, true) do
       true ->
         addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, spf_term(ctx, range)})
-        |> log(:eval, :info, "validated: #{name}, #{ctx.ip} for #{domain}")
+        |> log(:eval, :info, "#{term} - validated #{name} (#{ctx.ip}) for #{domain}")
 
       false ->
-        log(ctx, :eval, :info, "not validated: #{name}, #{ctx.ip} for #{domain}")
+        log(ctx, :eval, :info, "#{term} - didn't validate #{name} (#{ctx.ip}) for #{domain}")
     end
   end
 
@@ -358,7 +359,7 @@ defmodule Spf.Eval do
         error(ctx, :eval, reason, "#{spfterm} - #{reason}", :temperror)
 
       {:ok, rrs} ->
-        log(ctx, :eval, :info, "DNS #{inspect(rrs)}")
+        log(ctx, :eval, :info, "#{spfterm} - got DNS #{inspect(rrs)}")
         |> addip(ctx.ip, [32, 128], {q, ctx.nth, spfterm})
     end
     |> match(term, tail)
@@ -381,7 +382,7 @@ defmodule Spf.Eval do
         log(ctx, :eval, :note, "#{term} - recurse")
         |> push(domain)
         |> evaluate()
-        |> then(&log(&1, :eval, :note, "spf[#{&1.nth}] verdict #{&1.verdict}"))
+        |> then(&log(&1, :eval, :note, "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}"))
 
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
@@ -504,8 +505,10 @@ defmodule Spf.Eval do
   end
 
   # TERM UNKNOWN -> internal error
-  defp evalp(ctx, [term | tail]) do
-    log(ctx, :eval, :error, "internal error, eval is missing a handler for #{inspect(term)}")
+  defp evalp(ctx, [{_, _, range} | tail]) do
+    term = spf_term(ctx, range)
+
+    log(ctx, :eval, :error, "#{term} - skipping, eval has no handler!!")
     |> evalp(tail)
   end
 end
