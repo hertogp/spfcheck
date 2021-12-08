@@ -11,10 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] warn if address in a prefix is not the this-network address
 - [ ] warn if policy snoops your sending address via macros
 
-### added
-
-- warning when default '+'-qualifier is used in mechanisms
-
 ### changed
 
 - logs use uniform format: "term - message" format as much as possible
@@ -25,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## added
 
 - report option "g" to include a graphviz di-graph of the SPF policy
+- warning when default '+'-qualifier is used in mechanisms
 
 ### changed
 

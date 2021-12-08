@@ -63,7 +63,7 @@ defmodule Spfcheck.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:iptrie, "~> 0.5.0"},
+      {:iptrie, "~> 0.5"},
       {:nimble_parsec, "~> 1.0"},
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},

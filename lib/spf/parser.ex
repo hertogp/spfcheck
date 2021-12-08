@@ -542,10 +542,15 @@ defmodule Spf.Parser do
         error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       {warn, pfx} ->
+        lenh = String.split(ip, "/") |> hd() |> Pfx.trim() |> Pfx.pfxlen()
+        lenp = Pfx.pfxlen(pfx)
+        masked = lenh - lenp
+
         ast(ctx, {atom, [qual, pfx], range})
         |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
         |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
         |> test(:parse, :warn, plus, "#{term} - use of default '+'")
+        |> test(:parse, :warn, masked > 0, "#{term} - #{masked} host bits masked, #{pfx}")
     end
   end
 
