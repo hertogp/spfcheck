@@ -7,7 +7,7 @@ defmodule Spf.Parser do
 
   """
   import Spf.Context
-  import Spf.Tokenizer
+  import Spf.Lexer
   alias Spf.DNS
   alias Spf.Eval
 
@@ -24,10 +24,10 @@ defmodule Spf.Parser do
   @spec explain(Spf.Context.t()) :: Spf.Context.t()
   def explain(%{explain_string: explain} = context) do
     case tokenize_exp(explain) do
-      {:error, _, _, _, _, _} ->
+      {:error, _, _, _} ->
         Map.put(context, :explanation, "")
 
-      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _, _, _} ->
+      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _} ->
         Map.put(context, :explanation, expand(context, exp_str))
     end
   end
@@ -86,7 +86,7 @@ defmodule Spf.Parser do
     do: ctx
 
   def parse(%{spf: spf} = ctx) do
-    {:ok, tokens, rest, _, _, _} = tokenize_spf(spf)
+    {:ok, tokens, rest, _} = tokenize_spf(spf)
 
     Map.put(ctx, :spf_tokens, tokens)
     |> Map.put(:spf_rest, rest)
@@ -137,15 +137,16 @@ defmodule Spf.Parser do
   defp cidr(_ctx, []),
     do: {:ok, [32, 128]}
 
-  defp cidr(ctx, {:dual_cidr, [len4, len6], range}) do
+  defp cidr(ctx, {:cidr, [len4, len6], range}) do
     term = spf_term(ctx, range)
 
     if len4 in 0..32 and len6 in 0..128 do
       cond do
         len4 == 0 -> {:wzero_mask, [len4, len6]}
-        len6 == 0 -> {:wzero_mask, [len4, len6]}
         len4 == 32 and String.match?(term, ~r/^\/32/) -> {:wmax_mask, [len4, len6]}
+        len6 == 0 -> {:wzero_mask, [len4, len6]}
         len6 == 128 and String.match?(term, ~r/128$/) -> {:wmax_mask, [len4, len6]}
+        # TODO: add leading zero check here -> {:error, :epfxlen}
         true -> {:ok, [len4, len6]}
       end
     else
@@ -172,15 +173,32 @@ defmodule Spf.Parser do
   defp expand(ctx, []),
     do: ctx.domain
 
-  defp expand(_ctx, {:domspec, [:einvalid], _range}),
+  defp expand(_ctx, {:error, _reason, _range}),
     do: :einvalid
 
-  defp expand(ctx, {token_type, tokens, _range}) when token_type in [:domspec, :exp_str] do
-    for {token, args, _range} <- tokens do
-      expand(ctx, token, args)
+  defp expand(ctx, tokens) when is_list(tokens) do
+    # tokens
+    # |> check_toplabel()
+    # |> expandp()
+    # |> case do
+    #   :einvalid -> :einvalid
+    #   list -> Enum.join(list) |> drop_labels()
+    #
+    # with tokens <- check_expand(tokens),
+    # do: Enum.map(tokens, 
+    #
+    #
+    #
+
+    expanded =
+      for {token, args, _range} <- tokens do
+        expand(ctx, token, args)
+      end
+
+    case Enum.member?(expanded, :einvalid) do
+      true -> :einvalid
+      false -> Enum.join(expanded) |> drop_labels()
     end
-    |> Enum.join()
-    |> drop_labels()
   end
 
   @spec expand(Spf.Context.t(), atom, list) :: binary
@@ -192,18 +210,11 @@ defmodule Spf.Parser do
     |> Enum.join(".")
   end
 
-  defp expand(_ctx, :expand, ["%"]),
-    do: "%"
-
-  defp expand(_ctx, :expand, ["-"]),
-    do: "%20"
-
-  defp expand(_ctx, :expand, ["_"]),
-    do: " "
-
-  defp expand(_ctx, token_type, [str])
-       when token_type in [:literal, :toplabel, :whitespace, :unknown],
-       do: str
+  defp expand(_ctx, :expand, ["%"]), do: "%"
+  defp expand(_ctx, :expand, ["-"]), do: "%20"
+  defp expand(_ctx, :expand, ["_"]), do: " "
+  defp expand(_ctx, :literal, [str]), do: str
+  defp expand(_ctx, :error, _reason), do: :einvalid
 
   @spec macro(Spf.Context.t(), non_neg_integer) :: binary
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
@@ -463,16 +474,11 @@ defmodule Spf.Parser do
   # PARSER
 
   @spec parse(token, Spf.Context.t()) :: Spf.Context.t()
-  defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
+  defp parse({atom, [qual | args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
 
-    # {qual, spec} = List.pop_at(args, 0)
-    # {domain, cidr} = expand(spec)
-
-    spec = List.keyfind(args, :domspec, 0, [])
+    {dual, spec} = List.pop_at(args, -1)
     domain = expand(ctx, spec)
-
-    dual = List.keyfind(args, :dual_cidr, 0, [])
     {warn, cidr} = cidr(ctx, dual)
 
     term = spf_term(ctx, range)

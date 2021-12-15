@@ -165,6 +165,39 @@ defmodule Spf.ParserTest do
     end
   end
 
+  describe "ptr-mechanism" do
+    @describetag :parse_ptr
+
+    test "01 - ptr" do
+      assert [{:ptr, [?+, "example.com"], 0..2}] == parse("ptr").ast
+      assert [{:ptr, [?+, "example.com"], 0..3}] == parse("+ptr").ast
+      assert [{:ptr, [?-, "example.com"], 0..3}] == parse("-ptr").ast
+      assert [{:ptr, [?~, "example.com"], 0..3}] == parse("~ptr").ast
+      assert [{:ptr, [??, "example.com"], 0..3}] == parse("?ptr").ast
+    end
+
+    test "02 - ptr with domain" do
+      assert [{:ptr, [?+, "example.com"], 0..7}] == parse("ptr:%{d}").ast
+      assert [{:ptr, [?+, "example.com"], 0..8}] == parse("+ptr:%{d}").ast
+      assert [{:ptr, [?-, "example.com"], 0..8}] == parse("-ptr:%{d}").ast
+      assert [{:ptr, [?~, "example.com"], 0..8}] == parse("~ptr:%{d}").ast
+      assert [{:ptr, [??, "example.com"], 0..8}] == parse("?ptr:%{d}").ast
+
+      assert [{:ptr, [?+, "com.example"], 0..14}] == parse("ptr:com.example").ast
+    end
+
+    test "03 - ptr with errors" do
+      assert :syntax_error == parse("ptr:").error
+      assert :syntax_error == parse("ptr:").error
+      assert :syntax_error == parse("ptr/24").error
+      assert :syntax_error == parse("ptr//64").error
+      assert :syntax_error == parse("ptr:%d").error
+      assert :syntax_error == parse("ptr:%{z}").error
+      assert :syntax_error == parse("ptr:example.c%m").error
+      assert :syntax_error == parse("ptr:example.123").error
+    end
+  end
+
   describe "include-mechanism" do
     @describetag :parse_include
 
