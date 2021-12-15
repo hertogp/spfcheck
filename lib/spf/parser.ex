@@ -465,6 +465,10 @@ defmodule Spf.Parser do
   @spec parse(token, Spf.Context.t()) :: Spf.Context.t()
   defp parse({atom, [qual, args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
+
+    # {qual, spec} = List.pop_at(args, 0)
+    # {domain, cidr} = expand(spec)
+
     spec = List.keyfind(args, :domspec, 0, [])
     domain = expand(ctx, spec)
 
