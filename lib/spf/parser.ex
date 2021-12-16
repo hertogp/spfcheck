@@ -13,6 +13,9 @@ defmodule Spf.Parser do
 
   @type token :: Spf.Tokens.token()
 
+  @null_slice 1..0//-1
+  @reserved_names ["all", "a", "mx", "ptr", "ip4", "ip6", "include", "exists", "exp", "redirect"]
+
   # API
 
   @doc """
@@ -27,8 +30,8 @@ defmodule Spf.Parser do
       {:error, _, _, _} ->
         Map.put(context, :explanation, "")
 
-      {:ok, [{:exp_str, _tokens, _range} = exp_str], _, _} ->
-        Map.put(context, :explanation, expand(context, exp_str))
+      {:ok, [{:exp_str, tokens, _range}], _, _} ->
+        Map.put(context, :explanation, expand(context, tokens))
     end
   end
 
@@ -147,6 +150,7 @@ defmodule Spf.Parser do
         len6 == 0 -> {:wzero_mask, [len4, len6]}
         len6 == 128 and String.match?(term, ~r/128$/) -> {:wmax_mask, [len4, len6]}
         # TODO: add leading zero check here -> {:error, :epfxlen}
+        String.match?(term, ~r/\/0\d/) -> {:error, :invalid}
         true -> {:ok, [len4, len6]}
       end
     else
@@ -164,9 +168,34 @@ defmodule Spf.Parser do
     end
   end
 
-  # expand returns:
-  # - string (a domain for :domspec, an explanation string for :exp_str)
-  # - :einvalid (in case tokenization saw errors)
+  defp check_toplabel([]), do: []
+
+  defp check_toplabel(tokens) do
+    with {:literal, [label], range} <- List.last(tokens) do
+      domain = String.replace(label, ~r/\.$/, "")
+      label = String.split(domain, ".") |> List.last()
+      emptylabel = String.length(label) == 0
+      noldhlabel = String.replace(label, ~r/[[:alnum:]]|-/, "") != ""
+      allnumeric = String.replace(label, ~r/\d+/, "") == ""
+      hyphenated = String.starts_with?(label, "-") or String.ends_with?(label, "-")
+
+      cond do
+        noldhlabel -> [{:error, :noldhlabel, @null_slice}]
+        emptylabel -> [{:error, :emptylabel, @null_slice}]
+        allnumeric -> [{:error, :allnumeric, @null_slice}]
+        hyphenated -> [{:error, :hyphenated, @null_slice}]
+        emptylabel -> [{:error, :emptylabel, @null_slice}]
+        true -> List.replace_at(tokens, -1, {:literal, [domain], range})
+      end
+    else
+      _ -> tokens
+    end
+  end
+
+  # expand a list of (:literal, :expand, :error) into:
+  # - string (either a domain-name or an explanation string), or
+  # - :einvalid (in case of any errors)
+  # TODO: expand should return {ctx, domain} and log errors it encountered
   # note: the consequence of an :einvalid for an expansion is determined at eval-time
 
   @spec expand(Spf.Context.t(), list | token) :: binary | :einvalid
@@ -177,21 +206,8 @@ defmodule Spf.Parser do
     do: :einvalid
 
   defp expand(ctx, tokens) when is_list(tokens) do
-    # tokens
-    # |> check_toplabel()
-    # |> expandp()
-    # |> case do
-    #   :einvalid -> :einvalid
-    #   list -> Enum.join(list) |> drop_labels()
-    #
-    # with tokens <- check_expand(tokens),
-    # do: Enum.map(tokens, 
-    #
-    #
-    #
-
     expanded =
-      for {token, args, _range} <- tokens do
+      for {token, args, _range} <- check_toplabel(tokens) do
         expand(ctx, token, args)
       end
 
@@ -476,7 +492,6 @@ defmodule Spf.Parser do
   @spec parse(token, Spf.Context.t()) :: Spf.Context.t()
   defp parse({atom, [qual | args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
-
     {dual, spec} = List.pop_at(args, -1)
     domain = expand(ctx, spec)
     {warn, cidr} = cidr(ctx, dual)
@@ -491,7 +506,7 @@ defmodule Spf.Parser do
       |> tick(:num_dnsm)
       |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
       |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
-      |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
+      |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable")
       |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
       |> test(:parse, :warn, plus, "#{term} - use of default '+'")
     end
@@ -507,7 +522,7 @@ defmodule Spf.Parser do
     |> test(:parse, :warn, plus, "#{term} - use of default '+'")
   end
 
-  defp parse({atom, [qual, domspec], range}, ctx) when atom in [:include, :exists] do
+  defp parse({atom, [qual | domspec], range}, ctx) when atom in [:include, :exists] do
     # Exists, Include
     term = spf_term(ctx, range)
     plus = spf_plus(ctx, range)
@@ -525,7 +540,7 @@ defmodule Spf.Parser do
     end
   end
 
-  defp parse({:exp, [domspec], range}, ctx) do
+  defp parse({:exp, domspec, range}, ctx) do
     # Exp
     term = spf_term(ctx, range)
 
@@ -539,9 +554,8 @@ defmodule Spf.Parser do
     end
   end
 
-  defp parse({atom, [qual, ip], range}, ctx) when atom in [:ip4, :ip6] do
+  defp parse({atom, [qual, {:literal, [ip], _}], range}, ctx) when atom in [:ip4, :ip6] do
     # IP4, IP6
-    # TODO: have ip4/6 tokens as {:ip4/6, [qual, [ip, {:dual_cidr, .., ..}]], range}
     # TODO: have only cidr() check/warn for prefix lengths, eliminate that
     # check in pfxparse() (DRY principle)
     term = spf_term(ctx, range)
@@ -564,9 +578,8 @@ defmodule Spf.Parser do
     end
   end
 
-  defp parse({:ptr, [qual, args], range}, ctx) do
+  defp parse({:ptr, [qual | spec], range}, ctx) do
     # Ptr
-    spec = List.keyfind(args, :domspec, 0, [])
     term = spf_term(ctx, range)
     plus = spf_plus(ctx, range)
 
@@ -584,7 +597,7 @@ defmodule Spf.Parser do
     end
   end
 
-  defp parse({:redirect, [domspec], range}, ctx) do
+  defp parse({:redirect, domspec, range}, ctx) do
     # Redirect
     term = spf_term(ctx, range)
 
@@ -631,14 +644,26 @@ defmodule Spf.Parser do
       else: ctx
   end
 
-  defp parse({:unknown, _tokvalue, range} = _token, ctx) do
-    # Unknown
-    error(ctx, :parse, :syntax_error, "#{spf_term(ctx, range)} - syntax error", :permerror)
+  defp parse({:unknown, [name | args], range} = _token, ctx) do
+    # Unknown modifier, cannot have a known name
+    term = spf_term(ctx, range)
+    spec_error = Enum.filter(args, fn x -> elem(x, 0) == :error end)
+
+    cond do
+      length(spec_error) > 0 ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error")
+
+      String.downcase(name) in @reserved_names ->
+        error(ctx, :parse, :syntax_error, "#{name} cannot be used as an unknown modifier")
+
+      true ->
+        log(ctx, :parse, :warn, "#{term} - unknown modifier ignored")
+    end
   end
 
-  defp parse({:unknown_mod, _tokvalue, range} = _token, ctx) do
-    # Unknown_mod
-    log(ctx, :parse, :warn, "#{spf_term(ctx, range)} - unknown modifier ignored")
+  defp parse({:error, _tokvalue, range} = _token, ctx) do
+    # Unknown
+    error(ctx, :parse, :syntax_error, "#{spf_term(ctx, range)} - syntax error", :permerror)
   end
 
   defp parse({_, _, range}, ctx),

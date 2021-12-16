@@ -280,9 +280,10 @@ defmodule Spf.Lexer do
     with {:literal, [str], range} <- List.last(tokens),
          context <- %{offset: range.first, input: str},
          {:ok, [literal, cidr], "", _} <- cidr_lex().(str, context) do
-      tokens
-      |> List.replace_at(-1, literal)
-      |> List.insert_at(-1, cidr)
+      case literal do
+        {:literal, [""], @null_slice} -> List.replace_at(tokens, -1, cidr)
+        _ -> List.replace_at(tokens, -1, literal) |> List.insert_at(-1, cidr)
+      end
     else
       _ -> List.insert_at(tokens, -1, {:cidr, [32, 128], @null_slice})
     end

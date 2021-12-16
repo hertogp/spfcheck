@@ -152,31 +152,28 @@ defmodule Spf.LexerTest do
     test "10 - macros followed by dual cidr" do
       spf = "a:%{d}/24"
 
-      {:ok, [{:a, [?+, tok0, tok1, tok2], 0..8}], "", _} = Spf.Lexer.tokenize_spf(spf)
+      {:ok, [{:a, [?+, tok0, tok1], 0..8}], "", _} = Spf.Lexer.tokenize_spf(spf)
       msg = "testing #{spf} -> fail on "
       assert {:expand, [?d, -1, false, ["."]], 2..5} == tok0, msg <> inspect(tok0)
-      assert {:literal, [""], @null_slice} == tok1, msg <> inspect(tok1)
-      assert {:cidr, [24, 128], 6..8} == tok2, msg <> inspect(tok2)
+      assert {:cidr, [24, 128], 6..8} == tok1, msg <> inspect(tok1)
     end
 
     test "11 - macros followed by cidr" do
       spf = "a:%{d}//64"
-      {:ok, [{:a, [?+, tok0, tok1, tok2], 0..9}], "", _} = Spf.Lexer.tokenize_spf(spf)
+      {:ok, [{:a, [?+, tok0, tok1], 0..9}], "", _} = Spf.Lexer.tokenize_spf(spf)
 
       msg = "testing #{spf} -> fail on "
       assert {:expand, [?d, -1, false, ["."]], 2..5} == tok0, msg <> inspect(tok0)
-      assert {:literal, [""], @null_slice} == tok1, msg <> inspect(tok1)
-      assert {:cidr, [32, 64], 6..9} == tok2, msg <> inspect(tok2)
+      assert {:cidr, [32, 64], 6..9} == tok1, msg <> inspect(tok1)
     end
 
     test "12 - macros followed by cidr" do
       spf = "a:%{d}/24//64"
-      {:ok, [{:a, [?+, tok0, tok1, tok2], 0..12}], "", _} = Spf.Lexer.tokenize_spf(spf)
+      {:ok, [{:a, [?+, tok0, tok1], 0..12}], "", _} = Spf.Lexer.tokenize_spf(spf)
 
       msg = "testing #{spf} -> fail on "
       assert {:expand, [?d, -1, false, ["."]], 2..5} == tok0, msg <> inspect(tok0)
-      assert {:literal, [""], @null_slice} == tok1, msg <> inspect(tok1)
-      assert {:cidr, [24, 64], 6..12} == tok2, msg <> inspect(tok2)
+      assert {:cidr, [24, 64], 6..12} == tok1, msg <> inspect(tok1)
     end
 
     test "13 - macros followed by cidr" do
@@ -493,7 +490,7 @@ defmodule Spf.LexerTest do
     test "05 - a:/24//64" do
       # empty domain specification, parser checks validity
       {:ok, [token], "", _} = Spf.Lexer.tokenize_spf("a:/24//64")
-      {:a, [?+, {:literal, [""], @null_slice}, {:cidr, [24, 64], 2..8}], 0..8} = token
+      {:a, [?+, {:cidr, [24, 64], 2..8}], 0..8} = token
     end
 
     test "06 - a:/24//64/0//0" do
@@ -503,19 +500,19 @@ defmodule Spf.LexerTest do
     end
 
     test "07 - a:l1.l2.tld./24//64" do
-      # note: trailing dot is dropped from toplabel
+      # note: trailing dot is not dropped from toplabel
       {:ok, [token], "", _} = Spf.Lexer.tokenize_spf("a:l1.l2.tld./24//64")
       {:a, [?+, {:literal, ["l1.l2.tld."], 2..11}, {:cidr, [24, 64], 12..18}], 0..18} = token
     end
 
     test "08 - a:l1.l2.tld.%{d}/24//64" do
+      # note: tok2 is null literal ?
       term = "a:l1.l2.tld.%{d}/24//64"
-      {:ok, [{:a, [?+, tok0, tok1, tok2, tok3], 0..22}], "", _} = Spf.Lexer.tokenize_spf(term)
+      {:ok, [{:a, [?+, tok0, tok1, tok2], 0..22}], "", _} = Spf.Lexer.tokenize_spf(term)
       msg = "testing #{term}, fail on "
       assert {:literal, ["l1.l2.tld."], 2..11} == tok0, msg <> inspect(tok0)
       assert {:expand, [?d, -1, false, ["."]], 12..15} == tok1, msg <> inspect(tok1)
-      assert {:literal, [""], @null_slice} == tok2, msg <> inspect(tok2)
-      assert {:cidr, [24, 64], 16..22} == tok3, msg <> inspect(tok3)
+      assert {:cidr, [24, 64], 16..22} == tok2, msg <> inspect(tok2)
     end
 
     test "09 - a with explicit qualifier" do

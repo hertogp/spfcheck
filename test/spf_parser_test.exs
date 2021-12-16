@@ -2,7 +2,6 @@ defmodule Spf.ParserTest do
   use ExUnit.Case
   doctest Spf.Parser, import: true
 
-  @null_slice 1..0//-1
   @context Spf.Context.new("example.com")
 
   defp parse(spf) do
@@ -24,6 +23,7 @@ defmodule Spf.ParserTest do
     end
 
     test "02 - all with errors" do
+      # note: all is a reserved name, so all=xyz is actually an error
       assert :syntax_error == parse("all:").error
       assert :syntax_error == parse("all=").error
       assert :syntax_error == parse("all/24").error
