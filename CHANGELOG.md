@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] warn if address in a prefix is not the this-network address
 - [ ] warn if policy snoops your sending address via macros
 
+### fixed
+
+- [x] leading zero's in ip4/6 prefix lengths is a syntax error
+- [x] empty macro-string in an unknown modifier is actually legal
+- [x] %{t} expands to timestamp
+
+### changed
+
+- [x] simplified the lexer, at the expense of the parser
+- [x] removed dependency on nimble_parsec
+
 ### changed
 
 - logs use uniform format: "term - message" format as much as possible

@@ -5,7 +5,7 @@ defmodule Spf.ParserTest do
   @context Spf.Context.new("example.com")
 
   defp parse(spf) do
-    # returns an "example.com"-context with parsed (possibly partial) spf string
+    # returns an "example.com"-context with parsed spf string
     @context
     |> Map.put(:spf, spf)
     |> Spf.Parser.parse()
@@ -82,12 +82,10 @@ defmodule Spf.ParserTest do
     end
 
     test "09 - a with cidr leading zeros" do
-      # FIXME:leading zero in ip4-cidr-length is actually a syntax error
       assert :syntax_error == parse("a/024").error
     end
 
     test "10 - a with cidr errors" do
-      # FIXME: leading zero's in ip6 prefix length is actually a syntax error
       assert :syntax_error == parse("a//064").error
     end
   end
@@ -312,7 +310,6 @@ defmodule Spf.ParserTest do
       assert nil == ctx.error
       assert [] == ctx.ast
 
-      # FIXME: empty macro-string is actually legal
       ctx = parse("unknown=")
       assert nil == ctx.error
       assert [] == ctx.ast
@@ -320,7 +317,6 @@ defmodule Spf.ParserTest do
 
     test "02 - unknown with errors" do
       # note: unknown modifiers still can have syntax errors
-
       assert :syntax_error == parse("unknown=%{z}").error
       assert :syntax_error == parse("unknown=%z").error
     end

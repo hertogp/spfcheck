@@ -464,7 +464,7 @@ defmodule Spf.Context do
     |> opt_sender(sender, opts)
     |> opt_ip(opts)
     |> opt_nameserver(opts)
-    |> Map.put(:t0, DateTime.utc_now() |> DateTime.to_unix())
+    |> Map.put(:t0, System.os_time(:second))
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
     |> then(&log(&1, :ctx, :info, "DNS cache preloaded with #{map_size(&1.dns)} entrie(s)"))
     |> then(&log(&1, :ctx, :info, "verbosity level #{&1.verbosity}"))
@@ -474,6 +474,8 @@ defmodule Spf.Context do
     |> then(&log(&1, :ctx, :debug, "verdict defaults to '#{&1.verdict}'"))
     |> then(&log(&1, :ctx, :info, "created context for '#{&1.domain}'"))
     |> then(&log(&1, :spf, :note, "spfcheck(#{&1.domain}, #{&1.ip}, #{&1.sender})"))
+
+    # |> Map.put(:t0, DateTime.utc_now() |> DateTime.to_unix())
   end
 
   @doc """

@@ -265,6 +265,7 @@ defmodule Spf.Parser do
       ?c -> macro_c(ctx.ip)
       ?i -> macro_i(ctx.ip)
       ?p -> macro_p(ctx)
+      ?t -> ctx.t0
     end
   end
 
