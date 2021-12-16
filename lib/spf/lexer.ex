@@ -259,7 +259,7 @@ defmodule Spf.Lexer do
       char1(?=),
       choice([expand(), literals(), merror()])
       |> until(eot())
-      |> map(fn l -> if l == [], do: [:error], else: l end)
+      |> map(fn l -> if l == [], do: [{:error, [""], @null_slice}], else: l end)
       # |> satisfy(fn x -> x != [] end)
     ])
     |> map(fn [_key, _skip, terms] -> cidr_check(key, terms) end)

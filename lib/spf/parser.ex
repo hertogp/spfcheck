@@ -31,7 +31,8 @@ defmodule Spf.Parser do
         Map.put(context, :explanation, "")
 
       {:ok, [{:exp_str, tokens, _range}], _, _} ->
-        Map.put(context, :explanation, expand(context, tokens))
+        # TODO: log errors as encountered by expand
+        Map.put(context, :explanation, expand(context, tokens, :explain))
     end
   end
 
@@ -173,11 +174,13 @@ defmodule Spf.Parser do
   defp check_toplabel(tokens) do
     with {:literal, [label], range} <- List.last(tokens) do
       domain = String.replace(label, ~r/\.$/, "")
-      label = String.split(domain, ".") |> List.last()
+      labels = String.split(domain, ".")
+      label = List.last(labels)
       emptylabel = String.length(label) == 0
       noldhlabel = String.replace(label, ~r/[[:alnum:]]|-/, "") != ""
       allnumeric = String.replace(label, ~r/\d+/, "") == ""
       hyphenated = String.starts_with?(label, "-") or String.ends_with?(label, "-")
+      singlelabel = length(labels) == 1
 
       cond do
         noldhlabel -> [{:error, :noldhlabel, @null_slice}]
@@ -185,6 +188,7 @@ defmodule Spf.Parser do
         allnumeric -> [{:error, :allnumeric, @null_slice}]
         hyphenated -> [{:error, :hyphenated, @null_slice}]
         emptylabel -> [{:error, :emptylabel, @null_slice}]
+        singlelabel -> [{:error, :singlelabel, @null_slice}]
         true -> List.replace_at(tokens, -1, {:literal, [domain], range})
       end
     else
@@ -196,41 +200,53 @@ defmodule Spf.Parser do
   # - string (either a domain-name or an explanation string), or
   # - :einvalid (in case of any errors)
   # TODO: expand should return {ctx, domain} and log errors it encountered
-  # note: the consequence of an :einvalid for an expansion is determined at eval-time
-
+  # notes:
+  # - the consequence of an :einvalid for a domain spec is determined at eval-time
+  # - any errors in expanding an explain string, yields empty string
+  # - macro letters c,r,t only valid when expanding an explain-string
+  # - empty domain specification is (for :domspec) an error
+  #
   @spec expand(Spf.Context.t(), list | token) :: binary | :einvalid
-  defp expand(ctx, []),
-    do: ctx.domain
+  defp expand(ctx, tokens, type \\ :domspec)
 
-  defp expand(_ctx, {:error, _reason, _range}),
-    do: :einvalid
+  defp expand(ctx, [], :domspec), do: ctx.domain
+  defp expand(_ctx, [], :explain), do: ""
+  # defp expand(_ctx, [{:error, _reason, _range}], _type), do: :einvalid
 
-  defp expand(ctx, tokens) when is_list(tokens) do
+  defp expand(ctx, tokens, type) when is_list(tokens) do
+    tokens = if type == :domspec, do: check_toplabel(tokens), else: tokens
+
     expanded =
-      for {token, args, _range} <- check_toplabel(tokens) do
-        expand(ctx, token, args)
+      for {token, args, _range} <- tokens do
+        expand(ctx, token, args, type)
       end
 
     case Enum.member?(expanded, :einvalid) do
-      true -> :einvalid
+      true -> if type == :domspec, do: :einvalid, else: ""
       false -> Enum.join(expanded) |> drop_labels()
     end
   end
 
-  @spec expand(Spf.Context.t(), atom, list) :: binary
-  defp expand(ctx, :expand, [ltr, keep, reverse, delimiters]) do
-    macro(ctx, ltr)
-    |> String.split(delimiters)
-    |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
-    |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
-    |> Enum.join(".")
+  @spec expand(Spf.Context.t(), atom, list, atom) :: binary
+  defp expand(ctx, :expand, [ltr, keep, reverse, delimiters], type) do
+    if type == :domspec and ltr in [?c, ?r, ?t] do
+      # error(ctx, :parse, :syntax_error, "Cannot use macro #{[ltr]} in a domain specification")
+      :einvalid
+    else
+      macro(ctx, ltr)
+      |> String.split(delimiters)
+      |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
+      |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
+      |> Enum.join(".")
+    end
   end
 
-  defp expand(_ctx, :expand, ["%"]), do: "%"
-  defp expand(_ctx, :expand, ["-"]), do: "%20"
-  defp expand(_ctx, :expand, ["_"]), do: " "
-  defp expand(_ctx, :literal, [str]), do: str
-  defp expand(_ctx, :error, _reason), do: :einvalid
+  defp expand(_ctx, :expand, ["%"], _type), do: "%"
+  defp expand(_ctx, :expand, ["-"], _type), do: "%20"
+  defp expand(_ctx, :expand, ["_"], _type), do: " "
+  defp expand(_ctx, :literal, [str], _type), do: str
+  defp expand(_ctx, :whitespace, [str], _type), do: str
+  defp expand(_ctx, :error, _reason, _type), do: :einvalid
 
   @spec macro(Spf.Context.t(), non_neg_integer) :: binary
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
@@ -615,18 +631,11 @@ defmodule Spf.Parser do
 
   defp parse({:version, [n], range} = _token, ctx) do
     # Version
-    case n do
-      1 ->
-        ctx
+    term = spf_term(ctx, range)
 
-      _ ->
-        error(
-          ctx,
-          :parse,
-          :syntax_error,
-          "#{spf_term(ctx, range)} - unknown spf version",
-          :permerror
-        )
+    case n do
+      1 -> ctx
+      _ -> error(ctx, :parse, :syntax_error, "#{term} - unknown spf version", :permerror)
     end
   end
 
@@ -651,10 +660,10 @@ defmodule Spf.Parser do
 
     cond do
       length(spec_error) > 0 ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error")
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
 
       String.downcase(name) in @reserved_names ->
-        error(ctx, :parse, :syntax_error, "#{name} cannot be used as an unknown modifier")
+        error(ctx, :parse, :syntax_error, "#{name} cannot be used as a modifier", :permerror)
 
       true ->
         log(ctx, :parse, :warn, "#{term} - unknown modifier ignored")

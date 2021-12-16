@@ -76,6 +76,8 @@ defmodule Spf.ParserTest do
       assert :syntax_error == parse("a:b.example.-com").error
       assert :syntax_error == parse("a:b.example.com-").error
       assert :syntax_error == parse("a:b.example.123").error
+      assert :syntax_error == parse("a:museum").error
+      assert :syntax_error == parse("a:museum.").error
       assert :syntax_error == parse("a:").error
     end
 
@@ -284,6 +286,7 @@ defmodule Spf.ParserTest do
 
     test "02 - exp with errors" do
       assert :syntax_error == parse("exp").error
+      assert :syntax_error == parse("exp=").error
       assert :syntax_error == parse("exp:example.com").error
       assert :syntax_error == parse("exp:e%ample.com").error
       assert :syntax_error == parse("exp:example.-com").error

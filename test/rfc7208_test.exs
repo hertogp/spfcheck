@@ -3,8 +3,8 @@ defmodule SpfcheckTestSuite do
   use ExUnit.Case
 
   # usage:
-  # mix test --only s:n, where n in 0..14
-  # mix test --only t:x.y where x.y is a specific test in the test suite
+  # mix test --only set:n, where n in 0..14
+  # mix test --only tst:x.y where x.y is a specific test in the test suite
 
   Enum.each(TestSuite.all(), fn {test, mailfrom, helo, ip, result, dns, info, explanation} ->
     @test test

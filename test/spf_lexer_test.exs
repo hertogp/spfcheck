@@ -795,10 +795,15 @@ defmodule Spf.LexerTest do
       assert {:literal, [".-com"], 8..12} == literal
     end
 
-    test "04 - catches invalid domspec" do
+    test "04 - lexes invalid domspec" do
       {:ok, [{:exp, [expand, literal], 0..12}], "", _} = Spf.Lexer.tokenize_spf("exp=%{d}.com-")
       assert {:expand, [?d, -1, false, ["."]], 4..7} == expand
       assert {:literal, [".com-"], 8..12} == literal
+    end
+
+    test "04 - catches empty domspec" do
+      {:ok, [{:exp, [token], 0..3}], "", _} = Spf.Lexer.tokenize_spf("exp=")
+      assert {:error, [""], @null_slice} == token
     end
   end
 
