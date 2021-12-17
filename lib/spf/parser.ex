@@ -150,7 +150,6 @@ defmodule Spf.Parser do
         len4 == 32 and String.match?(term, ~r/^\/32/) -> {:wmax_mask, [len4, len6]}
         len6 == 0 -> {:wzero_mask, [len4, len6]}
         len6 == 128 and String.match?(term, ~r/128$/) -> {:wmax_mask, [len4, len6]}
-        # TODO: add leading zero check here -> {:error, :epfxlen}
         String.match?(term, ~r/\/0\d/) -> {:error, :invalid}
         true -> {:ok, [len4, len6]}
       end

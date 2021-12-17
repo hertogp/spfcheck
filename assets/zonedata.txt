@@ -1,0 +1,5 @@
+# comments are ignored as are empty lines
+
+example.com TXT v=spf1 -all exp=why.%{d}
+example.com TXT just another txt record
+why.example.com TXT %{d}: %{i} is not one of our MTA's
