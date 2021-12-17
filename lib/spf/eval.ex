@@ -350,6 +350,7 @@ defmodule Spf.Eval do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.7
     {ctx, dns} = DNS.resolve(ctx, domain, type: :a)
     spfterm = spf_term(ctx, range)
+    spfsame? = ctx.domain == String.downcase(domain)
 
     case dns do
       {:error, reason} when reason in [:nxdomain, :zero_answers, :illegal_name] ->
@@ -361,6 +362,7 @@ defmodule Spf.Eval do
       {:ok, rrs} ->
         log(ctx, :eval, :info, "#{spfterm} - got DNS #{inspect(rrs)}")
         |> addip(ctx.ip, [32, 128], {q, ctx.nth, spfterm})
+        |> test(:eval, :warn, spfsame?, "#{spfterm} - same as main SPF domain (#{ctx.domain})")
     end
     |> match(term, tail)
   end
@@ -480,6 +482,7 @@ defmodule Spf.Eval do
     # - if redirect domain is mailformed -> permerror
     # - otherwise its result is the result for this SPF
     term = spf_term(ctx, range)
+    trailing? = length(tail) > 0
 
     if loop?(ctx, domain) do
       error(
@@ -491,7 +494,7 @@ defmodule Spf.Eval do
       )
     else
       ctx =
-        test(ctx, :eval, :warn, length(tail) > 0, "#{spf_term(ctx, range)} - has trailing terms")
+        test(ctx, :eval, :warn, trailing?, "#{spf_term(ctx, range)} - has trailing terms")
         |> log(:eval, :note, "#{term} - redirecting to #{domain}")
         |> redirect(domain)
         |> evaluate()

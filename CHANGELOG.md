@@ -8,23 +8,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] warn if address in a prefix is not the this-network address
+### added
+
+- [x] warn if ip4/ip6 mechanism actually mask host bits (address != this-network)
 - [ ] warn if policy snoops your sending address via macros
+- [ ] warn if policy snoops your mta name via macros
+- [ ] warn if keeping only 0 labels in a %{}-macro
 
 ### fixed
 
-- [x] leading zero's in ip4/6 prefix lengths is a syntax error
-- [x] empty macro-string in an unknown modifier is actually legal
-- [x] %{t} expands to timestamp
+- [x] leading zero's in ip4/6 prefix lengths is actually a syntax error
+- [x] empty macro-string in an *unknown* modifier is actually legal
+- [x] unknown modifiers cannot have a known mechanism name
+- [x] %{t} now expands to timestamp (UNIX epoch time)
 
 ### changed
 
 - [x] simplified the lexer, at the expense of the parser
 - [x] removed dependency on nimble_parsec
-
-### changed
-
-- logs use uniform format: "term - message" format as much as possible
+- [x] DNS MECH counter shown at info level (was debug level)
+- [x] logs use uniform format: "term - message" format as much as possible
+- [x] redundant entry message now lists the unique overlapping terms
 
 
 ## [v0.6.0] - 2021-12-01

@@ -199,7 +199,7 @@ defmodule Spf.Parser do
   # expand a list of (:literal, :expand, :error) into:
   # - string (either a domain-name or an explanation string), or
   # - :einvalid (in case of any errors)
-  # TODO: expand should return {ctx, domain} and log errors it encountered
+  # TODO: expand should return {ctx, expanded} and log errors it encountered
   # notes:
   # - the consequence of an :einvalid for a domain spec is determined at eval-time
   # - any errors in expanding an explain string, yields empty string
@@ -211,7 +211,6 @@ defmodule Spf.Parser do
 
   defp expand(ctx, [], :domspec), do: ctx.domain
   defp expand(_ctx, [], :explain), do: ""
-  # defp expand(_ctx, [{:error, _reason, _range}], _type), do: :einvalid
 
   defp expand(ctx, tokens, type) when is_list(tokens) do
     tokens = if type == :domspec, do: check_toplabel(tokens), else: tokens
@@ -230,13 +229,13 @@ defmodule Spf.Parser do
   @spec expand(Spf.Context.t(), atom, list, atom) :: binary
   defp expand(ctx, :expand, [ltr, keep, reverse, delimiters], type) do
     if type == :domspec and ltr in [?c, ?r, ?t] do
-      # error(ctx, :parse, :syntax_error, "Cannot use macro #{[ltr]} in a domain specification")
+      error(ctx, :parse, :syntax_error, "Cannot use #{[ltr]}-macro in a domain specification")
       :einvalid
     else
       macro(ctx, ltr)
       |> String.split(delimiters)
       |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
-      |> (fn x -> if keep in 1..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
+      |> (fn x -> if keep in 0..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
       |> Enum.join(".")
     end
   end
@@ -273,10 +272,6 @@ defmodule Spf.Parser do
   defp macro_c(ip) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-7.3
     # - use inet.ntoa to get shorthand ip6 (appease v-macro-ip6 test)
-    # addr = Pfx.new(ip) |> Pfx.marshall({0, 0, 0, 0})
-
-    # :inet.ntoa(addr)
-    # |> List.to_string()
     Pfx.new(ip)
     |> Pfx.marshall({0, 0, 0, 0})
     |> :inet.ntoa()
@@ -521,7 +516,7 @@ defmodule Spf.Parser do
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
-      |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
+      |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
       |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
       |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable")
       |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
@@ -551,7 +546,7 @@ defmodule Spf.Parser do
       domain ->
         ast(ctx, {atom, [qual, domain], range})
         |> tick(:num_dnsm)
-        |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
+        |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
         |> test(:parse, :warn, plus, "#{term} - use of default '+'")
     end
@@ -590,7 +585,7 @@ defmodule Spf.Parser do
         ast(ctx, {atom, [qual, pfx], range})
         |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
         |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable!")
-        |> test(:parse, :warn, plus, "#{term} - use of default '+'")
+        |> test(:parse, :warn, plus, "#{term} - default '+' can be omitted")
         |> test(:parse, :warn, masked > 0, "#{term} - #{masked} host bits masked, #{pfx}")
     end
   end
@@ -607,7 +602,7 @@ defmodule Spf.Parser do
       domain ->
         ast(ctx, {:ptr, [qual, domain], range})
         |> tick(:num_dnsm)
-        |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
+        |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
         |> log(:parse, :warn, "#{term} - usage not recommended")
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
         |> test(:parse, :warn, plus, "#{term} - use of default '+'")
@@ -625,7 +620,7 @@ defmodule Spf.Parser do
       domain ->
         ast(ctx, {:redirect, [domain], range})
         |> tick(:num_dnsm)
-        |> log(:parse, :debug, "#{term} - DNS MECH (#{ctx.num_dnsm})")
+        |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
   end

@@ -150,21 +150,21 @@ defmodule Spf.Context do
     # less specific entries (if any)
     less = Iptrie.less(ctx.ipt, k) |> ipt_values(k)
     less_n = length(less)
-    less_t = Enum.map(less, &elem(&1, 2)) |> Enum.join(", ")
+    less_t = Enum.map(less, &elem(&1, 2)) |> Enum.uniq() |> Enum.join(", ")
     less_q = Enum.map([v | less], &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
     less_i = Enum.filter(less, notq) |> Enum.map(&elem(&1, 2)) |> Enum.join(", ")
 
     # more specific entries (if any)
     more = Iptrie.more(ctx.ipt, k) |> ipt_values(k)
     more_n = length(more)
-    more_t = Enum.map(more, &elem(&1, 2)) |> Enum.join(", ")
+    more_t = Enum.map(more, &elem(&1, 2)) |> Enum.uniq() |> Enum.join(", ")
     more_q = Enum.map([v | more], &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
     more_i = Enum.filter(more, notq) |> Enum.map(&elem(&1, 2)) |> Enum.join(", ")
 
     # same prefix entries (if any) -> [{q, nth, "term"}]
     other = Iptrie.get(ctx.ipt, k, {k, []}) |> elem(1)
     other_n = length(other)
-    other_t = Enum.map(other, &elem(&1, 2)) |> Enum.reverse() |> Enum.join(", ")
+    other_t = Enum.map(other, &elem(&1, 2)) |> Enum.uniq() |> Enum.reverse() |> Enum.join(", ")
     other_q = Enum.map([v | other], &elem(&1, 0)) |> MapSet.new() |> MapSet.size()
     other_i = Enum.filter(other, notq) |> Enum.map(&elem(&1, 2))
 
