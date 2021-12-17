@@ -412,7 +412,9 @@ defmodule Spf.Context do
   """
   @spec split(binary) :: {binary, binary}
   def split(mbox) do
-    words = String.split(mbox, "@", parts: 2, trim: true)
+    words =
+      String.replace(mbox, ~r/\.$/, "")
+      |> String.split("@", parts: 2, trim: true)
 
     case words do
       [] -> {"postmaster", ""}

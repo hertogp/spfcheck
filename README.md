@@ -97,11 +97,11 @@ domains (and options) to check.  In this case, the verdict(s) are output on
 stdout in csv-format as each domain is (sequentially) evaluated.
 
 ```txt
-% cat tmp/domains.txt
+% cat assets/domains.txt
 example.com
 me@example.net -i 1.2.3.4
 
-% cat tmp/domains.txt | spfcheck -v 0
+% cat assets/domains.txt | spfcheck -v 0
 domain,ip,sender,verdict,reason,owner,contact,num_spf,num_dnsm,num_dnsq,num_dnsv,num_checks,num_warn,num_error,duration,explanation
 "example.com","127.0.0.1","example.com",:fail,"spf[0] -all","example.com","noc@dns.icann.org",1,0,1,0,1,0,0,1,""
 "example.net","1.2.3.4","me@example.net",:fail,"spf[0] -all","example.net","noc@dns.icann.org",1,0,1,0,1,0,0,0,""
@@ -151,14 +151,14 @@ explanation:
 
 # Or using a file
 
-% cat tmp/zonedata.txt
+% cat assets/zonedata.txt
 # comments are ignored as are empty lines
 
 example.com TXT v=spf1 -all exp=why.%{d}
 example.com TXT just another txt record
 why.example.com TXT %{d}: %{i} is not one of our MTA's
 
-% spfcheck example.com -v 0 -d tmp/zonedata.txt
+% spfcheck example.com -v 0 -d assets/zonedata.txt
 
 domain     : example.com
 ip         : 127.0.0.1
@@ -329,12 +329,12 @@ better when redirecting logging to a file.
 For example:
 
 ```txt
-%cat tmp/domains.txt
+%cat assets/domains.txt
 example.com
 me@example.net -i 1.2.3.4
 
-% cat tmp/domains.txt | spfcheck -v 5 --no-color 2>tmp/log.txt > tmp/checked.csv
-% cat tmp/log.txt
+% cat assets/domains.txt | spfcheck -v 5 --no-color 2>assets/log.txt > assets/checked.csv
+% cat assets/log.txt
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
 example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
 example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
@@ -567,7 +567,7 @@ wide as necessary.
 
 ## Installation
 
-You can install `spfcheck` as an escript:
+`spfcheck` requires Elixir 1.12.0 or later and can be installed as escript:
 
 ```bash
 mix escript.install hex spfcheck
@@ -575,6 +575,7 @@ mix escript.install hex spfcheck
 
 After installation, `~/.mix/escripts/spfcheck` invokes the escript.
 
+Use the underlying Spf modules
 Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.exs`:
 
 ```elixir

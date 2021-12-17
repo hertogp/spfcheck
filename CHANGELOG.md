@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### added
 
 - [x] warn if ip4/ip6 mechanism actually mask host bits (address != this-network)
+- [x] warn if exists' domain is same as current SPF domain (is unusual)
 - [ ] warn if policy snoops your sending address via macros
 - [ ] warn if policy snoops your mta name via macros
 - [ ] warn if keeping only 0 labels in a %{}-macro

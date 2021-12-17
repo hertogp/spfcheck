@@ -212,6 +212,7 @@ defmodule Spf.Parser do
   defp expand(_ctx, [], :explain), do: ""
 
   defp expand(ctx, tokens, type) when is_list(tokens) do
+    IO.inspect({type, tokens}, label: :expand_check)
     tokens = if type == :domspec, do: check_toplabel(tokens), else: tokens
 
     expanded =
