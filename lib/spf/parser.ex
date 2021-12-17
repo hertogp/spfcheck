@@ -11,7 +11,7 @@ defmodule Spf.Parser do
   alias Spf.DNS
   alias Spf.Eval
 
-  @type token :: Spf.Tokens.token()
+  @type token :: Spf.Lexer.token()
 
   @null_slice 1..0//-1
   @reserved_names ["all", "a", "mx", "ptr", "ip4", "ip6", "include", "exists", "exp", "redirect"]

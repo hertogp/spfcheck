@@ -63,9 +63,9 @@ defmodule Spf.Context do
         }
 
   @typedoc """
-  A `t:Spf.Tokens.token/0`.
+  A `t:Spf.Lexer.token/0`.
   """
-  @type token :: Spf.Tokens.token()
+  @type token :: Spf.Lexer.token()
 
   @typedoc """
   A `t:Pfx.prefix/0`.
@@ -85,7 +85,7 @@ defmodule Spf.Context do
   the mechanism at hand matches.
 
   """
-  @type iptval :: {Spf.Tokens.q(), non_neg_integer, binary}
+  @type iptval :: {Spf.Lexer.q(), non_neg_integer, binary}
 
   @context %{
     :ast => [],
