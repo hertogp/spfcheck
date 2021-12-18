@@ -22,8 +22,8 @@ defmodule Spfcheck do
   ]
 
   @aliases [
-    a: :author,
     H: :help,
+    a: :author,
     c: :color,
     d: :dns,
     h: :helo,
