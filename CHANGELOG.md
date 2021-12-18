@@ -10,17 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### added
 
+- [x] syntax error message now also lists reasons for the errors
 - [x] warn if ip4/ip6 mechanism actually mask host bits (address != this-network)
 - [x] warn if exists' domain is same as current SPF domain (is unusual)
 - [x] warn if an unknown modifier has a mechanism name
-- [x] syntax error message now also lists reasons for the errors
 
 ### fixed
 
 - [x] leading zero's in ip4/6 prefix lengths is actually a syntax error
 - [x] empty macro-string in an *unknown* modifier is actually legal
 - [x] %{t} now expands to timestamp (UNIX epoch time)
-- [x] unknown modifiers also cannot use c,r,t-macros
+- [x] unknown modifiers cannot use c,r,t-macros
 
 ### changed
 

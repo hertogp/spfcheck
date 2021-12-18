@@ -174,6 +174,7 @@ defmodule Spf.Parser do
     end
   end
 
+  @spec check_toplabel([token], atom) :: [token]
   defp check_toplabel([], _), do: []
 
   defp check_toplabel(tokens, :domspec) do
@@ -219,7 +220,7 @@ defmodule Spf.Parser do
   # - macro letters c,r,t only valid when expanding an explain-string
   # - an empty domain specification is an error, but only for a domain spec
 
-  @spec expand(Spf.Context.t(), list, atom) :: {:ok, binary} | {:error, binary}
+  @spec expand(Spf.Context.t(), [token], atom) :: {:ok, binary} | {:error, binary}
   defp expand(ctx, token, type \\ :domspec)
 
   defp expand(ctx, [], :domspec), do: {:ok, ctx.domain}
@@ -366,15 +367,13 @@ defmodule Spf.Parser do
       {false, false} -> {:error, "missing digits"}
       _ -> {warn, Pfx.new(pfx)}
     end
-
-    # if fournums and not leadzero,
-    #   do: {warn, Pfx.new(pfx)},
-    #   else: {:error, pfx}
   rescue
     _ -> {:error, "illegal prefix"}
   end
 
   defp pfxparse(pfx, :ip6) do
+    leadzero = String.match?(pfx, ~r/\/0\d/)
+
     warn =
       cond do
         String.match?(pfx, ~r/\/0$/) -> :wzero_mask
@@ -382,7 +381,9 @@ defmodule Spf.Parser do
         true -> :ok
       end
 
-    {warn, Pfx.new(pfx)}
+    if leadzero,
+      do: {:error, "illegal ip6 length"},
+      else: {warn, Pfx.new(pfx)}
   rescue
     _ -> {:error, "illegal prefix"}
   end
@@ -604,8 +605,8 @@ defmodule Spf.Parser do
     plus = spf_plus(ctx, range)
 
     case pfxparse(ip, atom) do
-      {:error, x} ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{inspect(x)})", :permerror)
+      {:error, reason} ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{reason})", :permerror)
 
       {warn, pfx} ->
         lenh = String.split(ip, "/") |> hd() |> Pfx.trim() |> Pfx.pfxlen()
