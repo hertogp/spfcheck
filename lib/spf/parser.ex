@@ -13,7 +13,6 @@ defmodule Spf.Parser do
 
   @type token :: Spf.Lexer.token()
 
-  @null_slice 1..0//-1
   @reserved_names ["all", "a", "mx", "ptr", "ip4", "ip6", "include", "exists", "exp", "redirect"]
 
   # API
@@ -32,7 +31,14 @@ defmodule Spf.Parser do
 
       {:ok, [{:exp_str, tokens, _range}], _, _} ->
         # TODO: log errors as encountered by expand
-        Map.put(context, :explanation, expand(context, tokens, :explain))
+        case expand(context, tokens, :explain) do
+          {false, reason} ->
+            log(context, :parse, :warn, "explain - invalid (#{reason})")
+            |> Map.put(:explanation, "")
+
+          {true, string} ->
+            Map.put(context, :explanation, string)
+        end
     end
   end
 
@@ -65,7 +71,7 @@ defmodule Spf.Parser do
   - repeated modifier terms
   - syntax errors in domain specifications
   - syntax errors in dual-cidr notations
-  - invalid IP addresses
+  - invalid IP addresses (including invalid masks, if any)
   - unknown terms that are not unknown modifiers
 
   The logging simply adds messages to the `context.msg` list but, when logging
@@ -168,9 +174,9 @@ defmodule Spf.Parser do
     end
   end
 
-  defp check_toplabel([]), do: []
+  defp check_toplabel([], _), do: []
 
-  defp check_toplabel(tokens) do
+  defp check_toplabel(tokens, :domspec) do
     with {:literal, [label], range} <- List.last(tokens) do
       domain = String.replace(label, ~r/\.$/, "")
       labels = String.split(domain, ".")
@@ -180,72 +186,121 @@ defmodule Spf.Parser do
       allnumeric = String.replace(label, ~r/\d+/, "") == ""
       hyphenated = String.starts_with?(label, "-") or String.ends_with?(label, "-")
       singlelabel = length(labels) == 1
+      toplabel_range = (range.last - String.length(label) + 1)..range.last
 
-      cond do
-        noldhlabel -> [{:error, :noldhlabel, @null_slice}]
-        emptylabel -> [{:error, :emptylabel, @null_slice}]
-        allnumeric -> [{:error, :allnumeric, @null_slice}]
-        hyphenated -> [{:error, :hyphenated, @null_slice}]
-        emptylabel -> [{:error, :emptylabel, @null_slice}]
-        singlelabel -> [{:error, :singlelabel, @null_slice}]
-        true -> List.replace_at(tokens, -1, {:literal, [domain], range})
-      end
+      last_tok =
+        cond do
+          noldhlabel -> {:error, ["toplabel not ldh"], toplabel_range}
+          emptylabel -> {:error, ["toplabel empty"], toplabel_range}
+          allnumeric -> {:error, ["toplabel all numeric"], toplabel_range}
+          hyphenated -> {:error, ["toplabel hyphen"], toplabel_range}
+          singlelabel -> {:error, ["toplabelonly label"], toplabel_range}
+          true -> {:literal, [domain], range}
+        end
+
+      List.replace_at(tokens, -1, last_tok)
     else
       _ -> tokens
     end
   end
 
-  # expand a list of (:literal, :expand, :error) into:
-  # - string (either a domain-name or an explanation string), or
-  # - :einvalid (in case of any errors)
-  # TODO: expand should return {ctx, expanded} and log errors it encountered
+  defp check_toplabel(tokens, _), do: tokens
+
+  # expand, given a ctx, a list(:literal, :expand, :error) and a type, returns:
+  # - {:ok, ctx, string}, or
+  # - {:error, ctx, errorstring}
   # notes:
-  # - the consequence of an :einvalid for a domain spec is determined at eval-time
+  # - the consequence of an invalid domain spec is determined at eval-time
   # - any errors in expanding an explain string, yields empty string
   # - macro letters c,r,t only valid when expanding an explain-string
-  # - empty domain specification is (for :domspec) an error
-  #
-  @spec expand(Spf.Context.t(), list | token) :: binary | :einvalid
-  defp expand(ctx, tokens, type \\ :domspec)
+  # - an empty domain specification is an error, but only for a domain spec
 
-  defp expand(ctx, [], :domspec), do: ctx.domain
-  defp expand(_ctx, [], :explain), do: ""
+  # @spec expand(Spf.Context.t(), list | token) :: binary | :einvalid
+  # defp expand(ctx, tokens, type \\ :domspec)
+
+  # defp expand(ctx, [], :domspec), do: ctx.domain
+  # defp expand(_ctx, [], :explain), do: ""
+
+  # defp expand(ctx, tokens, type) when is_list(tokens) do
+  #   tokens = check_toplabel(tokens, type)
+
+  #   expanded =
+  #     for {token, args, _range} <- tokens do
+  #       expand(ctx, token, args, type)
+  #     end
+
+  #   case Enum.member?(expanded, :einvalid) do
+  #     true -> if type == :domspec, do: :einvalid, else: ""
+  #     false -> Enum.join(expanded) |> drop_labels()
+  #   end
+  # end
+
+  # @spec expand(Spf.Context.t(), atom, list, atom) :: binary
+  # defp expand(ctx, :expand, [ltr, keep, reverse, delimiters], type) do
+  #   if type == :domspec and ltr in [?c, ?r, ?t] do
+  #     :einvalid
+  #   else
+  #     macro(ctx, ltr)
+  #     |> String.split(delimiters)
+  #     |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
+  #     |> (fn x -> if keep in 0..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
+  #     |> Enum.join(".")
+  #   end
+  # end
+
+  # defp expand(_ctx, :expand, ["%"], _type), do: "%"
+  # defp expand(_ctx, :expand, ["-"], _type), do: "%20"
+  # defp expand(_ctx, :expand, ["_"], _type), do: " "
+  # defp expand(_ctx, :literal, [str], _type), do: str
+  # defp expand(_ctx, :whitespace, [str], _type), do: str
+  # defp expand(_ctx, :error, _reason, _type), do: :einvalid
+
+  @spec expand(Spf.Context.t(), list, atom) :: {true, binary} | {false, binary}
+  defp expand(ctx, token, type \\ :domspec)
+
+  defp expand(ctx, [], :domspec), do: {true, ctx.domain}
+  defp expand(_ctx, [], :explain), do: {true, ""}
 
   defp expand(ctx, tokens, type) when is_list(tokens) do
-    IO.inspect({type, tokens}, label: :expand_check)
-    tokens = if type == :domspec, do: check_toplabel(tokens), else: tokens
+    tokens = check_toplabel(tokens, type)
+    expanded = for token <- tokens, do: expand(ctx, token, type)
+    errors? = List.keyfind(expanded, :error, 0, false)
 
-    expanded =
-      for {token, args, _range} <- tokens do
-        expand(ctx, token, args, type)
-      end
-
-    case Enum.member?(expanded, :einvalid) do
-      true -> if type == :domspec, do: :einvalid, else: ""
-      false -> Enum.join(expanded) |> drop_labels()
+    if errors? do
+      expanded
+      |> Enum.filter(fn {x, _} -> x == :error end)
+      |> Enum.map(fn {_, reason} -> reason end)
+      |> Enum.join(", ")
+      |> then(fn x -> {false, x} end)
+    else
+      expanded
+      |> Enum.map(fn {_, str} -> str end)
+      |> Enum.join()
+      |> drop_labels()
+      |> then(fn x -> {true, x} end)
     end
   end
 
-  @spec expand(Spf.Context.t(), atom, list, atom) :: binary
-  defp expand(ctx, :expand, [ltr, keep, reverse, delimiters], type) do
+  @spec expand(Spf.Context.t(), token, atom) :: {:ok | :error, binary}
+  defp expand(ctx, {:expand, [ltr, keep, reverse, delimiters], _range}, type) do
     if type == :domspec and ltr in [?c, ?r, ?t] do
-      error(ctx, :parse, :syntax_error, "Cannot use #{[ltr]}-macro in a domain specification")
-      :einvalid
+      {:error, "#{[ltr]}-macro"}
     else
       macro(ctx, ltr)
       |> String.split(delimiters)
       |> (fn x -> if reverse, do: Enum.reverse(x), else: x end).()
       |> (fn x -> if keep in 0..length(x), do: Enum.slice(x, -keep, keep), else: x end).()
       |> Enum.join(".")
+      |> then(fn x -> {:ok, x} end)
     end
   end
 
-  defp expand(_ctx, :expand, ["%"], _type), do: "%"
-  defp expand(_ctx, :expand, ["-"], _type), do: "%20"
-  defp expand(_ctx, :expand, ["_"], _type), do: " "
-  defp expand(_ctx, :literal, [str], _type), do: str
-  defp expand(_ctx, :whitespace, [str], _type), do: str
-  defp expand(_ctx, :error, _reason, _type), do: :einvalid
+  defp expand(_ctx, {:expand, ["%"], _range}, _type), do: {:ok, "%"}
+  defp expand(_ctx, {:expand, ["-"], _range}, _type), do: {:ok, "%20"}
+  defp expand(_ctx, {:expand, ["_"], _range}, _type), do: {:ok, " "}
+  defp expand(_ctx, {:literal, [str], _range}, _type), do: {:ok, str}
+  defp expand(_ctx, {:whitespace, [str], _range}, _type), do: {:ok, str}
+  defp expand(_ctx, {:error, reason, _range}, _type), do: {:error, reason}
 
   @spec macro(Spf.Context.t(), non_neg_integer) :: binary
   defp macro(ctx, letter) when ?A <= letter and letter <= ?Z,
@@ -505,14 +560,15 @@ defmodule Spf.Parser do
   defp parse({atom, [qual | args], range}, ctx) when atom in [:a, :mx] do
     # A, MX
     {dual, spec} = List.pop_at(args, -1)
-    domain = expand(ctx, spec)
+    {domain?, domain} = expand(ctx, spec)
     {warn, cidr} = cidr(ctx, dual)
 
     term = spf_term(ctx, range)
     plus = spf_plus(ctx, range)
 
-    if domain == :einvalid or warn == :error do
-      error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
+    if not domain? or warn == :error do
+      error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{domain})", :permerror)
+      |> test(:parse, :warn, warn == :error, "#{term} - invalid cidr part")
     else
       ast(ctx, {atom, [qual, domain, cidr], range})
       |> tick(:num_dnsm)
@@ -520,7 +576,7 @@ defmodule Spf.Parser do
       |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
       |> test(:parse, :warn, warn == :wzero_mask, "#{term} - ZERO prefix length not advisable")
       |> test(:parse, :warn, warn == :wmax_mask, "#{term} - default mask can be omitted")
-      |> test(:parse, :warn, plus, "#{term} - use of default '+'")
+      |> test(:parse, :warn, plus, "#{term} - default '+' can be omitted")
     end
   end
 
@@ -531,7 +587,7 @@ defmodule Spf.Parser do
 
     ast(ctx, {:all, [qual], range})
     |> test(:parse, :warn, qual in [??, ?+], "#{term} - usage not advisable")
-    |> test(:parse, :warn, plus, "#{term} - use of default '+'")
+    |> test(:parse, :warn, plus, "#{term} - default '+' can be omitted")
   end
 
   defp parse({atom, [qual | domspec], range}, ctx) when atom in [:include, :exists] do
@@ -540,15 +596,15 @@ defmodule Spf.Parser do
     plus = spf_plus(ctx, range)
 
     case(expand(ctx, domspec)) do
-      :einvalid ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
+      {false, reason} ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{reason})", :permerror)
 
-      domain ->
+      {true, domain} ->
         ast(ctx, {atom, [qual, domain], range})
         |> tick(:num_dnsm)
         |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
-        |> test(:parse, :warn, plus, "#{term} - use of default '+'")
+        |> test(:parse, :warn, plus, "#{term} - default '+' can be omitted")
     end
   end
 
@@ -557,10 +613,10 @@ defmodule Spf.Parser do
     term = spf_term(ctx, range)
 
     case expand(ctx, domspec) do
-      :einvalid ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
+      {false, reason} ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{reason})", :permerror)
 
-      domain ->
+      {true, domain} ->
         ast(ctx, {:exp, [domain], range})
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
     end
@@ -596,16 +652,16 @@ defmodule Spf.Parser do
     plus = spf_plus(ctx, range)
 
     case expand(ctx, spec) do
-      :einvalid ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
+      {false, reason} ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{reason})", :permerror)
 
-      domain ->
+      {true, domain} ->
         ast(ctx, {:ptr, [qual, domain], range})
         |> tick(:num_dnsm)
         |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
         |> log(:parse, :warn, "#{term} - usage not recommended")
         |> test(:parse, :debug, not String.contains?(term, domain), "#{term} -x-> #{domain}")
-        |> test(:parse, :warn, plus, "#{term} - use of default '+'")
+        |> test(:parse, :warn, plus, "#{term} - default '+' can be omitted")
     end
   end
 
@@ -614,10 +670,10 @@ defmodule Spf.Parser do
     term = spf_term(ctx, range)
 
     case expand(ctx, domspec) do
-      :einvalid ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
+      {false, reason} ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{reason})", :permerror)
 
-      domain ->
+      {true, domain} ->
         ast(ctx, {:redirect, [domain], range})
         |> tick(:num_dnsm)
         |> then(&log(&1, :parse, :info, "#{term} - DNS MECH (#{&1.num_dnsm})"))
@@ -650,19 +706,17 @@ defmodule Spf.Parser do
   end
 
   defp parse({:unknown, [name | args], range} = _token, ctx) do
-    # Unknown modifier, cannot have a known name
+    # Unknown modifier (cannot have a known name)
     term = spf_term(ctx, range)
-    spec_error = Enum.filter(args, fn x -> elem(x, 0) == :error end)
+    reserved? = String.downcase(name) in @reserved_names
 
-    cond do
-      length(spec_error) > 0 ->
-        error(ctx, :parse, :syntax_error, "#{term} - syntax error", :permerror)
+    case expand(ctx, args, :explain) do
+      {false, reason} ->
+        error(ctx, :parse, :syntax_error, "#{term} - syntax error (#{reason})", :permerror)
 
-      String.downcase(name) in @reserved_names ->
-        error(ctx, :parse, :syntax_error, "#{name} cannot be used as a modifier", :permerror)
-
-      true ->
+      {true, _} ->
         log(ctx, :parse, :warn, "#{term} - unknown modifier ignored")
+        |> test(:parse, :warn, reserved?, "#{term} - '#{name}' is usually a mechnanism")
     end
   end
 

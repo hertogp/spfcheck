@@ -12,16 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [x] warn if ip4/ip6 mechanism actually mask host bits (address != this-network)
 - [x] warn if exists' domain is same as current SPF domain (is unusual)
-- [ ] warn if policy snoops your sending address via macros
-- [ ] warn if policy snoops your mta name via macros
-- [ ] warn if keeping only 0 labels in a %{}-macro
+- [x] warn if an unknown modifier has a mechanism name
+- [x] syntax error message now also lists reasons for the errors
 
 ### fixed
 
 - [x] leading zero's in ip4/6 prefix lengths is actually a syntax error
 - [x] empty macro-string in an *unknown* modifier is actually legal
-- [x] unknown modifiers cannot have a known mechanism name
 - [x] %{t} now expands to timestamp (UNIX epoch time)
+- [ ] unknown modifiers also cannot use c,r,t-macros
 
 ### changed
 

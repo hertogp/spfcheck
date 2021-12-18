@@ -23,11 +23,11 @@ defmodule Spf.ParserTest do
     end
 
     test "02 - all with errors" do
-      # note: all is a reserved name, so all=xyz is actually an error
+      # note: all= is actually a legal, but unusual, unknown modifier
       assert :syntax_error == parse("all:").error
-      assert :syntax_error == parse("all=").error
       assert :syntax_error == parse("all/24").error
       assert :syntax_error == parse("all//64").error
+      assert nil == parse("all=something").error
     end
   end
 
