@@ -420,7 +420,7 @@ Alternatively, a simple markdown report can be generated.  Use the `-t` and
 The report below shows the SPF records used by several example domains.  If
 they had included other SPF records, those would show as well.
 
-```txt
+````txt
 % spfcheck example.com example.net example.org -v 0 -r s -m \
   -t "Spf records used by Example domains" -a mail@example.com
 
@@ -460,18 +460,17 @@ they had included other SPF records, those would show as well.
         v=spf1 -all
 
     ```
-
-```
+````
 
 Use the `g` report topic to visualize a domain's SPF policy as a graphviz directed
 graph.  If markdown is active, the fenced codeblock will have `graphviz` as its
 class, allowing the conversion of the markdown to e.g. a pdf with a picture of
 the SPF policy using pandoc and a graphviz filter.
 
+
 ```txt
 # example of an SPF policy with some problems
 % cat assets/example.db
-
 example.com txt v=spf1 a:%{d1}.org include:spf-a.example.com include:spf-b.example.com redirect=spf-c.example.com
 example.org a 1.2.3.4
 spf-a.example.com txt v=spf1 a mx include:spf-b.example.com ~all
@@ -481,9 +480,9 @@ netblocks6.example.com txt v=spf1 ip6:2001:db8:2001::/64 ip6:2001:db8:2002::/64 
 spf-c.example.com txt v=spf1 a:bad.%{d2} ip4:1.1.1.1 -all
 bad.example.com a TIMEOUT
 
-
 % spfcheck example.com --no-color -v 2 -d assets/example.db -r g 2> assets/example.com.log> assets/example.com.dot
 % dot -Tpng -O assets/example.com.dot
+
 % cat assets/example.com.log
 example.com %spf[1]-dns-warn:   | > DNS QUERY (4) a spf-a.example.com - NXDOMAIN
 example.com %spf[1]-dns-warn:   | > DNS QUERY (5) mx spf-a.example.com - NXDOMAIN
@@ -581,8 +580,8 @@ mix escript.install hex spfcheck
 
 After installation, `~/.mix/escripts/spfcheck` invokes the escript.
 
-Use the underlying Spf modules
-Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.exs`:
+Use the underlying Spf modules in a project by adding `spfcheck` to the list of
+dependencies in `mix.exs`:
 
 ```elixir
 def deps do
@@ -591,3 +590,5 @@ def deps do
   ]
 end
 ```
+
+

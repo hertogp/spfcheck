@@ -25,7 +25,7 @@ defmodule Spf.Lexer do
   - a modifier: `:exp, :redirect`,
   - an explain string: `:exp_str`,
   - an unknown modifier: `:unknown`,
-  - a syntax error: `error`
+  - a syntax error: `:error`
   - whitespace: `:whitespace`,
   - a subtoken: `:expand, :literal, :cidr`
 
@@ -135,7 +135,7 @@ defmodule Spf.Lexer do
   # Tokenizers
 
   @spec spf_tokenize :: lexer
-  def spf_tokenize() do
+  defp spf_tokenize() do
     choice([
       whitespace(),
       # mechanisms
@@ -159,7 +159,7 @@ defmodule Spf.Lexer do
   end
 
   @spec exp_tokenize :: lexer
-  def exp_tokenize() do
+  defp exp_tokenize() do
     choice([whitespace(), mstring() |> satisfy(fn l -> l != [] end), error()])
     |> many()
     |> map(fn l -> List.flatten(l) end)

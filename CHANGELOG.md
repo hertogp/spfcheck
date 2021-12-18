@@ -10,10 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### added
 
-- syntax error message now also lists reasons for the errors
-- warning if ip4/ip6 mechanism actually mask host bits (address != this-network)
-- warning if exists' domain is same as current SPF domain (is unusual)
-- warning if an unknown modifier has a mechanism name (is a common mistake)
+- syntax error messages now also list reasons for the errors
+- warning if ip4/ip6 mechanism actually mask host bits (i.e. address != this-network)
+- warning if exists' domain is same as current SPF domain (which is unusual)
+- warning if an unknown modifier has a mechanism name (an easy mistake)
 
 ### fixed
 
@@ -32,7 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [v0.6.0] - 2021-12-01
 
-## added
+### added
 
 - report option "g" to include a graphviz di-graph of the SPF policy
 - warning when default '+'-qualifier is used in mechanisms
