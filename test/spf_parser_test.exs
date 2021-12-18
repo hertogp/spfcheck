@@ -316,9 +316,25 @@ defmodule Spf.ParserTest do
     end
 
     test "02 - unknown with errors" do
-      # note: unknown modifiers still can have syntax errors
+      # notes:
+      # - unknown modifiers still can have syntax errors
+      # - unknown modifiers cannot use c,r,t-macros
       assert :syntax_error == parse("unknown=%{z}").error
       assert :syntax_error == parse("unknown=%z").error
+      assert :syntax_error == parse("unknown=%{c}").error
+      assert :syntax_error == parse("unknown=%{r}").error
+      assert :syntax_error == parse("unknown=%{t}").error
+    end
+
+    test "03 - unknown modifier can have mechanism names" do
+      assert nil == parse("a=something").error
+      assert nil == parse("all=something").error
+      assert nil == parse("mx=something").error
+      assert nil == parse("ip4=something").error
+      assert nil == parse("ip6=something").error
+      assert nil == parse("ptr=something").error
+      assert nil == parse("include=something").error
+      assert nil == parse("exists=something").error
     end
   end
 end
