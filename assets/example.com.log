@@ -1,7 +1,7 @@
 example.com %spf[1]-dns-warn:   | > DNS QUERY (4) a spf-a.example.com - NXDOMAIN
 example.com %spf[1]-dns-warn:   | > DNS QUERY (5) mx spf-a.example.com - NXDOMAIN
-example.com %spf[2]-parse-warn: | | > SPF record has implicit end (?all)
-example.com %spf[5]-parse-warn: | > SPF record has implicit end (?all)
+example.com %spf[2]-parse-warn: | | > spf[2] spf-b.example.com - has implicit end (?all)
+example.com %spf[5]-parse-warn: | > spf[5] spf-b.example.com - has implicit end (?all)
 example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:10.10.10.0/24 - redundant entry, already have: spf[3] ip4:10.10.10.0/24
 example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:192.168.0.0/16 - redundant entry, already have: spf[3] ip4:192.168.0.0/16
 example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:172.16.0.0/12 - redundant entry, already have: spf[3] ip4:172.16.0.0/12

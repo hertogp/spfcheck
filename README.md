@@ -59,6 +59,7 @@ notification messages to stderr.
 
 ```txt
 % spfcheck example.com --no-color
+
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
 example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
 example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
@@ -68,9 +69,9 @@ example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 4
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
-example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["v=spf1 -all", "yxvy9m4blrswgrsz8ndjh467n2y7mgl2"]
 example.com %spf[0]-eval-note:  > spf[0] -all - matches
-example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120707, 7200, 3600, 1209600, 3600}]
 
 domain     : example.com
 ip         : 127.0.0.1
@@ -87,8 +88,9 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 0
-explanation:
+explanation: 
 ```
+
 
 ## Batchmode
 
@@ -113,8 +115,9 @@ The `-d` flag can be used to either point to local file with RR-records or
 specify DNS data on the command line.  If the file exists, it is read and used
 to prepopulate the cache. Otherwise, the text will be read as DNS data.  This
 makes it possible to try out records before publishing them in DNS.  That file
-should contain 1 RR record per line using either:
-- `domain  type  rdata|error`
+should contain 1 RR record per line using:
+- `domain type rdata`
+- `domain type error`
 - `domain error`
 
 Where:
@@ -467,7 +470,7 @@ the SPF policy using pandoc and a graphviz filter.
 
 ```txt
 # example of an SPF policy with some problems
-% cat assets/zonedata.db
+% cat assets/example.db
 
 example.com txt v=spf1 a:%{d1}.org include:spf-a.example.com include:spf-b.example.com redirect=spf-c.example.com
 example.org a 1.2.3.4
@@ -479,7 +482,7 @@ spf-c.example.com txt v=spf1 a:bad.%{d2} ip4:1.1.1.1 -all
 bad.example.com a TIMEOUT
 
 
-% spfcheck example.com --no-color -v 2 -d assets/zonedata.db -r g 2> assets/example.com.log> assets/example.com.dot
+% spfcheck example.com --no-color -v 2 -d assets/example.db -r g 2> assets/example.com.log> assets/example.com.dot
 % dot -Tpng -O assets/example.com.dot
 % cat assets/example.com.log
 example.com %spf[1]-dns-warn:   | > DNS QUERY (4) a spf-a.example.com - NXDOMAIN
@@ -533,7 +536,9 @@ The `-v` flag controls the verbosity level of logging on stderr:
 
 ```txt
 % spfcheck example.com -v 2 --no-color -d "example.com txt v=spf1 a -a/24 mx +all"  
-example.com %spf[0]-parse-warn: > usage of spf[0] +all is not advisable
+
+example.com %spf[0]-parse-warn: > spf[0] +all - usage not advisable
+example.com %spf[0]-parse-warn: > spf[0] +all - default '+' can be omitted
 example.com %spf[0]-ipt-warn:   > spf[0] -a/24 - overlaps with more specific spf[0] a
 example.com %spf[0]-ipt-warn:   > spf[0] -a/24 - inconsistent with more specific spf[0] a
 example.com %spf[0]-eval-warn:  > spf[0] mx - unusable due to null MX for example.com
@@ -550,10 +555,11 @@ num_dnsm   : 3
 num_dnsq   : 4
 num_dnsv   : 0
 num_checks : 4
-num_warn   : 4
+num_warn   : 5
 num_error  : 0
-duration   : 1
-explanation:
+duration   : 0
+explanation: 
+
 ```
 
 ## Width flag
@@ -581,7 +587,7 @@ Or use it in a project by adding `spfcheck` to the list of dependencies in `mix.
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.6.0"}
+    {:spfcheck, "~> 0.7.0"}
   ]
 end
 ```

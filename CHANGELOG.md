@@ -6,29 +6,28 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
-## [unreleased]
+## [v0.7.0] - 2021-12-18
 
 ### added
 
-- [x] syntax error message now also lists reasons for the errors
-- [x] warn if ip4/ip6 mechanism actually mask host bits (address != this-network)
-- [x] warn if exists' domain is same as current SPF domain (is unusual)
-- [x] warn if an unknown modifier has a mechanism name
+- syntax error message now also lists reasons for the errors
+- warning if ip4/ip6 mechanism actually mask host bits (address != this-network)
+- warning if exists' domain is same as current SPF domain (is unusual)
+- warning if an unknown modifier has a mechanism name (is a common mistake)
 
 ### fixed
 
-- [x] leading zero's in ip4/6 prefix lengths is actually a syntax error
-- [x] empty macro-string in an *unknown* modifier is actually legal
-- [x] %{t} now expands to timestamp (UNIX epoch time)
-- [x] unknown modifiers cannot use c,r,t-macros
+- leading zero's in ip4/6 prefix lengths is actually a syntax error
+- empty macro-string in an *unknown* modifier is actually legal
+- %{t} now expands to timestamp (UNIX epoch time)
+- unknown modifiers cannot use c,r,t-macros, they're only valid in an explain-string
 
 ### changed
 
-- [x] simplified the lexer, at the expense of the parser
-- [x] removed dependency on nimble_parsec
-- [x] DNS MECH counter shown at info level (was debug level)
-- [x] logs use uniform format: "term - message" format as much as possible
-- [x] redundant entry message now lists the unique overlapping terms
+- removed dependency on nimble_parsec
+- DNS MECH counter shown at info level (was debug level)
+- logs use uniform format: "term - message" format as much as possible
+- redundant entry message now lists only the uniquely overlapping terms
 
 
 ## [v0.6.0] - 2021-12-01
