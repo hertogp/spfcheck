@@ -26,8 +26,8 @@ spfcheck-*.tar
 spfcheck
 
 # Ignore testing files
-dns.txt
-domains.txt
+# dns.txt
+# domains.txt
 
 # Temporary files, for example, from tests.
 /tmp/

@@ -67,7 +67,7 @@ defmodule Spfcheck.MixProject do
       {:ex_doc, "~> 0.24", only: :dev, runtime: false},
       {:dialyxir, "~> 1.0", only: :dev, runtime: false},
       {:credo, "~> 1.6", only: [:dev, :test], runtime: false},
-      {:yaml_elixir, "~> 2.8.0", only: [:test]}
+      {:yaml_elixir, "~> 2.8.0", only: [:dev, :test], runtime: false}
     ]
   end
 
