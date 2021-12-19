@@ -33,7 +33,7 @@ defmodule Rfc7208.TestSuite do
   # records (by test suite drivers) to test all implementation types with one
   # specification.
 
-  # Tests
+  # Test sections
   # 0  - Initial processing
   # 1  - Record lookup
   # 2  - Selecting records     <- keep SPF as SPF, donot convert to TXT record
@@ -122,7 +122,9 @@ defmodule Rfc7208.TestSuite do
 
     # wtf?
     # In addition:
-    # - when the value of an SPF name is the string NONE, then that record is not added to the DNS data.
+    # - when the value of an SPF name is the string NONE, then that record
+    #   is not added to the DNS data.
+    #
     # As a result, TXT: NONE serves to suppress the auto copy of SPF records to
     # TXT. This allows testing of record selection rules.
     # Ah, need to do cp_spf first, then w/ do_others, filter out any RR's that
