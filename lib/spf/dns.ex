@@ -430,7 +430,6 @@ defmodule Spf.DNS do
       [
         "b.example.com AAAA TIMEOUT"
       ]
-      iex>
       iex> Spf.DNS.to_list(ctx)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
       [
