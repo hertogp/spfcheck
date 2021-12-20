@@ -1,0 +1,24 @@
+# Zonedata for rfc7208-09-exists-mechanism-syntax of the Rfc7208 2014.5 testsuite
+
+e1.example.com TXT v=spf1 exists:
+e1.example.com SPF v=spf1 exists:
+e2.example.com TXT v=spf1 exists
+e2.example.com SPF v=spf1 exists
+e3.example.com TXT v=spf1 exists:mail.example.com/24
+e3.example.com SPF v=spf1 exists:mail.example.com/24
+e4.example.com TXT v=spf1 exists:mail.example.com
+e4.example.com SPF v=spf1 exists:mail.example.com
+e5.example.com TXT v=spf1 exists:mail6.example.com -all
+e5.example.com SPF v=spf1 exists:mail6.example.com -all
+e6.example.com TXT v=spf1 exists:err.example.com -all
+e6.example.com SPF v=spf1 exists:err.example.com -all
+err.example.com A TIMEOUT
+err.example.com AAAA TIMEOUT
+err.example.com CNAME TIMEOUT
+err.example.com MX TIMEOUT
+err.example.com PTR TIMEOUT
+err.example.com SOA TIMEOUT
+err.example.com SPF TIMEOUT
+err.example.com TXT TIMEOUT
+mail.example.com A 1.2.3.4
+mail6.example.com AAAA CAFE:BABE::4

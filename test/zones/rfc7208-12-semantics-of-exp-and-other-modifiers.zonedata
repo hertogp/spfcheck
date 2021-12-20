@@ -1,0 +1,71 @@
+# Zonedata for rfc7208-12-semantics-of-exp-and-other-modifiers of the Rfc7208 2014.5 testsuite
+
+mail.example.com A 1.2.3.4
+twoexp.example.com TXT one
+twoexp.example.com TXT two
+badexp.example.com TXT ï»¿Explanation
+e21msg.example.com A TIMEOUT
+e21msg.example.com AAAA TIMEOUT
+e21msg.example.com CNAME TIMEOUT
+e21msg.example.com MX TIMEOUT
+e21msg.example.com PTR TIMEOUT
+e21msg.example.com SOA TIMEOUT
+e21msg.example.com SPF TIMEOUT
+e21msg.example.com TXT TIMEOUT
+exp3.example.com TXT Correct!
+e22.example.com TXT v=spf1 exp=mail.example.com -all
+e22.example.com SPF v=spf1 exp=mail.example.com -all
+e5.example.com TXT v=spf1 1up=foo
+e5.example.com SPF v=spf1 1up=foo
+exp4.example.com TXT %{l} in implementation
+e21.example.com TXT v=spf1 exp=e21msg.example.com -all
+e21.example.com SPF v=spf1 exp=e21msg.example.com -all
+e7.example.com TXT v=spf1 include:e3.example.com -all exp=exp3.example.com
+e7.example.com SPF v=spf1 include:e3.example.com -all exp=exp3.example.com
+tworecs.example.com TXT v=spf1 exp=twoexp.example.com -all
+tworecs.example.com SPF v=spf1 exp=twoexp.example.com -all
+e6.example.com TXT v=spf1 =all
+e6.example.com SPF v=spf1 =all
+e13msg.example.com TXT The %{x}-files.
+e20.example.com TXT v=spf1 default=+
+e20.example.com SPF v=spf1 default=+
+exp1.example.com TXT No-see-um
+e9.example.com TXT v=spf1 -all foo=%abc
+e9.example.com SPF v=spf1 -all foo=%abc
+e19.example.com TXT v=spf1 default=pass
+e19.example.com SPF v=spf1 default=pass
+e10.example.com TXT v=spf1 redirect=erehwon.example.com
+e10.example.com SPF v=spf1 redirect=erehwon.example.com
+e2.example.com TXT v=spf1 -all
+e2.example.com SPF v=spf1 -all
+e15.example.com TXT v=spf1 redirect=e12.example.com -all redirect=e12.example.com
+e15.example.com SPF v=spf1 redirect=e12.example.com -all redirect=e12.example.com
+e18.example.com TXT v=spf1 ?all redirect=
+e18.example.com SPF v=spf1 ?all redirect=
+e12.example.com TXT v=spf1 exp= -all
+e12.example.com SPF v=spf1 exp= -all
+e17.example.com TXT v=spf1 redirect=-all ?all
+e17.example.com SPF v=spf1 redirect=-all ?all
+e16.example.com TXT v=spf1 exp=-all
+e16.example.com SPF v=spf1 exp=-all
+e23.example.com TXT v=spf1 a:erehwon.example.com a:foobar.com exp=nxdomain.com -all
+e23.example.com SPF v=spf1 a:erehwon.example.com a:foobar.com exp=nxdomain.com -all
+e1.example.com TXT v=spf1 exp=exp1.example.com redirect=e2.example.com
+e1.example.com SPF v=spf1 exp=exp1.example.com redirect=e2.example.com
+e4.example.com TXT v=spf1 -all exp=exp2.example.com
+e4.example.com SPF v=spf1 -all exp=exp2.example.com
+e8.example.com TXT v=spf1 -all exp=exp4.example.com
+e8.example.com SPF v=spf1 -all exp=exp4.example.com
+e3.example.com TXT v=spf1 exp=exp1.example.com redirect=e4.example.com
+e3.example.com SPF v=spf1 exp=exp1.example.com redirect=e4.example.com
+e11msg.example.com TXT Answer a fool according to his folly.
+e11msg.example.com TXT Do not answer a fool according to his folly.
+e14.example.com TXT v=spf1 exp=e13msg.example.com -all exp=e11msg.example.com
+e14.example.com SPF v=spf1 exp=e13msg.example.com -all exp=e11msg.example.com
+exp2.example.com TXT See me.
+e11.example.com TXT v=spf1 -all exp=e11msg.example.com
+e11.example.com SPF v=spf1 -all exp=e11msg.example.com
+nonascii.example.com TXT v=spf1 exp=badexp.example.com -all
+nonascii.example.com SPF v=spf1 exp=badexp.example.com -all
+e13.example.com TXT v=spf1 exp=e13msg.example.com -all
+e13.example.com SPF v=spf1 exp=e13msg.example.com -all

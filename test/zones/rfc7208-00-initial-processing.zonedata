@@ -1,0 +1,27 @@
+# Zonedata for rfc7208-00-initial-processing of the Rfc7208 2014.5 testsuite
+
+a.example.net TXT v=spf1 -all exp=exp.example.net
+a.example.net SPF v=spf1 -all exp=exp.example.net
+a12345678901234567890123456789012345678901234567890123456789012.example.com TXT v=spf1 -all
+a12345678901234567890123456789012345678901234567890123456789012.example.com SPF v=spf1 -all
+example.com A TIMEOUT
+example.com AAAA TIMEOUT
+example.com CNAME TIMEOUT
+example.com MX TIMEOUT
+example.com PTR TIMEOUT
+example.com SOA TIMEOUT
+example.com SPF TIMEOUT
+example.com TXT TIMEOUT
+example.net TXT v=spf1 -all exp=exp.example.net
+example.net SPF v=spf1 -all exp=exp.example.net
+exp.example.net TXT %{l}
+hosed.example.com TXT v=spf1 a:ï»¿garbage.example.net -all
+hosed.example.com SPF v=spf1 a:ï»¿garbage.example.net -all
+hosed2.example.com TXT v=spf1 a:example.net -all
+hosed2.example.com SPF v=spf1 a:example.net -all
+hosed3.example.com TXT v=spf1 a:example.net all
+hosed3.example.com SPF v=spf1 a:example.net all
+nothosed.example.com TXT v=spf1 a:example.net -all
+nothosed.example.com TXT 
+nothosed.example.com SPF v=spf1 a:example.net -all
+nothosed.example.com SPF 

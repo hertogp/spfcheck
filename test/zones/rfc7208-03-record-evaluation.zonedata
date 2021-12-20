@@ -1,0 +1,27 @@
+# Zonedata for rfc7208-03-record-evaluation of the Rfc7208 2014.5 testsuite
+
+mail.example.com A 1.2.3.4
+t1.example.com TXT v=spf1 ip4:1.2.3.4 -all moo
+t1.example.com SPF v=spf1 ip4:1.2.3.4 -all moo
+t10.example.com TXT v=spf1 a:mail.example...com -all
+t10.example.com SPF v=spf1 a:mail.example...com -all
+t11.example.com TXT v=spf1 a:a123456789012345678901234567890123456789012345678901234567890123.example.com -all
+t11.example.com SPF v=spf1 a:a123456789012345678901234567890123456789012345678901234567890123.example.com -all
+t12.example.com TXT v=spf1 a:%{H}.bar -all
+t12.example.com SPF v=spf1 a:%{H}.bar -all
+t2.example.com TXT v=spf1 moo.cow-far_out=man:dog/cat ip4:1.2.3.4 -all
+t2.example.com SPF v=spf1 moo.cow-far_out=man:dog/cat ip4:1.2.3.4 -all
+t3.example.com TXT v=spf1 moo.cow/far_out=man:dog/cat ip4:1.2.3.4 -all
+t3.example.com SPF v=spf1 moo.cow/far_out=man:dog/cat ip4:1.2.3.4 -all
+t4.example.com TXT v=spf1 moo.cow:far_out=man:dog/cat ip4:1.2.3.4 -all
+t4.example.com SPF v=spf1 moo.cow:far_out=man:dog/cat ip4:1.2.3.4 -all
+t5.example.com TXT v=spf1 redirect=t5.example.com ~all
+t5.example.com SPF v=spf1 redirect=t5.example.com ~all
+t6.example.com TXT v=spf1 ip4:1.2.3.4 redirect=t2.example.com
+t6.example.com SPF v=spf1 ip4:1.2.3.4 redirect=t2.example.com
+t7.example.com TXT v=spf1 ip4:1.2.3.4
+t7.example.com SPF v=spf1 ip4:1.2.3.4
+t8.example.com TXT v=spf1 ip4:1.2.3.4 redirect:t2.example.com
+t8.example.com SPF v=spf1 ip4:1.2.3.4 redirect:t2.example.com
+t9.example.com TXT v=spf1 a:foo-bar -all
+t9.example.com SPF v=spf1 a:foo-bar -all

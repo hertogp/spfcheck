@@ -1,0 +1,70 @@
+# Zonedata for rfc7208-13-macro-expansion-rules of the Rfc7208 2014.5 testsuite
+
+e1a.example.com TXT v=spf1 a:macro%%percent%_%_space%-url-space.example.com -all
+e1a.example.com SPF v=spf1 a:macro%%percent%_%_space%-url-space.example.com -all
+e1t.example.com TXT v=spf1 exists:foo%.sbl.example.com ?all
+e1t.example.com SPF v=spf1 exists:foo%.sbl.example.com ?all
+msgbas2x.cos.example.com A 192.168.218.40
+e4msg.example.com TXT %{c} is queried as %{ir}.%{v}.arpa
+mx.e7.example.com A 192.168.218.42
+e1e.example.com TXT v=spf1 exists:foo%(ir).sbl.example.com ?all
+e1e.example.com SPF v=spf1 exists:foo%(ir).sbl.example.com ?all
+exp.example.com TXT v=spf1 exp=msg.example.com. -all
+exp.example.com SPF v=spf1 exp=msg.example.com. -all
+macro%percent  space%20url-space.example.com A 1.2.3.4
+e5.example.com TXT v=spf1 a:%{a}.example.com -all
+e5.example.com SPF v=spf1 a:%{a}.example.com -all
+mx.example.com A 192.168.218.41
+mx.example.com A 192.168.218.42
+mx.example.com AAAA CAFE:BABE::2
+mx.example.com AAAA CAFE:BABE::3
+e7.example.com TXT v=spf1 exists:%{p}.should.example.com ~exists:%{p}.ok.example.com
+e7.example.com SPF v=spf1 exists:%{p}.should.example.com ~exists:%{p}.ok.example.com
+e6.example.com TXT v=spf1 -all exp=e6msg.example.com
+e6.example.com SPF v=spf1 -all exp=e6msg.example.com
+somewhat.long.exp.example.com.somewhat.long.exp.example.com.somewhat.long.exp.example.com.somewhat.long.exp.example.com.somewhat.long.exp.example.com.somewhat.long.exp.example.com.somewhat.long.exp.example.com.somewhat.long.exp.example.com.example.com TXT Congratulations!  That was tricky.
+3.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.E.B.A.B.E.F.A.C.ip6.arpa PTR mx.example.com
+42.218.168.192.in-addr.arpa PTR mx.example.com
+42.218.168.192.in-addr.arpa PTR mx.e7.example.com
+bar.foo.user.example.com A 127.0.0.2
+msg8.example.com TXT http://example.com/why.html?l=%{L}
+40.218.168.192.example.com TXT Connections from %{c} not authorized.
+example.com.d.spf.example.com TXT v=spf1 redirect=a.spf.example.com
+example.com.d.spf.example.com SPF v=spf1 redirect=a.spf.example.com
+mx.example.com.ok.example.com A 127.0.0.2
+e9.example.com TXT v=spf1 a:%{H} -all
+e9.example.com SPF v=spf1 a:%{H} -all
+msg.example.com TXT This is a test.
+e10.example.com TXT v=spf1 -include:_spfh.%{d2} ip4:1.2.3.0/24 -all
+e10.example.com SPF v=spf1 -include:_spfh.%{d2} ip4:1.2.3.0/24 -all
+e2.example.com TXT v=spf1 -all exp=%{r}.example.com
+e2.example.com SPF v=spf1 -all exp=%{r}.example.com
+e12.example.com TXT v=spf1 exists:%{l2r+-}.user.%{d2}
+e12.example.com SPF v=spf1 exists:%{l2r+-}.user.%{d2}
+1.2.3.4.gladstone.philip.user.example.com A 127.0.0.2
+o.spf.example.com TXT v=spf1 ip4:192.168.218.40
+o.spf.example.com SPF v=spf1 ip4:192.168.218.40
+e1.example.com TXT v=spf1 -exists:%(ir).sbl.example.com ?all
+e1.example.com SPF v=spf1 -exists:%(ir).sbl.example.com ?all
+e4.example.com TXT v=spf1 -all exp=e4msg.example.com
+e4.example.com SPF v=spf1 -all exp=e4msg.example.com
+somewhat.long.exp.example.com TXT v=spf1 -all exp=foobar.%{o}.%{o}.%{o}.%{o}.%{o}.%{o}.%{o}.%{o}.example.com
+somewhat.long.exp.example.com SPF v=spf1 -all exp=foobar.%{o}.%{o}.%{o}.%{o}.%{o}.%{o}.%{o}.%{o}.example.com
+e8.example.com TXT v=spf1 -all exp=msg8.%{D2}
+e8.example.com SPF v=spf1 -all exp=msg8.%{D2}
+example.com TXT v=spf1 redirect=%{d}.d.spf.example.com.
+example.com A 192.168.90.76
+example.com SPF v=spf1 redirect=%{d}.d.spf.example.com.
+40.218.168.192.in-addr.arpa PTR mx.example.com
+e3.example.com TXT v=spf1 -all exp=%{ir}.example.com
+e3.example.com SPF v=spf1 -all exp=%{ir}.example.com
+1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.E.B.A.B.E.F.A.C.ip6.arpa PTR mx.example.com
+e11.example.com TXT v=spf1 exists:%{i}.%{l2r-}.user.%{d2}
+e11.example.com SPF v=spf1 exists:%{i}.%{l2r-}.user.%{d2}
+e6msg.example.com TXT connect from %{p}
+a.spf.example.com TXT v=spf1 include:o.spf.example.com. ~all
+a.spf.example.com SPF v=spf1 include:o.spf.example.com. ~all
+41.218.168.192.in-addr.arpa PTR mx.example.com
+mx.e7.example.com.should.example.com A 127.0.0.2
+_spfh.example.com TXT v=spf1 -a:%{h} +all
+_spfh.example.com SPF v=spf1 -a:%{h} +all

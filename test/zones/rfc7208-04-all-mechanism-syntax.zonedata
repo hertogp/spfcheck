@@ -1,0 +1,13 @@
+# Zonedata for rfc7208-04-all-mechanism-syntax of the Rfc7208 2014.5 testsuite
+
+e1.example.com TXT v=spf1 -all.
+e1.example.com SPF v=spf1 -all.
+e2.example.com TXT v=spf1 -all:foobar
+e2.example.com SPF v=spf1 -all:foobar
+e3.example.com TXT v=spf1 -all/8
+e3.example.com SPF v=spf1 -all/8
+e4.example.com TXT v=spf1 ?all
+e4.example.com SPF v=spf1 ?all
+e5.example.com TXT v=spf1 all -all
+e5.example.com SPF v=spf1 all -all
+mail.example.com A 1.2.3.4

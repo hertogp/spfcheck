@@ -1,0 +1,30 @@
+# Zonedata for rfc7208-02-selecting-records of the Rfc7208 2014.5 testsuite
+
+example1.com TXT v=spf1
+example1.com SPF v=spf1
+example2.com TXT v=spf1mx
+example2.com SPF v=spf1mx
+example3.com TXT v=spf10
+example3.com TXT v=spf1 mx
+example3.com SPF v=spf10
+example3.com SPF v=spf1 mx
+example3.com MX 0 mail.example1.com
+example4.com SPF v=spf1 +all
+example4.com TXT v=spf1 -all
+example5.com SPF v=spf1 +all
+example5.com TXT v=spf1 -all
+example5.com TXT v=spf1 +all
+example6.com TXT v=spf1 -all
+example6.com TXT V=sPf1 +all
+example6.com SPF v=spf1 -all
+example6.com SPF V=sPf1 +all
+example7.com TXT v=spf1 -all
+example7.com TXT v=spf1 -all
+example7.com SPF v=spf1 -all
+example7.com SPF v=spf1 -all
+example8.com SPF V=spf1 -all
+example8.com SPF v=spf1 -all
+example8.com TXT v=spf1 +all
+example9.com TXT v=SpF1 ~all
+example9.com SPF v=SpF1 ~all
+mail.example1.com A 1.2.3.4

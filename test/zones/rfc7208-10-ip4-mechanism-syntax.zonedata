@@ -1,0 +1,21 @@
+# Zonedata for rfc7208-10-ip4-mechanism-syntax of the Rfc7208 2014.5 testsuite
+
+e1.example.com TXT v=spf1 ip4:1.1.1.1/0 -all
+e1.example.com SPF v=spf1 ip4:1.1.1.1/0 -all
+e2.example.com TXT v=spf1 ip4:1.2.3.4/32 -all
+e2.example.com SPF v=spf1 ip4:1.2.3.4/32 -all
+e3.example.com TXT v=spf1 ip4:1.2.3.4/33 -all
+e3.example.com SPF v=spf1 ip4:1.2.3.4/33 -all
+e4.example.com TXT v=spf1 ip4:1.2.3.4/032 -all
+e4.example.com SPF v=spf1 ip4:1.2.3.4/032 -all
+e5.example.com TXT v=spf1 ip4
+e5.example.com SPF v=spf1 ip4
+e6.example.com TXT v=spf1 ip4:1.2.3.4//32
+e6.example.com SPF v=spf1 ip4:1.2.3.4//32
+e7.example.com TXT v=spf1 -ip4:1.2.3.4 ip6:::FFFF:1.2.3.4
+e7.example.com SPF v=spf1 -ip4:1.2.3.4 ip6:::FFFF:1.2.3.4
+e8.example.com TXT v=spf1 ip4:1.2.3.4:8080
+e8.example.com SPF v=spf1 ip4:1.2.3.4:8080
+e9.example.com TXT v=spf1 ip4:1.2.3
+e9.example.com SPF v=spf1 ip4:1.2.3
+mail.example.com A 1.2.3.4

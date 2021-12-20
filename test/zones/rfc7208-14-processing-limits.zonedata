@@ -1,0 +1,72 @@
+# Zonedata for rfc7208-14-processing-limits of the Rfc7208 2014.5 testsuite
+
+5.3.2.1.in-addr.arpa PTR e1.example.com.
+5.3.2.1.in-addr.arpa PTR e2.example.com.
+5.3.2.1.in-addr.arpa PTR e3.example.com.
+5.3.2.1.in-addr.arpa PTR e4.example.com.
+5.3.2.1.in-addr.arpa PTR example.com.
+5.3.2.1.in-addr.arpa PTR e6.example.com.
+5.3.2.1.in-addr.arpa PTR e7.example.com.
+5.3.2.1.in-addr.arpa PTR e8.example.com.
+5.3.2.1.in-addr.arpa PTR e9.example.com.
+5.3.2.1.in-addr.arpa PTR e10.example.com.
+5.3.2.1.in-addr.arpa PTR e5.example.com.
+e1.example.com TXT v=spf1 ip4:1.1.1.1 redirect=e1.example.com
+e1.example.com SPF v=spf1 ip4:1.1.1.1 redirect=e1.example.com
+e1.example.com A 1.2.3.6
+e10.example.com TXT v=spf1 a -all
+e10.example.com SPF v=spf1 a -all
+e10.example.com A 1.2.3.1
+e10.example.com A 1.2.3.2
+e10.example.com A 1.2.3.3
+e10.example.com A 1.2.3.4
+e10.example.com A 1.2.3.5
+e10.example.com A 1.2.3.6
+e10.example.com A 1.2.3.7
+e10.example.com A 1.2.3.8
+e10.example.com A 1.2.3.9
+e10.example.com A 1.2.3.10
+e10.example.com A 1.2.3.11
+e10.example.com A 1.2.3.12
+e11.example.com TXT v=spf1 a:err.example.com a:err1.example.com a:err2.example.com ?all
+e12.example.com TXT v=spf1 a:err.example.com a:err1.example.com ?all
+e2.example.com TXT v=spf1 include:e3.example.com
+e2.example.com SPF v=spf1 include:e3.example.com
+e2.example.com A 1.2.3.7
+e3.example.com TXT v=spf1 include:e2.example.com
+e3.example.com SPF v=spf1 include:e2.example.com
+e3.example.com A 1.2.3.8
+e4.example.com TXT v=spf1 mx
+e4.example.com SPF v=spf1 mx
+e4.example.com MX 0 mail.example.com
+e4.example.com MX 1 mail.example.com
+e4.example.com MX 2 mail.example.com
+e4.example.com MX 3 mail.example.com
+e4.example.com MX 4 mail.example.com
+e4.example.com MX 5 mail.example.com
+e4.example.com MX 6 mail.example.com
+e4.example.com MX 7 mail.example.com
+e4.example.com MX 8 mail.example.com
+e4.example.com MX 9 mail.example.com
+e4.example.com MX 10 e4.example.com
+e4.example.com A 1.2.3.5
+e5.example.com TXT v=spf1 ptr
+e5.example.com SPF v=spf1 ptr
+e5.example.com A 1.2.3.5
+e6.example.com TXT v=spf1 a mx a mx a mx a mx a ptr ip4:1.2.3.4 -all
+e6.example.com SPF v=spf1 a mx a mx a mx a mx a ptr ip4:1.2.3.4 -all
+e6.example.com A 1.2.3.8
+e6.example.com MX 10 e6.example.com
+e7.example.com TXT v=spf1 a mx a mx a mx a mx a ptr a ip4:1.2.3.4 -all
+e7.example.com SPF v=spf1 a mx a mx a mx a mx a ptr a ip4:1.2.3.4 -all
+e7.example.com A 1.2.3.20
+e8.example.com TXT v=spf1 a include:inc.example.com ip4:1.2.3.4 mx -all
+e8.example.com SPF v=spf1 a include:inc.example.com ip4:1.2.3.4 mx -all
+e8.example.com A 1.2.3.4
+e9.example.com TXT v=spf1 a include:inc.example.com a ip4:1.2.3.4 -all
+e9.example.com SPF v=spf1 a include:inc.example.com a ip4:1.2.3.4 -all
+e9.example.com A 1.2.3.21
+inc.example.com TXT v=spf1 a a a a a a a a
+inc.example.com SPF v=spf1 a a a a a a a a
+inc.example.com A 1.2.3.10
+mail.example.com A 1.2.3.4

@@ -1,0 +1,36 @@
+# Zonedata for rfc7208-07-include-mechanism-semantics-and-syntax of the Rfc7208 2014.5 testsuite
+
+e1.example.com TXT v=spf1 include:ip5.example.com ~all
+e1.example.com SPF v=spf1 include:ip5.example.com ~all
+e2.example.com TXT v=spf1 include:ip6.example.com all
+e2.example.com SPF v=spf1 include:ip6.example.com all
+e3.example.com TXT v=spf1 include:ip7.example.com -all
+e3.example.com SPF v=spf1 include:ip7.example.com -all
+e4.example.com TXT v=spf1 include:ip8.example.com -all
+e4.example.com SPF v=spf1 include:ip8.example.com -all
+e5.example.com TXT v=spf1 include:e6.example.com -all
+e5.example.com SPF v=spf1 include:e6.example.com -all
+e6.example.com TXT v=spf1 include +all
+e6.example.com SPF v=spf1 include +all
+e7.example.com TXT v=spf1 include:erehwon.example.com -all
+e7.example.com SPF v=spf1 include:erehwon.example.com -all
+e8.example.com TXT v=spf1 include: -all
+e8.example.com SPF v=spf1 include: -all
+e9.example.com TXT v=spf1 include:ip5.example.com/24 -all
+e9.example.com SPF v=spf1 include:ip5.example.com/24 -all
+erehwon.example.com TXT v=spfl am not an SPF record
+ip5.example.com TXT v=spf1 ip4:1.2.3.5 -all
+ip5.example.com SPF v=spf1 ip4:1.2.3.5 -all
+ip6.example.com TXT v=spf1 ip4:1.2.3.6 ~all
+ip6.example.com SPF v=spf1 ip4:1.2.3.6 ~all
+ip7.example.com TXT v=spf1 ip4:1.2.3.7 ?all
+ip7.example.com SPF v=spf1 ip4:1.2.3.7 ?all
+ip8.example.com A TIMEOUT
+ip8.example.com AAAA TIMEOUT
+ip8.example.com CNAME TIMEOUT
+ip8.example.com MX TIMEOUT
+ip8.example.com PTR TIMEOUT
+ip8.example.com SOA TIMEOUT
+ip8.example.com SPF TIMEOUT
+ip8.example.com TXT TIMEOUT
+mail.example.com A 1.2.3.4

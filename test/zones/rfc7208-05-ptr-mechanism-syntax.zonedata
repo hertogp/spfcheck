@@ -1,0 +1,19 @@
+# Zonedata for rfc7208-05-ptr-mechanism-syntax of the Rfc7208 2014.5 testsuite
+
+1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.E.B.A.B.E.F.A.C.ip6.arpa PTR e3.example.com
+4.3.2.1.in-addr.arpa PTR e3.example.com
+4.3.2.1.in-addr.arpa PTR e4.example.com
+4.3.2.1.in-addr.arpa PTR mail.example.com
+e1.example.com TXT v=spf1 ptr/0 -all
+e1.example.com SPF v=spf1 ptr/0 -all
+e2.example.com TXT v=spf1 ptr:example.com -all
+e2.example.com SPF v=spf1 ptr:example.com -all
+e3.example.com TXT v=spf1 ptr -all
+e3.example.com SPF v=spf1 ptr -all
+e3.example.com A 1.2.3.4
+e3.example.com AAAA CAFE:BABE::1
+e4.example.com TXT v=spf1 ptr -all
+e4.example.com SPF v=spf1 ptr -all
+e5.example.com TXT v=spf1 ptr:
+e5.example.com SPF v=spf1 ptr:
+mail.example.com A 1.2.3.4
