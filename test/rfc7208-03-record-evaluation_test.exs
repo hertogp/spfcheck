@@ -13,7 +13,13 @@ defmodule Rfc7208.Section3Test do
   test "3.0 default-result" do
     # spec 4.7/1 - Record evaluation - default-result
 
-    ctx = Spf.check("foo@t7.example.com", helo: "mail.example.com", ip: "1.2.3.5", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t7.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.5",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["neutral"], "3.0 default-result"
     assert ctx.explanation == "", "3.0 default-result"
   end
@@ -23,7 +29,13 @@ defmodule Rfc7208.Section3Test do
   test "3.1 detect-errors-anywhere" do
     # spec 4.6 - Record evaluation - detect-errors-anywhere
 
-    ctx = Spf.check("foo@t1.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t1.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "3.1 detect-errors-anywhere"
     assert ctx.explanation == "", "3.1 detect-errors-anywhere"
   end
@@ -33,7 +45,13 @@ defmodule Rfc7208.Section3Test do
   test "3.2 invalid-domain" do
     # spec 7.1/2 - Record evaluation - invalid-domain
 
-    ctx = Spf.check("foo@t9.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t9.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "3.2 invalid-domain"
     assert ctx.explanation == "", "3.2 invalid-domain"
   end
@@ -43,7 +61,13 @@ defmodule Rfc7208.Section3Test do
   test "3.3 invalid-domain-empty-label" do
     # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-empty-label
 
-    ctx = Spf.check("foo@t10.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t10.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail", "permerror"], "3.3 invalid-domain-empty-label"
     assert ctx.explanation == "", "3.3 invalid-domain-empty-label"
   end
@@ -53,7 +77,13 @@ defmodule Rfc7208.Section3Test do
   test "3.4 invalid-domain-long" do
     # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-long
 
-    ctx = Spf.check("foo@t11.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t11.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail", "permerror"], "3.4 invalid-domain-long"
     assert ctx.explanation == "", "3.4 invalid-domain-long"
   end
@@ -63,7 +93,13 @@ defmodule Rfc7208.Section3Test do
   test "3.5 invalid-domain-long-via-macro" do
     # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-long-via-macro
 
-    ctx = Spf.check("foo@t12.example.com", helo: "%%%%%%%%%%%%%%%%%%%%%%", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t12.example.com",
+        helo: "%%%%%%%%%%%%%%%%%%%%%%",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail", "permerror"], "3.5 invalid-domain-long-via-macro"
     assert ctx.explanation == "", "3.5 invalid-domain-long-via-macro"
   end
@@ -73,7 +109,13 @@ defmodule Rfc7208.Section3Test do
   test "3.6 modifier-charset-bad1" do
     # spec 4.6.1/4 - Record evaluation - modifier-charset-bad1
 
-    ctx = Spf.check("foo@t3.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t3.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "3.6 modifier-charset-bad1"
     assert ctx.explanation == "", "3.6 modifier-charset-bad1"
   end
@@ -83,7 +125,13 @@ defmodule Rfc7208.Section3Test do
   test "3.7 modifier-charset-bad2" do
     # spec 4.6.1/4 - Record evaluation - modifier-charset-bad2
 
-    ctx = Spf.check("foo@t4.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t4.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "3.7 modifier-charset-bad2"
     assert ctx.explanation == "", "3.7 modifier-charset-bad2"
   end
@@ -93,7 +141,13 @@ defmodule Rfc7208.Section3Test do
   test "3.8 modifier-charset-good" do
     # spec 4.6.1/2 - Record evaluation - modifier-charset-good
 
-    ctx = Spf.check("foo@t2.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t2.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "3.8 modifier-charset-good"
     assert ctx.explanation == "", "3.8 modifier-charset-good"
   end
@@ -103,7 +157,13 @@ defmodule Rfc7208.Section3Test do
   test "3.9 redirect-after-mechanisms1" do
     # spec 4.6.3 - Record evaluation - redirect-after-mechanisms1
 
-    ctx = Spf.check("foo@t5.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t5.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["softfail"], "3.9 redirect-after-mechanisms1"
     assert ctx.explanation == "", "3.9 redirect-after-mechanisms1"
   end
@@ -113,7 +173,13 @@ defmodule Rfc7208.Section3Test do
   test "3.10 redirect-after-mechanisms2" do
     # spec 4.6.3 - Record evaluation - redirect-after-mechanisms2
 
-    ctx = Spf.check("foo@t6.example.com", helo: "mail.example.com", ip: "1.2.3.5", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t6.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.5",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "3.10 redirect-after-mechanisms2"
     assert ctx.explanation == "", "3.10 redirect-after-mechanisms2"
   end
@@ -123,7 +189,13 @@ defmodule Rfc7208.Section3Test do
   test "3.11 redirect-is-modifier" do
     # spec 4.6.1/4 - Record evaluation - redirect-is-modifier
 
-    ctx = Spf.check("foo@t8.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-03-record-evaluation.zonedata")
+    ctx =
+      Spf.check("foo@t8.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "3.11 redirect-is-modifier"
     assert ctx.explanation == "", "3.11 redirect-is-modifier"
   end

@@ -13,7 +13,13 @@ defmodule Rfc7208.Section6Test do
   test "6.0 a-bad-cidr4" do
     # spec 5.3/2 - A mechanism syntax - a-bad-cidr4
 
-    ctx = Spf.check("foo@e6a.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e6a.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.0 a-bad-cidr4"
     assert ctx.explanation == "", "6.0 a-bad-cidr4"
   end
@@ -23,7 +29,13 @@ defmodule Rfc7208.Section6Test do
   test "6.1 a-bad-cidr6" do
     # spec 5.3/2 - A mechanism syntax - a-bad-cidr6
 
-    ctx = Spf.check("foo@e7.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e7.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.1 a-bad-cidr6"
     assert ctx.explanation == "", "6.1 a-bad-cidr6"
   end
@@ -33,7 +45,13 @@ defmodule Rfc7208.Section6Test do
   test "6.2 a-bad-domain" do
     # spec 7.1/2 - A mechanism syntax - a-bad-domain
 
-    ctx = Spf.check("foo@e9.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e9.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.2 a-bad-domain"
     assert ctx.explanation == "", "6.2 a-bad-domain"
   end
@@ -43,7 +61,13 @@ defmodule Rfc7208.Section6Test do
   test "6.3 a-bad-toplabel" do
     # spec 7.1/2 - A mechanism syntax - a-bad-toplabel
 
-    ctx = Spf.check("foo@e12.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e12.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.3 a-bad-toplabel"
     assert ctx.explanation == "", "6.3 a-bad-toplabel"
   end
@@ -53,7 +77,13 @@ defmodule Rfc7208.Section6Test do
   test "6.4 a-cidr4-0" do
     # spec 5.3/3 - A mechanism syntax - a-cidr4-0
 
-    ctx = Spf.check("foo@e2.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.4 a-cidr4-0"
     assert ctx.explanation == "", "6.4 a-cidr4-0"
   end
@@ -63,7 +93,13 @@ defmodule Rfc7208.Section6Test do
   test "6.5 a-cidr4-0-ip6" do
     # spec 5.3/3 - A mechanism syntax - a-cidr4-0-ip6
 
-    ctx = Spf.check("foo@e2.example.com", helo: "mail.example.com", ip: "1234::1", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2.example.com",
+        helo: "mail.example.com",
+        ip: "1234::1",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.5 a-cidr4-0-ip6"
     assert ctx.explanation == "", "6.5 a-cidr4-0-ip6"
   end
@@ -73,7 +109,13 @@ defmodule Rfc7208.Section6Test do
   test "6.6 a-cidr6" do
     # spec 5.3/2 - A mechanism syntax - a-cidr6
 
-    ctx = Spf.check("foo@e6.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e6.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.6 a-cidr6"
     assert ctx.explanation == "", "6.6 a-cidr6"
   end
@@ -83,7 +125,13 @@ defmodule Rfc7208.Section6Test do
   test "6.7 a-cidr6-0-ip4" do
     # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip4
 
-    ctx = Spf.check("foo@e2a.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2a.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.7 a-cidr6-0-ip4"
     assert ctx.explanation == "", "6.7 a-cidr6-0-ip4"
   end
@@ -93,7 +141,13 @@ defmodule Rfc7208.Section6Test do
   test "6.8 a-cidr6-0-ip4mapped" do
     # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip4mapped
 
-    ctx = Spf.check("foo@e2a.example.com", helo: "mail.example.com", ip: "::FFFF:1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2a.example.com",
+        helo: "mail.example.com",
+        ip: "::FFFF:1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.8 a-cidr6-0-ip4mapped"
     assert ctx.explanation == "", "6.8 a-cidr6-0-ip4mapped"
   end
@@ -103,7 +157,13 @@ defmodule Rfc7208.Section6Test do
   test "6.9 a-cidr6-0-ip6" do
     # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip6
 
-    ctx = Spf.check("foo@e2a.example.com", helo: "mail.example.com", ip: "1234::1", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2a.example.com",
+        helo: "mail.example.com",
+        ip: "1234::1",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.9 a-cidr6-0-ip6"
     assert ctx.explanation == "", "6.9 a-cidr6-0-ip6"
   end
@@ -113,7 +173,13 @@ defmodule Rfc7208.Section6Test do
   test "6.10 a-cidr6-0-nxdomain" do
     # spec 5.3/3 - A mechanism syntax - a-cidr6-0-nxdomain
 
-    ctx = Spf.check("foo@e2b.example.com", helo: "mail.example.com", ip: "1234::1", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2b.example.com",
+        helo: "mail.example.com",
+        ip: "1234::1",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.10 a-cidr6-0-nxdomain"
     assert ctx.explanation == "", "6.10 a-cidr6-0-nxdomain"
   end
@@ -123,7 +189,13 @@ defmodule Rfc7208.Section6Test do
   test "6.11 a-colon-domain" do
     # spec 7.1/2 - A mechanism syntax - a-colon-domain
 
-    ctx = Spf.check("foo@e11.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e11.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.11 a-colon-domain"
     assert ctx.explanation == "", "6.11 a-colon-domain"
   end
@@ -133,7 +205,13 @@ defmodule Rfc7208.Section6Test do
   test "6.12 a-colon-domain-ip4mapped" do
     # spec 7.1/2 - A mechanism syntax - a-colon-domain-ip4mapped
 
-    ctx = Spf.check("foo@e11.example.com", helo: "mail.example.com", ip: "::FFFF:1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e11.example.com",
+        helo: "mail.example.com",
+        ip: "::FFFF:1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.12 a-colon-domain-ip4mapped"
     assert ctx.explanation == "", "6.12 a-colon-domain-ip4mapped"
   end
@@ -143,7 +221,13 @@ defmodule Rfc7208.Section6Test do
   test "6.13 a-dash-in-toplabel" do
     # spec 7.1/2 - A mechanism syntax - a-dash-in-toplabel
 
-    ctx = Spf.check("foo@e14.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e14.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.13 a-dash-in-toplabel"
     assert ctx.explanation == "", "6.13 a-dash-in-toplabel"
   end
@@ -153,7 +237,13 @@ defmodule Rfc7208.Section6Test do
   test "6.14 a-dual-cidr-ip4-default" do
     # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-default
 
-    ctx = Spf.check("foo@e8b.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e8b.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.14 a-dual-cidr-ip4-default"
     assert ctx.explanation == "", "6.14 a-dual-cidr-ip4-default"
   end
@@ -163,7 +253,13 @@ defmodule Rfc7208.Section6Test do
   test "6.15 a-dual-cidr-ip4-err" do
     # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-err
 
-    ctx = Spf.check("foo@e8e.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e8e.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.15 a-dual-cidr-ip4-err"
     assert ctx.explanation == "", "6.15 a-dual-cidr-ip4-err"
   end
@@ -173,7 +269,13 @@ defmodule Rfc7208.Section6Test do
   test "6.16 a-dual-cidr-ip4-match" do
     # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-match
 
-    ctx = Spf.check("foo@e8.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e8.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.16 a-dual-cidr-ip4-match"
     assert ctx.explanation == "", "6.16 a-dual-cidr-ip4-match"
   end
@@ -183,7 +285,13 @@ defmodule Rfc7208.Section6Test do
   test "6.17 a-dual-cidr-ip6-default" do
     # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip6-default
 
-    ctx = Spf.check("foo@e8a.example.com", helo: "mail.example.com", ip: "2001:db8:1234::cafe:babe", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e8a.example.com",
+        helo: "mail.example.com",
+        ip: "2001:db8:1234::cafe:babe",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.17 a-dual-cidr-ip6-default"
     assert ctx.explanation == "", "6.17 a-dual-cidr-ip6-default"
   end
@@ -193,7 +301,13 @@ defmodule Rfc7208.Section6Test do
   test "6.18 a-dual-cidr-ip6-match" do
     # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip6-match
 
-    ctx = Spf.check("foo@e8.example.com", helo: "mail.example.com", ip: "2001:db8:1234::cafe:babe", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e8.example.com",
+        helo: "mail.example.com",
+        ip: "2001:db8:1234::cafe:babe",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.18 a-dual-cidr-ip6-match"
     assert ctx.explanation == "", "6.18 a-dual-cidr-ip6-match"
   end
@@ -203,7 +317,13 @@ defmodule Rfc7208.Section6Test do
   test "6.19 a-empty-domain" do
     # spec 5.3/2 - A mechanism syntax - a-empty-domain
 
-    ctx = Spf.check("foo@e13.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e13.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.19 a-empty-domain"
     assert ctx.explanation == "", "6.19 a-empty-domain"
   end
@@ -213,7 +333,13 @@ defmodule Rfc7208.Section6Test do
   test "6.20 a-ip6-dualstack" do
     # spec 5.3/3 - A mechanism syntax - a-ip6-dualstack
 
-    ctx = Spf.check("foo@ipv6.example.com", helo: "mail.example.com", ip: "1234::1", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@ipv6.example.com",
+        helo: "mail.example.com",
+        ip: "1234::1",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.20 a-ip6-dualstack"
     assert ctx.explanation == "", "6.20 a-ip6-dualstack"
   end
@@ -223,7 +349,13 @@ defmodule Rfc7208.Section6Test do
   test "6.21 a-multi-ip1" do
     # spec 5.3/3 - A mechanism syntax - a-multi-ip1
 
-    ctx = Spf.check("foo@e10.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e10.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.21 a-multi-ip1"
     assert ctx.explanation == "", "6.21 a-multi-ip1"
   end
@@ -233,7 +365,13 @@ defmodule Rfc7208.Section6Test do
   test "6.22 a-multi-ip2" do
     # spec 5.3/3 - A mechanism syntax - a-multi-ip2
 
-    ctx = Spf.check("foo@e10.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e10.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "6.22 a-multi-ip2"
     assert ctx.explanation == "", "6.22 a-multi-ip2"
   end
@@ -243,7 +381,13 @@ defmodule Rfc7208.Section6Test do
   test "6.23 a-null" do
     # spec 7.1/2 - A mechanism syntax - a-null
 
-    ctx = Spf.check("foo@e3.example.com", helo: "mail.example.com", ip: "1.2.3.5", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e3.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.5",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.23 a-null"
     assert ctx.explanation == "", "6.23 a-null"
   end
@@ -253,7 +397,13 @@ defmodule Rfc7208.Section6Test do
   test "6.24 a-numeric" do
     # spec 7.1/2 - A mechanism syntax - a-numeric
 
-    ctx = Spf.check("foo@e4.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e4.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.24 a-numeric"
     assert ctx.explanation == "", "6.24 a-numeric"
   end
@@ -263,7 +413,13 @@ defmodule Rfc7208.Section6Test do
   test "6.25 a-numeric-toplabel" do
     # spec 7.1/2 - A mechanism syntax - a-numeric-toplabel
 
-    ctx = Spf.check("foo@e5.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e5.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.25 a-numeric-toplabel"
     assert ctx.explanation == "", "6.25 a-numeric-toplabel"
   end
@@ -273,7 +429,13 @@ defmodule Rfc7208.Section6Test do
   test "6.26 a-nxdomain" do
     # spec 5.3/3 - A mechanism syntax - a-nxdomain
 
-    ctx = Spf.check("foo@e1.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e1.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "6.26 a-nxdomain"
     assert ctx.explanation == "", "6.26 a-nxdomain"
   end
@@ -283,7 +445,13 @@ defmodule Rfc7208.Section6Test do
   test "6.27 a-only-toplabel" do
     # spec 7.1/2 - A mechanism syntax - a-only-toplabel
 
-    ctx = Spf.check("foo@e5a.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e5a.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.27 a-only-toplabel"
     assert ctx.explanation == "", "6.27 a-only-toplabel"
   end
@@ -293,7 +461,13 @@ defmodule Rfc7208.Section6Test do
   test "6.28 a-only-toplabel-trailing-dot" do
     # spec 7.1/2 - A mechanism syntax - a-only-toplabel-trailing-dot
 
-    ctx = Spf.check("foo@e5b.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e5b.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "6.28 a-only-toplabel-trailing-dot"
     assert ctx.explanation == "", "6.28 a-only-toplabel-trailing-dot"
   end

@@ -13,7 +13,13 @@ defmodule Rfc7208.Section5Test do
   test "5.0 ptr-cidr" do
     # spec 5.5/2 - PTR mechanism syntax - ptr-cidr
 
-    ctx = Spf.check("foo@e1.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e1.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "5.0 ptr-cidr"
     assert ctx.explanation == "", "5.0 ptr-cidr"
   end
@@ -23,7 +29,13 @@ defmodule Rfc7208.Section5Test do
   test "5.1 ptr-empty-domain" do
     # spec 5.5/2 - PTR mechanism syntax - ptr-empty-domain
 
-    ctx = Spf.check("foo@e5.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e5.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "5.1 ptr-empty-domain"
     assert ctx.explanation == "", "5.1 ptr-empty-domain"
   end
@@ -33,7 +45,13 @@ defmodule Rfc7208.Section5Test do
   test "5.2 ptr-match-implicit" do
     # spec 5.5/5 - PTR mechanism syntax - ptr-match-implicit
 
-    ctx = Spf.check("foo@e3.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e3.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "5.2 ptr-match-implicit"
     assert ctx.explanation == "", "5.2 ptr-match-implicit"
   end
@@ -43,7 +61,13 @@ defmodule Rfc7208.Section5Test do
   test "5.3 ptr-match-ip6" do
     # spec 5.5/5 - PTR mechanism syntax - ptr-match-ip6
 
-    ctx = Spf.check("foo@e3.example.com", helo: "mail.example.com", ip: "CAFE:BABE::1", dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e3.example.com",
+        helo: "mail.example.com",
+        ip: "CAFE:BABE::1",
+        dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "5.3 ptr-match-ip6"
     assert ctx.explanation == "", "5.3 ptr-match-ip6"
   end
@@ -53,7 +77,13 @@ defmodule Rfc7208.Section5Test do
   test "5.4 ptr-match-target" do
     # spec 5.5/5 - PTR mechanism syntax - ptr-match-target
 
-    ctx = Spf.check("foo@e2.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "5.4 ptr-match-target"
     assert ctx.explanation == "", "5.4 ptr-match-target"
   end
@@ -63,7 +93,13 @@ defmodule Rfc7208.Section5Test do
   test "5.5 ptr-nomatch-invalid" do
     # spec 5.5/5 - PTR mechanism syntax - ptr-nomatch-invalid
 
-    ctx = Spf.check("foo@e4.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e4.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "5.5 ptr-nomatch-invalid"
     assert ctx.explanation == "", "5.5 ptr-nomatch-invalid"
   end

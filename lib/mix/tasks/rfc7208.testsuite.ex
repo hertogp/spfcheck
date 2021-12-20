@@ -141,7 +141,13 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
         test #{testname} do
           # #{remark}
 
-          ctx = Spf.check(#{sender}, helo: #{helo}, ip: #{ip}, dns: #{dns})
+          ctx =
+            Spf.check(#{sender},
+              helo: #{helo},
+              ip: #{ip},
+              dns: #{dns}
+            )
+
           assert to_string(ctx.verdict) in [#{result}], #{testname}
           assert ctx.explanation == #{explanation}, #{testname}
         end

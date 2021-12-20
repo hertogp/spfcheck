@@ -13,7 +13,13 @@ defmodule Rfc7208.Section13Test do
   test "13.0 domain-name-truncation" do
     # spec 7.1/25 - Macro expansion rules - domain-name-truncation
 
-    ctx = Spf.check("test@somewhat.long.exp.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@somewhat.long.exp.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.0 domain-name-truncation"
     assert ctx.explanation == "Congratulations!  That was tricky.", "13.0 domain-name-truncation"
   end
@@ -23,7 +29,13 @@ defmodule Rfc7208.Section13Test do
   test "13.1 exp-only-macro-char" do
     # spec 7.1/8 - Macro expansion rules - exp-only-macro-char
 
-    ctx = Spf.check("test@e2.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e2.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "13.1 exp-only-macro-char"
     assert ctx.explanation == "", "13.1 exp-only-macro-char"
   end
@@ -33,7 +45,13 @@ defmodule Rfc7208.Section13Test do
   test "13.2 exp-txt-macro-char" do
     # spec 7.1/20 - Macro expansion rules - exp-txt-macro-char
 
-    ctx = Spf.check("test@e3.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e3.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.2 exp-txt-macro-char"
     assert ctx.explanation == "Connections from 192.168.218.40 not authorized.", "13.2 exp-txt-macro-char"
   end
@@ -43,7 +61,13 @@ defmodule Rfc7208.Section13Test do
   test "13.3 hello-domain-literal" do
     # spec 7.1/2 - Macro expansion rules - hello-domain-literal
 
-    ctx = Spf.check("test@e9.example.com", helo: "[192.168.218.40]", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e9.example.com",
+        helo: "[192.168.218.40]",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.3 hello-domain-literal"
     assert ctx.explanation == "", "13.3 hello-domain-literal"
   end
@@ -53,7 +77,13 @@ defmodule Rfc7208.Section13Test do
   test "13.4 hello-macro" do
     # spec 7.1/6 - Macro expansion rules - hello-macro
 
-    ctx = Spf.check("test@e9.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e9.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "13.4 hello-macro"
     assert ctx.explanation == "", "13.4 hello-macro"
   end
@@ -63,7 +93,13 @@ defmodule Rfc7208.Section13Test do
   test "13.5 invalid-embedded-macro-char" do
     # spec 7.1/9 - Macro expansion rules - invalid-embedded-macro-char
 
-    ctx = Spf.check("test@e1e.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e1e.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "13.5 invalid-embedded-macro-char"
     assert ctx.explanation == "", "13.5 invalid-embedded-macro-char"
   end
@@ -73,7 +109,13 @@ defmodule Rfc7208.Section13Test do
   test "13.6 invalid-hello-macro" do
     # spec 7.1/2 - Macro expansion rules - invalid-hello-macro
 
-    ctx = Spf.check("test@e9.example.com", helo: "JUMPIN' JUPITER", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e9.example.com",
+        helo: "JUMPIN' JUPITER",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.6 invalid-hello-macro"
     assert ctx.explanation == "", "13.6 invalid-hello-macro"
   end
@@ -83,7 +125,13 @@ defmodule Rfc7208.Section13Test do
   test "13.7 invalid-macro-char" do
     # spec 7.1/9 - Macro expansion rules - invalid-macro-char
 
-    ctx = Spf.check("test@e1.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e1.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "13.7 invalid-macro-char"
     assert ctx.explanation == "", "13.7 invalid-macro-char"
   end
@@ -93,7 +141,13 @@ defmodule Rfc7208.Section13Test do
   test "13.8 invalid-trailing-macro-char" do
     # spec 7.1/9 - Macro expansion rules - invalid-trailing-macro-char
 
-    ctx = Spf.check("test@e1t.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e1t.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "13.8 invalid-trailing-macro-char"
     assert ctx.explanation == "", "13.8 invalid-trailing-macro-char"
   end
@@ -103,7 +157,13 @@ defmodule Rfc7208.Section13Test do
   test "13.9 macro-mania-in-domain" do
     # spec 7.1/3, 7.1/4 - Macro expansion rules - macro-mania-in-domain
 
-    ctx = Spf.check("test@e1a.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e1a.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "13.9 macro-mania-in-domain"
     assert ctx.explanation == "", "13.9 macro-mania-in-domain"
   end
@@ -113,7 +173,13 @@ defmodule Rfc7208.Section13Test do
   test "13.10 macro-multiple-delimiters" do
     # spec 7.1/15, 7.1/16 - Macro expansion rules - macro-multiple-delimiters
 
-    ctx = Spf.check("foo-bar+zip+quux@e12.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("foo-bar+zip+quux@e12.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "13.10 macro-multiple-delimiters"
     assert ctx.explanation == "", "13.10 macro-multiple-delimiters"
   end
@@ -123,7 +189,13 @@ defmodule Rfc7208.Section13Test do
   test "13.11 macro-reverse-split-on-dash" do
     # spec 7.1/15, 7.1/16, 7.1/17, 7.1/18 - Macro expansion rules - macro-reverse-split-on-dash
 
-    ctx = Spf.check("philip-gladstone-test@e11.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("philip-gladstone-test@e11.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "13.11 macro-reverse-split-on-dash"
     assert ctx.explanation == "", "13.11 macro-reverse-split-on-dash"
   end
@@ -133,7 +205,13 @@ defmodule Rfc7208.Section13Test do
   test "13.12 p-macro-ip4-novalid" do
     # spec 7.1/22 - Macro expansion rules - p-macro-ip4-novalid
 
-    ctx = Spf.check("test@e6.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e6.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.12 p-macro-ip4-novalid"
     assert ctx.explanation == "connect from unknown", "13.12 p-macro-ip4-novalid"
   end
@@ -143,7 +221,13 @@ defmodule Rfc7208.Section13Test do
   test "13.13 p-macro-ip4-valid" do
     # spec 7.1/22 - Macro expansion rules - p-macro-ip4-valid
 
-    ctx = Spf.check("test@e6.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.41", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e6.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.41",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.13 p-macro-ip4-valid"
     assert ctx.explanation == "connect from mx.example.com", "13.13 p-macro-ip4-valid"
   end
@@ -153,7 +237,13 @@ defmodule Rfc7208.Section13Test do
   test "13.14 p-macro-ip6-novalid" do
     # spec 7.1/22 - Macro expansion rules - p-macro-ip6-novalid
 
-    ctx = Spf.check("test@e6.example.com", helo: "msgbas2x.cos.example.com", ip: "CAFE:BABE::1", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e6.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "CAFE:BABE::1",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.14 p-macro-ip6-novalid"
     assert ctx.explanation == "connect from unknown", "13.14 p-macro-ip6-novalid"
   end
@@ -163,7 +253,13 @@ defmodule Rfc7208.Section13Test do
   test "13.15 p-macro-ip6-valid" do
     # spec 7.1/22 - Macro expansion rules - p-macro-ip6-valid
 
-    ctx = Spf.check("test@e6.example.com", helo: "msgbas2x.cos.example.com", ip: "CAFE:BABE::3", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e6.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "CAFE:BABE::3",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.15 p-macro-ip6-valid"
     assert ctx.explanation == "connect from mx.example.com", "13.15 p-macro-ip6-valid"
   end
@@ -173,7 +269,13 @@ defmodule Rfc7208.Section13Test do
   test "13.16 p-macro-multiple" do
     # spec 7.1/22 - Macro expansion rules - p-macro-multiple
 
-    ctx = Spf.check("test@e7.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.42", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e7.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.42",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass", "softfail"], "13.16 p-macro-multiple"
     assert ctx.explanation == "", "13.16 p-macro-multiple"
   end
@@ -183,7 +285,13 @@ defmodule Rfc7208.Section13Test do
   test "13.17 require-valid-helo" do
     # spec 7.1/6 - Macro expansion rules - require-valid-helo
 
-    ctx = Spf.check("test@e10.example.com", helo: "OEMCOMPUTER", ip: "1.2.3.4", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e10.example.com",
+        helo: "OEMCOMPUTER",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.17 require-valid-helo"
     assert ctx.explanation == "", "13.17 require-valid-helo"
   end
@@ -193,7 +301,13 @@ defmodule Rfc7208.Section13Test do
   test "13.18 trailing-dot-domain" do
     # spec 7.1/16 - Macro expansion rules - trailing-dot-domain
 
-    ctx = Spf.check("test@example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "13.18 trailing-dot-domain"
     assert ctx.explanation == "", "13.18 trailing-dot-domain"
   end
@@ -203,7 +317,13 @@ defmodule Rfc7208.Section13Test do
   test "13.19 trailing-dot-exp" do
     # spec 7.1 - Macro expansion rules - trailing-dot-exp
 
-    ctx = Spf.check("test@exp.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@exp.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.19 trailing-dot-exp"
     assert ctx.explanation == "This is a test.", "13.19 trailing-dot-exp"
   end
@@ -213,7 +333,13 @@ defmodule Rfc7208.Section13Test do
   test "13.20 undef-macro" do
     # spec 7.1/6 - Macro expansion rules - undef-macro
 
-    ctx = Spf.check("test@e5.example.com", helo: "msgbas2x.cos.example.com", ip: "CAFE:BABE::192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e5.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "CAFE:BABE::192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "13.20 undef-macro"
     assert ctx.explanation == "", "13.20 undef-macro"
   end
@@ -223,7 +349,13 @@ defmodule Rfc7208.Section13Test do
   test "13.21 upper-macro" do
     # spec 7.1/26 - Macro expansion rules - upper-macro
 
-    ctx = Spf.check("jack&jill=up@e8.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.42", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("jack&jill=up@e8.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.42",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.21 upper-macro"
     assert ctx.explanation == "http://example.com/why.html?l=jack%26jill%3Dup", "13.21 upper-macro"
   end
@@ -233,7 +365,13 @@ defmodule Rfc7208.Section13Test do
   test "13.22 v-macro-ip4" do
     # spec 7.1/6 - Macro expansion rules - v-macro-ip4
 
-    ctx = Spf.check("test@e4.example.com", helo: "msgbas2x.cos.example.com", ip: "192.168.218.40", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e4.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "192.168.218.40",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.22 v-macro-ip4"
     assert ctx.explanation == "192.168.218.40 is queried as 40.218.168.192.in-addr.arpa", "13.22 v-macro-ip4"
   end
@@ -243,7 +381,13 @@ defmodule Rfc7208.Section13Test do
   test "13.23 v-macro-ip6" do
     # spec 7.1/6 - Macro expansion rules - v-macro-ip6
 
-    ctx = Spf.check("test@e4.example.com", helo: "msgbas2x.cos.example.com", ip: "CAFE:BABE::1", dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata")
+    ctx =
+      Spf.check("test@e4.example.com",
+        helo: "msgbas2x.cos.example.com",
+        ip: "CAFE:BABE::1",
+        dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "13.23 v-macro-ip6"
     assert ctx.explanation == "cafe:babe::1 is queried as 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.E.B.A.B.E.F.A.C.ip6.arpa", "13.23 v-macro-ip6"
   end

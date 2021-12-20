@@ -13,7 +13,13 @@ defmodule Rfc7208.Section7Test do
   test "7.0 include-cidr" do
     # spec 5.2/1 - Include mechanism semantics and syntax - include-cidr
 
-    ctx = Spf.check("foo@e9.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e9.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "7.0 include-cidr"
     assert ctx.explanation == "", "7.0 include-cidr"
   end
@@ -23,7 +29,13 @@ defmodule Rfc7208.Section7Test do
   test "7.1 include-empty-domain" do
     # spec 5.2/1 - Include mechanism semantics and syntax - include-empty-domain
 
-    ctx = Spf.check("foo@e8.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e8.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "7.1 include-empty-domain"
     assert ctx.explanation == "", "7.1 include-empty-domain"
   end
@@ -33,7 +45,13 @@ defmodule Rfc7208.Section7Test do
   test "7.2 include-fail" do
     # spec 5.2/9 - Include mechanism semantics and syntax - include-fail
 
-    ctx = Spf.check("foo@e1.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e1.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["softfail"], "7.2 include-fail"
     assert ctx.explanation == "", "7.2 include-fail"
   end
@@ -43,7 +61,13 @@ defmodule Rfc7208.Section7Test do
   test "7.3 include-neutral" do
     # spec 5.2/9 - Include mechanism semantics and syntax - include-neutral
 
-    ctx = Spf.check("foo@e3.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e3.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["fail"], "7.3 include-neutral"
     assert ctx.explanation == "", "7.3 include-neutral"
   end
@@ -53,7 +77,13 @@ defmodule Rfc7208.Section7Test do
   test "7.4 include-none" do
     # spec 5.2/9 - Include mechanism semantics and syntax - include-none
 
-    ctx = Spf.check("foo@e7.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e7.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "7.4 include-none"
     assert ctx.explanation == "", "7.4 include-none"
   end
@@ -63,7 +93,13 @@ defmodule Rfc7208.Section7Test do
   test "7.5 include-permerror" do
     # spec 5.2/9 - Include mechanism semantics and syntax - include-permerror
 
-    ctx = Spf.check("foo@e5.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e5.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "7.5 include-permerror"
     assert ctx.explanation == "", "7.5 include-permerror"
   end
@@ -73,7 +109,13 @@ defmodule Rfc7208.Section7Test do
   test "7.6 include-softfail" do
     # spec 5.2/9 - Include mechanism semantics and syntax - include-softfail
 
-    ctx = Spf.check("foo@e2.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e2.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["pass"], "7.6 include-softfail"
     assert ctx.explanation == "", "7.6 include-softfail"
   end
@@ -83,7 +125,13 @@ defmodule Rfc7208.Section7Test do
   test "7.7 include-syntax-error" do
     # spec 5.2/1 - Include mechanism semantics and syntax - include-syntax-error
 
-    ctx = Spf.check("foo@e6.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e6.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["permerror"], "7.7 include-syntax-error"
     assert ctx.explanation == "", "7.7 include-syntax-error"
   end
@@ -93,7 +141,13 @@ defmodule Rfc7208.Section7Test do
   test "7.8 include-temperror" do
     # spec 5.2/9 - Include mechanism semantics and syntax - include-temperror
 
-    ctx = Spf.check("foo@e4.example.com", helo: "mail.example.com", ip: "1.2.3.4", dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata")
+    ctx =
+      Spf.check("foo@e4.example.com",
+        helo: "mail.example.com",
+        ip: "1.2.3.4",
+        dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
+      )
+
     assert to_string(ctx.verdict) in ["temperror"], "7.8 include-temperror"
     assert ctx.explanation == "", "7.8 include-temperror"
   end
