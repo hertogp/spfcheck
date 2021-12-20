@@ -419,17 +419,6 @@ defmodule Spf.DNS do
       ...> b.example.com AaAa timeout
       ...> \"""
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
-      iex> to_list(ctx, valid: :true)
-      ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
-      [
-        "example.com TXT \"v=spf1 -all\"",
-        "a.example.com A 1.2.3.4"
-      ]
-      iex> to_list(ctx, valid: false)
-      ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
-      [
-        "b.example.com AAAA TIMEOUT"
-      ]
       iex> Spf.DNS.to_list(ctx)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
       [
@@ -437,6 +426,19 @@ defmodule Spf.DNS do
         "a.example.com A 1.2.3.4",
         "b.example.com AAAA TIMEOUT"
       ]
+
+      # iex> to_list(ctx, valid: :true)
+      # ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
+      # [
+      #   "example.com TXT \"v=spf1 -all\"",
+      #   "a.example.com A 1.2.3.4"
+      # ]
+
+      # iex> to_list(ctx, valid: false)
+      # ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
+      # [
+      #   "b.example.com AAAA TIMEOUT"
+      # ]
 
   """
   @spec to_list(Spf.Context.t(), Keyword.t()) :: list(binary)
