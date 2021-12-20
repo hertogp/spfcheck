@@ -8,181 +8,182 @@ defmodule Rfc7208.Section0Test do
   # % mix test --only tst:0.y where y is in [0..10]
 
   describe "rfc7208-00-initial-processing" do
-      @tag set: 0
-  @tag tst: "0.0"
-  test "0.0 domain-literal" do
-    # spec 4.3/1 - Initial processing - domain-literal
+    @tag set: 0
+    @tag tst: "0.0"
+    test "0.0 domain-literal" do
+      # spec 4.3/1 - Initial processing - domain-literal
 
-    ctx =
-      Spf.check("foo@[1.2.3.5]",
-        helo: "OEMCOMPUTER",
-        ip: "1.2.3.5",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("foo@[1.2.3.5]",
+          helo: "OEMCOMPUTER",
+          ip: "1.2.3.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["none"], "0.0 domain-literal"
-    assert ctx.explanation == "", "0.0 domain-literal"
-  end
+      assert to_string(ctx.verdict) in ["none"], "0.0 domain-literal"
+      assert ctx.explanation == "", "0.0 domain-literal"
+    end
 
-  @tag set: 0
-  @tag tst: "0.1"
-  test "0.1 emptylabel" do
-    # spec 4.3/1 - Initial processing - emptylabel
+    @tag set: 0
+    @tag tst: "0.1"
+    test "0.1 emptylabel" do
+      # spec 4.3/1 - Initial processing - emptylabel
 
-    ctx =
-      Spf.check("lyme.eater@A...example.com",
-        helo: "mail.example.net",
-        ip: "1.2.3.5",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("lyme.eater@A...example.com",
+          helo: "mail.example.net",
+          ip: "1.2.3.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["none"], "0.1 emptylabel"
-    assert ctx.explanation == "", "0.1 emptylabel"
-  end
+      assert to_string(ctx.verdict) in ["none"], "0.1 emptylabel"
+      assert ctx.explanation == "", "0.1 emptylabel"
+    end
 
-  @tag set: 0
-  @tag tst: "0.2"
-  test "0.2 helo-domain-literal" do
-    # spec 4.3/1 - Initial processing - helo-domain-literal
+    @tag set: 0
+    @tag tst: "0.2"
+    test "0.2 helo-domain-literal" do
+      # spec 4.3/1 - Initial processing - helo-domain-literal
 
-    ctx =
-      Spf.check("",
-        helo: "[1.2.3.5]",
-        ip: "1.2.3.5",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("",
+          helo: "[1.2.3.5]",
+          ip: "1.2.3.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["none"], "0.2 helo-domain-literal"
-    assert ctx.explanation == "", "0.2 helo-domain-literal"
-  end
+      assert to_string(ctx.verdict) in ["none"], "0.2 helo-domain-literal"
+      assert ctx.explanation == "", "0.2 helo-domain-literal"
+    end
 
-  @tag set: 0
-  @tag tst: "0.3"
-  test "0.3 helo-not-fqdn" do
-    # spec 4.3/1 - Initial processing - helo-not-fqdn
+    @tag set: 0
+    @tag tst: "0.3"
+    test "0.3 helo-not-fqdn" do
+      # spec 4.3/1 - Initial processing - helo-not-fqdn
 
-    ctx =
-      Spf.check("",
-        helo: "A2345678",
-        ip: "1.2.3.5",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("",
+          helo: "A2345678",
+          ip: "1.2.3.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["none"], "0.3 helo-not-fqdn"
-    assert ctx.explanation == "", "0.3 helo-not-fqdn"
-  end
+      assert to_string(ctx.verdict) in ["none"], "0.3 helo-not-fqdn"
+      assert ctx.explanation == "", "0.3 helo-not-fqdn"
+    end
 
-  @tag set: 0
-  @tag tst: "0.4"
-  test "0.4 longlabel" do
-    # spec 4.3/1 - Initial processing - longlabel
+    @tag set: 0
+    @tag tst: "0.4"
+    test "0.4 longlabel" do
+      # spec 4.3/1 - Initial processing - longlabel
 
-    ctx =
-      Spf.check("lyme.eater@A12345678901234567890123456789012345678901234567890123456789012.example.com",
-        helo: "mail.example.net",
-        ip: "1.2.3.5",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check(
+          "lyme.eater@A12345678901234567890123456789012345678901234567890123456789012.example.com",
+          helo: "mail.example.net",
+          ip: "1.2.3.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["fail"], "0.4 longlabel"
-    assert ctx.explanation == "", "0.4 longlabel"
-  end
+      assert to_string(ctx.verdict) in ["fail"], "0.4 longlabel"
+      assert ctx.explanation == "", "0.4 longlabel"
+    end
 
-  @tag set: 0
-  @tag tst: "0.5"
-  test "0.5 nolocalpart" do
-    # spec 4.3/2 - Initial processing - nolocalpart
+    @tag set: 0
+    @tag tst: "0.5"
+    test "0.5 nolocalpart" do
+      # spec 4.3/2 - Initial processing - nolocalpart
 
-    ctx =
-      Spf.check("@example.net",
-        helo: "mail.example.net",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("@example.net",
+          helo: "mail.example.net",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["fail"], "0.5 nolocalpart"
-    assert ctx.explanation == "postmaster", "0.5 nolocalpart"
-  end
+      assert to_string(ctx.verdict) in ["fail"], "0.5 nolocalpart"
+      assert ctx.explanation == "postmaster", "0.5 nolocalpart"
+    end
 
-  @tag set: 0
-  @tag tst: "0.6"
-  test "0.6 non-ascii-mech" do
-    # spec 3.1/1 - Initial processing - non-ascii-mech
+    @tag set: 0
+    @tag tst: "0.6"
+    test "0.6 non-ascii-mech" do
+      # spec 3.1/1 - Initial processing - non-ascii-mech
 
-    ctx =
-      Spf.check("foobar@hosed2.example.com",
-        helo: "hosed",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("foobar@hosed2.example.com",
+          helo: "hosed",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "0.6 non-ascii-mech"
-    assert ctx.explanation == "", "0.6 non-ascii-mech"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "0.6 non-ascii-mech"
+      assert ctx.explanation == "", "0.6 non-ascii-mech"
+    end
 
-  @tag set: 0
-  @tag tst: "0.7"
-  test "0.7 non-ascii-non-spf" do
-    # spec 4.5/1 - Initial processing - non-ascii-non-spf
+    @tag set: 0
+    @tag tst: "0.7"
+    test "0.7 non-ascii-non-spf" do
+      # spec 4.5/1 - Initial processing - non-ascii-non-spf
 
-    ctx =
-      Spf.check("foobar@nothosed.example.com",
-        helo: "hosed",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("foobar@nothosed.example.com",
+          helo: "hosed",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["fail"], "0.7 non-ascii-non-spf"
-    assert ctx.explanation == "", "0.7 non-ascii-non-spf"
-  end
+      assert to_string(ctx.verdict) in ["fail"], "0.7 non-ascii-non-spf"
+      assert ctx.explanation == "", "0.7 non-ascii-non-spf"
+    end
 
-  @tag set: 0
-  @tag tst: "0.8"
-  test "0.8 non-ascii-policy" do
-    # spec 3.1/1 - Initial processing - non-ascii-policy
+    @tag set: 0
+    @tag tst: "0.8"
+    test "0.8 non-ascii-policy" do
+      # spec 3.1/1 - Initial processing - non-ascii-policy
 
-    ctx =
-      Spf.check("foobar@hosed.example.com",
-        helo: "hosed",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("foobar@hosed.example.com",
+          helo: "hosed",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "0.8 non-ascii-policy"
-    assert ctx.explanation == "", "0.8 non-ascii-policy"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "0.8 non-ascii-policy"
+      assert ctx.explanation == "", "0.8 non-ascii-policy"
+    end
 
-  @tag set: 0
-  @tag tst: "0.9"
-  test "0.9 non-ascii-result" do
-    # spec 3.1/1 - Initial processing - non-ascii-result
+    @tag set: 0
+    @tag tst: "0.9"
+    test "0.9 non-ascii-result" do
+      # spec 3.1/1 - Initial processing - non-ascii-result
 
-    ctx =
-      Spf.check("foobar@hosed3.example.com",
-        helo: "hosed",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check("foobar@hosed3.example.com",
+          helo: "hosed",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "0.9 non-ascii-result"
-    assert ctx.explanation == "", "0.9 non-ascii-result"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "0.9 non-ascii-result"
+      assert ctx.explanation == "", "0.9 non-ascii-result"
+    end
 
-  @tag set: 0
-  @tag tst: "0.10"
-  test "0.10 toolonglabel" do
-    # spec 4.3/1 - Initial processing - toolonglabel
+    @tag set: 0
+    @tag tst: "0.10"
+    test "0.10 toolonglabel" do
+      # spec 4.3/1 - Initial processing - toolonglabel
 
-    ctx =
-      Spf.check("lyme.eater@A123456789012345678901234567890123456789012345678901234567890123.example.com",
-        helo: "mail.example.net",
-        ip: "1.2.3.5",
-        dns: "test/zones/rfc7208-00-initial-processing.zonedata"
-      )
+      ctx =
+        Spf.check(
+          "lyme.eater@A123456789012345678901234567890123456789012345678901234567890123.example.com",
+          helo: "mail.example.net",
+          ip: "1.2.3.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["none"], "0.10 toolonglabel"
-    assert ctx.explanation == "", "0.10 toolonglabel"
-  end
-
+      assert to_string(ctx.verdict) in ["none"], "0.10 toolonglabel"
+      assert ctx.explanation == "", "0.10 toolonglabel"
+    end
   end
 end

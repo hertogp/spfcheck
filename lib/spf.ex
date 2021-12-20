@@ -9,10 +9,10 @@ defmodule Spf do
   ## Example
 
       iex> unless File.dir?("tmp"), do: File.mkdir("tmp")
-      iex> File.write("tmp/zone.txt", """
+      iex> File.write("tmp/zone.txt", \"""
       ...> example.com TXT v=spf1 -all exp=why.%{d}
       ...> why.example.com TXT %{d}: %{i} is not one of our MTA's
-      ...> """)
+      ...> \""")
       :ok
       iex> ctx = Spf.check("example.com", dns: "tmp/zone.txt")
       iex> {ctx.verdict, ctx.reason, ctx.explanation}
@@ -35,9 +35,9 @@ defmodule Spf do
 
   ## Examples
 
-      iex> zone = """
+      iex> zone = \"""
       ...> example.com TXT v=spf1 +all
-      ...> """
+      ...> \"""
       iex> Spf.check("example.com", dns: zone) |> Map.get(:verdict)
       :pass
 

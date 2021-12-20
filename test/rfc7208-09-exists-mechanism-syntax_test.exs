@@ -8,117 +8,116 @@ defmodule Rfc7208.Section9Test do
   # % mix test --only tst:9.y where y is in [0..6]
 
   describe "rfc7208-09-exists-mechanism-syntax" do
-      @tag set: 9
-  @tag tst: "9.0"
-  test "9.0 exists-cidr" do
-    # spec 5.7/2 - EXISTS mechanism syntax - exists-cidr
+    @tag set: 9
+    @tag tst: "9.0"
+    test "9.0 exists-cidr" do
+      # spec 5.7/2 - EXISTS mechanism syntax - exists-cidr
 
-    ctx =
-      Spf.check("foo@e3.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e3.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "9.0 exists-cidr"
-    assert ctx.explanation == "", "9.0 exists-cidr"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "9.0 exists-cidr"
+      assert ctx.explanation == "", "9.0 exists-cidr"
+    end
 
-  @tag set: 9
-  @tag tst: "9.1"
-  test "9.1 exists-dnserr" do
-    # spec 5/8 - EXISTS mechanism syntax - exists-dnserr
+    @tag set: 9
+    @tag tst: "9.1"
+    test "9.1 exists-dnserr" do
+      # spec 5/8 - EXISTS mechanism syntax - exists-dnserr
 
-    ctx =
-      Spf.check("foo@e6.example.com",
-        helo: "mail.example.com",
-        ip: "CAFE:BABE::3",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e6.example.com",
+          helo: "mail.example.com",
+          ip: "CAFE:BABE::3",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["temperror"], "9.1 exists-dnserr"
-    assert ctx.explanation == "", "9.1 exists-dnserr"
-  end
+      assert to_string(ctx.verdict) in ["temperror"], "9.1 exists-dnserr"
+      assert ctx.explanation == "", "9.1 exists-dnserr"
+    end
 
-  @tag set: 9
-  @tag tst: "9.2"
-  test "9.2 exists-empty-domain" do
-    # spec 5.7/2 - EXISTS mechanism syntax - exists-empty-domain
+    @tag set: 9
+    @tag tst: "9.2"
+    test "9.2 exists-empty-domain" do
+      # spec 5.7/2 - EXISTS mechanism syntax - exists-empty-domain
 
-    ctx =
-      Spf.check("foo@e1.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e1.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "9.2 exists-empty-domain"
-    assert ctx.explanation == "", "9.2 exists-empty-domain"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "9.2 exists-empty-domain"
+      assert ctx.explanation == "", "9.2 exists-empty-domain"
+    end
 
-  @tag set: 9
-  @tag tst: "9.3"
-  test "9.3 exists-implicit" do
-    # spec 5.7/2 - EXISTS mechanism syntax - exists-implicit
+    @tag set: 9
+    @tag tst: "9.3"
+    test "9.3 exists-implicit" do
+      # spec 5.7/2 - EXISTS mechanism syntax - exists-implicit
 
-    ctx =
-      Spf.check("foo@e2.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e2.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "9.3 exists-implicit"
-    assert ctx.explanation == "", "9.3 exists-implicit"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "9.3 exists-implicit"
+      assert ctx.explanation == "", "9.3 exists-implicit"
+    end
 
-  @tag set: 9
-  @tag tst: "9.4"
-  test "9.4 exists-ip4" do
-    # spec 5.7/3 - EXISTS mechanism syntax - exists-ip4
+    @tag set: 9
+    @tag tst: "9.4"
+    test "9.4 exists-ip4" do
+      # spec 5.7/3 - EXISTS mechanism syntax - exists-ip4
 
-    ctx =
-      Spf.check("foo@e4.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e4.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["pass"], "9.4 exists-ip4"
-    assert ctx.explanation == "", "9.4 exists-ip4"
-  end
+      assert to_string(ctx.verdict) in ["pass"], "9.4 exists-ip4"
+      assert ctx.explanation == "", "9.4 exists-ip4"
+    end
 
-  @tag set: 9
-  @tag tst: "9.5"
-  test "9.5 exists-ip6" do
-    # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6
+    @tag set: 9
+    @tag tst: "9.5"
+    test "9.5 exists-ip6" do
+      # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6
 
-    ctx =
-      Spf.check("foo@e4.example.com",
-        helo: "mail.example.com",
-        ip: "CAFE:BABE::3",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e4.example.com",
+          helo: "mail.example.com",
+          ip: "CAFE:BABE::3",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["pass"], "9.5 exists-ip6"
-    assert ctx.explanation == "", "9.5 exists-ip6"
-  end
+      assert to_string(ctx.verdict) in ["pass"], "9.5 exists-ip6"
+      assert ctx.explanation == "", "9.5 exists-ip6"
+    end
 
-  @tag set: 9
-  @tag tst: "9.6"
-  test "9.6 exists-ip6only" do
-    # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6only
+    @tag set: 9
+    @tag tst: "9.6"
+    test "9.6 exists-ip6only" do
+      # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6only
 
-    ctx =
-      Spf.check("foo@e5.example.com",
-        helo: "mail.example.com",
-        ip: "CAFE:BABE::3",
-        dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e5.example.com",
+          helo: "mail.example.com",
+          ip: "CAFE:BABE::3",
+          dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["fail"], "9.6 exists-ip6only"
-    assert ctx.explanation == "", "9.6 exists-ip6only"
-  end
-
+      assert to_string(ctx.verdict) in ["fail"], "9.6 exists-ip6only"
+      assert ctx.explanation == "", "9.6 exists-ip6only"
+    end
   end
 end

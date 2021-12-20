@@ -8,149 +8,148 @@ defmodule Rfc7208.Section10Test do
   # % mix test --only tst:10.y where y is in [0..8]
 
   describe "rfc7208-10-ip4-mechanism-syntax" do
-      @tag set: 10
-  @tag tst: "10.0"
-  test "10.0 bad-ip4-port" do
-    # spec 5.6/2 - IP4 mechanism syntax - bad-ip4-port
+    @tag set: 10
+    @tag tst: "10.0"
+    test "10.0 bad-ip4-port" do
+      # spec 5.6/2 - IP4 mechanism syntax - bad-ip4-port
 
-    ctx =
-      Spf.check("foo@e8.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e8.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "10.0 bad-ip4-port"
-    assert ctx.explanation == "", "10.0 bad-ip4-port"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "10.0 bad-ip4-port"
+      assert ctx.explanation == "", "10.0 bad-ip4-port"
+    end
 
-  @tag set: 10
-  @tag tst: "10.1"
-  test "10.1 bad-ip4-short" do
-    # spec 5.6/4 - IP4 mechanism syntax - bad-ip4-short
+    @tag set: 10
+    @tag tst: "10.1"
+    test "10.1 bad-ip4-short" do
+      # spec 5.6/4 - IP4 mechanism syntax - bad-ip4-short
 
-    ctx =
-      Spf.check("foo@e9.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e9.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "10.1 bad-ip4-short"
-    assert ctx.explanation == "", "10.1 bad-ip4-short"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "10.1 bad-ip4-short"
+      assert ctx.explanation == "", "10.1 bad-ip4-short"
+    end
 
-  @tag set: 10
-  @tag tst: "10.2"
-  test "10.2 bare-ip4" do
-    # spec 5.6/2 - IP4 mechanism syntax - bare-ip4
+    @tag set: 10
+    @tag tst: "10.2"
+    test "10.2 bare-ip4" do
+      # spec 5.6/2 - IP4 mechanism syntax - bare-ip4
 
-    ctx =
-      Spf.check("foo@e5.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e5.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "10.2 bare-ip4"
-    assert ctx.explanation == "", "10.2 bare-ip4"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "10.2 bare-ip4"
+      assert ctx.explanation == "", "10.2 bare-ip4"
+    end
 
-  @tag set: 10
-  @tag tst: "10.3"
-  test "10.3 cidr4-0" do
-    # spec 5.6/2 - IP4 mechanism syntax - cidr4-0
+    @tag set: 10
+    @tag tst: "10.3"
+    test "10.3 cidr4-0" do
+      # spec 5.6/2 - IP4 mechanism syntax - cidr4-0
 
-    ctx =
-      Spf.check("foo@e1.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e1.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["pass"], "10.3 cidr4-0"
-    assert ctx.explanation == "", "10.3 cidr4-0"
-  end
+      assert to_string(ctx.verdict) in ["pass"], "10.3 cidr4-0"
+      assert ctx.explanation == "", "10.3 cidr4-0"
+    end
 
-  @tag set: 10
-  @tag tst: "10.4"
-  test "10.4 cidr4-032" do
-    # spec 5.6/2 - IP4 mechanism syntax - cidr4-032
+    @tag set: 10
+    @tag tst: "10.4"
+    test "10.4 cidr4-032" do
+      # spec 5.6/2 - IP4 mechanism syntax - cidr4-032
 
-    ctx =
-      Spf.check("foo@e4.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e4.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "10.4 cidr4-032"
-    assert ctx.explanation == "", "10.4 cidr4-032"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "10.4 cidr4-032"
+      assert ctx.explanation == "", "10.4 cidr4-032"
+    end
 
-  @tag set: 10
-  @tag tst: "10.5"
-  test "10.5 cidr4-32" do
-    # spec 5.6/2 - IP4 mechanism syntax - cidr4-32
+    @tag set: 10
+    @tag tst: "10.5"
+    test "10.5 cidr4-32" do
+      # spec 5.6/2 - IP4 mechanism syntax - cidr4-32
 
-    ctx =
-      Spf.check("foo@e2.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e2.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["pass"], "10.5 cidr4-32"
-    assert ctx.explanation == "", "10.5 cidr4-32"
-  end
+      assert to_string(ctx.verdict) in ["pass"], "10.5 cidr4-32"
+      assert ctx.explanation == "", "10.5 cidr4-32"
+    end
 
-  @tag set: 10
-  @tag tst: "10.6"
-  test "10.6 cidr4-33" do
-    # spec 5.6/2 - IP4 mechanism syntax - cidr4-33
+    @tag set: 10
+    @tag tst: "10.6"
+    test "10.6 cidr4-33" do
+      # spec 5.6/2 - IP4 mechanism syntax - cidr4-33
 
-    ctx =
-      Spf.check("foo@e3.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e3.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "10.6 cidr4-33"
-    assert ctx.explanation == "", "10.6 cidr4-33"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "10.6 cidr4-33"
+      assert ctx.explanation == "", "10.6 cidr4-33"
+    end
 
-  @tag set: 10
-  @tag tst: "10.7"
-  test "10.7 ip4-dual-cidr" do
-    # spec 5.6/2 - IP4 mechanism syntax - ip4-dual-cidr
+    @tag set: 10
+    @tag tst: "10.7"
+    test "10.7 ip4-dual-cidr" do
+      # spec 5.6/2 - IP4 mechanism syntax - ip4-dual-cidr
 
-    ctx =
-      Spf.check("foo@e6.example.com",
-        helo: "mail.example.com",
-        ip: "1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e6.example.com",
+          helo: "mail.example.com",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["permerror"], "10.7 ip4-dual-cidr"
-    assert ctx.explanation == "", "10.7 ip4-dual-cidr"
-  end
+      assert to_string(ctx.verdict) in ["permerror"], "10.7 ip4-dual-cidr"
+      assert ctx.explanation == "", "10.7 ip4-dual-cidr"
+    end
 
-  @tag set: 10
-  @tag tst: "10.8"
-  test "10.8 ip4-mapped-ip6" do
-    # spec 5/9/2 - IP4 mechanism syntax - ip4-mapped-ip6
+    @tag set: 10
+    @tag tst: "10.8"
+    test "10.8 ip4-mapped-ip6" do
+      # spec 5/9/2 - IP4 mechanism syntax - ip4-mapped-ip6
 
-    ctx =
-      Spf.check("foo@e7.example.com",
-        helo: "mail.example.com",
-        ip: "::FFFF:1.2.3.4",
-        dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
-      )
+      ctx =
+        Spf.check("foo@e7.example.com",
+          helo: "mail.example.com",
+          ip: "::FFFF:1.2.3.4",
+          dns: "test/zones/rfc7208-10-ip4-mechanism-syntax.zonedata"
+        )
 
-    assert to_string(ctx.verdict) in ["fail"], "10.8 ip4-mapped-ip6"
-    assert ctx.explanation == "", "10.8 ip4-mapped-ip6"
-  end
-
+      assert to_string(ctx.verdict) in ["fail"], "10.8 ip4-mapped-ip6"
+      assert ctx.explanation == "", "10.8 ip4-mapped-ip6"
+    end
   end
 end

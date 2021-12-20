@@ -12,9 +12,9 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = """
+      iex> zonedata = \"""
       ...> example.com TXT v=spf1 +all
-      ...> """
+      ...> \"""
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
       iex> result
@@ -199,10 +199,10 @@ defmodule Spf.DNS do
 
   # Example
 
-      iex> zonedata = """
+      iex> zonedata = \"""
       ...> example.net CNAME example.com
       ...> EXAMPLE.COM A 1.2.3.4
-      ...> """
+      ...> \"""
       iex> Spf.Context.new("some.domain.tld", dns: zonedata)
       ...> |> Spf.DNS.from_cache("example.net", :a)
       {:ok, ["1.2.3.4"]}
@@ -230,10 +230,10 @@ defmodule Spf.DNS do
 
   ## Examples
 
-      iex> zonedata = """
+      iex> zonedata = \"""
       ...> example.com TXT v=spf1 -all
       ...> example.com TXT another txt record
-      ...> """
+      ...> \"""
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> {_ctx, dns_result} = resolve(ctx, "example.com", type: :txt)
       iex>
@@ -288,11 +288,11 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = """
+      iex> zonedata = \"""
       ...> example.com TXT v=spf1 +all
       ...> example.com A timeout
       ...> EXAMPLE.NET servfail
-      ...> """
+      ...> \"""
       iex> ctx = Spf.Context.new("some.domain.tld")
       ...> |> Spf.DNS.load(zonedata)
       iex>
@@ -413,11 +413,11 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = """
+      iex> zonedata = \"""
       ...> example.com TXT v=spf1 -all
       ...> a.example.com A 1.2.3.4
       ...> b.example.com AaAa timeout
-      ...> """
+      ...> \"""
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> Spf.DNS.to_list(ctx, valid: :true)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
