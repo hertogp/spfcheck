@@ -64,7 +64,7 @@ defmodule Spf.Eval do
   If the `exact` flag is true, then the `name` is also required to
   end with given `domain` as well.
 
-  Note that when trying to validate names during the expansion of the p-marco,
+  Note that when trying to validate names during the expansion of the p-macro,
   this flag will be false.
 
   """

@@ -71,13 +71,17 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     |> Enum.with_index()
     |> Enum.map(&section_to_test/1)
 
+    Mix.shell().info("Formatting the test/rfc7208-*.exs files ...")
+    # seems like check_mix_format/1 is never called
     Mix.Shell.cmd("mix format test/rfc7208-*.exs", &check_mix_format/1)
     Mix.shell().info("Done.")
   end
 
   defp check_mix_format(response) do
+    IO.inspect(response, label: :response)
+
     if response == 0 or response == 1 do
-      Mix.shell().info("ok - mix format test/rfc7208-files")
+      Mix.shell().info("- ok")
     else
       Mix.shell().error("nok - mix format test/rfc7208-*.exs -- #{inspect(response)}")
     end
