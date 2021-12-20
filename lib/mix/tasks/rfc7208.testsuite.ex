@@ -1,5 +1,6 @@
 defmodule Mix.Tasks.Rfc7208.Testsuite do
   use Mix.Task
+  alias Mix
 
   @moduledoc """
   Rfc7208 testsuite yaml definitions translated to ExUnit test files in test

@@ -30,7 +30,8 @@ defmodule Spfcheck.MixProject do
       build_embedded: Mix.env() == :prod,
       start_permanent: Mix.env() == :prod,
       escript: [main_module: Spfcheck],
-      elixirc_paths: elixirc_paths(Mix.env())
+      elixirc_paths: elixirc_paths(Mix.env()),
+      dialyzer: [plt_add_apps: [:yaml_elixir, :mix]]
     ]
   end
 
