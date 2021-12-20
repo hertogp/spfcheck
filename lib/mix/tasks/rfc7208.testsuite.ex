@@ -71,7 +71,16 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     |> Enum.with_index()
     |> Enum.map(&section_to_test/1)
 
+    Mix.Shell.cmd("mix format test/rfc7208-*.exs", &check_mix_format/1)
     Mix.shell().info("Done.")
+  end
+
+  defp check_mix_format(response) do
+    if response == 0 or response == 1 do
+      Mix.shell().info("ok - mix format test/rfc7208-files")
+    else
+      Mix.shell().error("nok - mix format test/rfc7208-*.exs -- #{inspect(response)}")
+    end
   end
 
   defp section_to_test({{desc, dns, tests}, secnum}) do
@@ -117,6 +126,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
     with :ok <- File.write(testfname, testfile) do
       Mix.shell().info("- created #{testfname}")
+      Mix.shell()
     else
       err -> Mix.shell().error("- failed to create #{testfname}: #{inspect(err)}")
     end
@@ -162,12 +172,12 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   @rfc7208_testsuite Path.join("priv", "rfc7208-tests-2014.05.yml")
   @rrtypes ["A", "AAAA", "CNAME", "MX", "PTR", "SOA", "SPF", "TXT"]
 
-  def all() do
+  defp all() do
     YamlElixir.read_all_from_file(@rfc7208_testsuite)
     |> sections()
   end
 
-  def sections({:ok, docs}) do
+  defp sections({:ok, docs}) do
     docs
     |> Enum.with_index()
     |> Enum.map(&to_section/1)
@@ -176,7 +186,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
   # Test Helpers
 
-  def to_section({doc, nth}) do
+  defp to_section({doc, nth}) do
     desc = doc["description"]
     dns = doc["zonedata"] |> to_dns_lines()
     tests = doc["tests"] |> Enum.with_index()
@@ -188,7 +198,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     {desc, dns, tests}
   end
 
-  def to_test({name, test}, desc, nth, mth) do
+  defp to_test({name, test}, desc, nth, mth) do
     spec = test["spec"] || ""
     helo = test["helo"]
     ip = test["host"]
@@ -204,7 +214,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
   # DNS helpers
 
-  def to_dns_lines(zdata) do
+  defp to_dns_lines(zdata) do
     for {domain, rdata} <- zdata do
       for data <- rdata do
         case data do
@@ -220,7 +230,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     |> List.flatten()
   end
 
-  def cp_spf(rrs) do
+  defp cp_spf(rrs) do
     # http://www.open-spf.org/Test_Suite/Schema/
     # records of type SPF get special treatment:
     # - If no records of type TXT are given for the same DNS name, then
@@ -256,7 +266,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     end
   end
 
-  def do_other(rrs) do
+  defp do_other(rrs) do
     # {"OTHER", value} -> causes the non-specified RRs to be added with value
     case List.keytake(rrs, "OTHER", 0) do
       nil -> rrs
@@ -264,7 +274,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     end
   end
 
-  def add_others(rrs, value) do
+  defp add_others(rrs, value) do
     # add {type, value} for types not included in rrs
     types = Enum.map(rrs, fn {type, _} -> String.upcase(type) end)
     others = @rrtypes -- types
