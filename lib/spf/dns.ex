@@ -419,7 +419,7 @@ defmodule Spf.DNS do
       ...> b.example.com AaAa timeout
       ...> \"""
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
-      iex> Spf.DNS.to_list(ctx, valid: :true)
+      iex> to_list(ctx, valid: :true)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
       [
         "example.com TXT \"v=spf1 -all\"",
