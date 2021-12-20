@@ -2,58 +2,67 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   use Mix.Task
 
   @moduledoc """
-  Rfc7208 testsuite yaml definitions translated to ExUnit test files in test directory.
+  Rfc7208 testsuite yaml definitions translated to ExUnit test files in test
+  directory.
 
-   See:
-   - http://www.open-spf.org/Test_Suite/Schema/
-   - http://www.open-spf.org/Test_Suite/
+  This mix task takes the rfc7208 testsuite (a yaml file) and for each section
+  it creates:
+  - a test-file in the test dir, and
+  - a zone-file in the test/zones subdir.
 
-   ZoneData is map:
-   - its keys are dns names
-   - its values are lists of map's, each with a single entry
-   - the key of the entry-map, is the RR-type
-   - the value of the entry-map, is a string or list (eg for MX records)
-     A value of a string is promoted to a list of 1 string
+  More information at:
+  - http://www.open-spf.org/Test_Suite/
+  - http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-2014-05-yml
+  - http://www.open-spf.org/Test_Suite/Schema/
 
-   DNS errors
-   - TIMEOUT
-     when the last entry for a dns name in the zonedata is TIMEOUT, then all
-     non-specified RR's will result in a timeout
+  # From the testsuite description
 
-   - NONE
-     when a TXT RR's value is none, the SPF record is NOT copied to the TXT RR
-     this allows record selection testing (see below)
+  ## The zonedata map in the yml-file:
 
-   - RCODE: n, is not used at the moment
+  - its keys are dns names
+  - its values are lists of map's, each with a single entry
+  - the key of the entry-map, is the RR-type
+  - the value of the entry-map, is a string or list (eg for MX records)
+    A value of a string is promoted to a list of 1 string
+
+  ## DNS errors:
+
+  - *TIMEOUT*, when the last entry for a dns name in the zonedata is TIMEOUT,
+     then all non-specified RR's should result in a timeout
+  - *NONE*, when a TXT RR's value is none, the SPF record is NOT copied to the
+    TXT RR: this allows record selection testing (see below)
+  - RCODE: n, is not used at the moment
 
    For RFC 4408, the test suite was designed for use with SPF (type 99) and TXT
    implementations.  In RFC 7208, use of type SPF has been removed.
 
-   The "Selecting records"
-   test section is the only one concerned with weeding out (incorrect) queries
-   for type SPF of any kind or proper response to duplicate or conflicting
-   records.  Other sections rely on auto-magic duplication of SPF to TXT
-   records (by test suite drivers) to test all implementation types with one
-   specification.
+   ## The "Selecting records"
 
-   Test sections
-   0  - Initial processing
-   1  - Record lookup
-   2  - Selecting records     <- keep SPF as SPF, donot convert to TXT record
-   3  - Record evaluation
-   4  - ALL mechanism syntax
-   5  - PTR mechanism syntax
-   6  - A   mechanism syntax
-   7  - Include mechanism syntax
-   8  - MX  mechanism syntax
-   9  - EXISTS mechanism syntax
-   10 - IP4 mechanism syntax
-   11 - IP6 mechanism syntax
-   12 - Semantics of exp and other modifiers
-   13 - Macro expansion rules
-   14 - Processing limits
+   Test section 2 is the only one concerned with weeding out (incorrect)
+   queries for type SPF of any kind or proper response to duplicate or
+   conflicting records.  Other sections rely on auto-magic duplication of SPF
+   to TXT records (by test suite drivers) to test all implementation types with
+   one specification.
+
+   ## Available test sections
+
+   - 0  - Initial processing
+   - 1  - Record lookup
+   - 2  - Selecting records     <- keep SPF as SPF, donot convert to TXT record
+   - 3  - Record evaluation
+   - 4  - ALL mechanism syntax
+   - 5  - PTR mechanism syntax
+   - 6  - A   mechanism syntax
+   - 7  - Include mechanism syntax
+   - 8  - MX  mechanism syntax
+   - 9  - EXISTS mechanism syntax
+   - 10 - IP4 mechanism syntax
+   - 11 - IP6 mechanism syntax
+   - 12 - Semantics of exp and other modifiers
+   - 13 - Macro expansion rules
+   - 14 - Processing limits
   """
-  @shortdoc "Rfc7208 testsuite is created from the rfc's yaml file."
+  @shortdoc "Creates the rfc7208 ExUnit testsuite from the rfc's yaml file"
 
   @impl Mix.Task
   def run(_args) do
@@ -61,7 +70,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     |> Enum.with_index()
     |> Enum.map(&section_to_test/1)
 
-    Mix.shell().error("all done")
+    Mix.shell().info("Done.")
   end
 
   defp section_to_test({{desc, dns, tests}, secnum}) do
@@ -80,48 +89,22 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
     with :ok <- File.mkdir_p(zonedir),
          :ok <- File.write(zonefile, Enum.join(dns, "\n")) do
-      Mix.shell().info("created #{zonefile}")
+      Mix.shell().info("- created #{zonefile}")
     else
-      err -> Mix.shell().error("failed to create zonefile for #{section}: #{inspect(err)}")
+      err -> Mix.shell().error("- failed to create zonefile for #{section}: #{inspect(err)}")
     end
 
-    testcases =
-      for test <- tests do
-        {testname, sender, helo, ip, result, remark, explanation} = test
-        testnumber = testname |> String.split() |> List.first() |> inspect()
-        testname = inspect(testname)
-        sender = inspect(sender)
-        helo = inspect(helo)
-        ip = inspect(ip)
-        result = Enum.map(result, fn x -> inspect(x) end) |> Enum.join(", ")
-        # remark = inspect(remark)
-        explanation = inspect(explanation)
-        dns = inspect(zonefile)
-
-        """
-          @tag set: #{secnum}
-          @tag tst: #{testnumber}
-          test #{testname} do
-            #
-            # #{remark}
-            #
-            ctx = Spf.check(#{sender}, helo: #{helo}, ip: #{ip}, dns: #{dns})
-            assert to_string(ctx.verdict) in [#{result}], #{testname}
-            assert ctx.explanation == #{explanation}, #{testname}
-          end
-        """
-      end
-      |> Enum.join("\n")
+    testcases = section_testcases(secnum, zonefile, tests)
 
     testfile = """
     defmodule Rfc7208.Section#{secnum}Test do
       use ExUnit.Case
 
       # Generated by mix rfc7208.testsuite
-      # usage:
-      # mix test
-      # mix test --only set:#{secnum}
-      # mix test --only tst:#{secnum}.y where y is in [0..#{length(tests) - 1}]
+      # Usage:
+      # % mix test
+      # % mix test --only set:#{secnum}
+      # % mix test --only tst:#{secnum}.y where y is in [0..#{length(tests) - 1}]
 
       describe "#{section}" do
         #{testcases}
@@ -132,10 +115,38 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     testfname = Path.join("test", "#{section}_test.exs")
 
     with :ok <- File.write(testfname, testfile) do
-      Mix.shell().info("Created #{testfname}")
+      Mix.shell().info("- created #{testfname}")
     else
-      err -> Mix.shell().error("Failed to create #{testfname}: #{inspect(err)}")
+      err -> Mix.shell().error("- failed to create #{testfname}: #{inspect(err)}")
     end
+  end
+
+  defp section_testcases(secnum, zonefile, tests) do
+    for test <- tests do
+      {testname, sender, helo, ip, result, remark, explanation} = test
+      testnumber = testname |> String.split() |> List.first() |> inspect()
+      testname = inspect(testname)
+      sender = inspect(sender)
+      helo = inspect(helo)
+      ip = inspect(ip)
+      result = Enum.map(result, fn x -> inspect(x) end) |> Enum.join(", ")
+      # remark = inspect(remark)
+      explanation = inspect(explanation)
+      dns = inspect(zonefile)
+
+      """
+        @tag set: #{secnum}
+        @tag tst: #{testnumber}
+        test #{testname} do
+          # #{remark}
+
+          ctx = Spf.check(#{sender}, helo: #{helo}, ip: #{ip}, dns: #{dns})
+          assert to_string(ctx.verdict) in [#{result}], #{testname}
+          assert ctx.explanation == #{explanation}, #{testname}
+        end
+      """
+    end
+    |> Enum.join("\n")
   end
 
   # Implementation
