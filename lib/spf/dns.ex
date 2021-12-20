@@ -12,9 +12,7 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = \"""
-      ...> example.com TXT v=spf1 +all
-      ...> \"""
+      iex> zonedata = "example.com TXT v=spf1 +all"
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
       iex> result
@@ -197,15 +195,12 @@ defmodule Spf.DNS do
   Note that this function normalizes given `name` and unrolls CNAME(s) and does
   not make any actual DNS requests nor does it do any statistics.
 
-  # Example
+  ## Example
 
-      iex> zonedata = \"""
-      ...> example.net CNAME example.com
-      ...> EXAMPLE.COM A 1.2.3.4
-      ...> \"""
-      iex> Spf.Context.new("some.domain.tld", dns: zonedata)
-      ...> |> Spf.DNS.from_cache("example.net", :a)
-      {:ok, ["1.2.3.4"]}
+       iex> zonedata = ["example.net CNAME example.com", "EXAMPLE.COM A 1.2.3.4"]
+       iex> Spf.Context.new("some.domain.tld", dns: zonedata)
+       ...> |> Spf.DNS.from_cache("example.net", :a)
+       {:ok, ["1.2.3.4"]}
 
   """
   @spec from_cache(Spf.Context.t(), binary, atom) :: dns_result()
@@ -230,21 +225,19 @@ defmodule Spf.DNS do
 
   ## Examples
 
-      iex> zonedata = \"""
-      ...> example.com TXT v=spf1 -all
-      ...> example.com TXT another txt record
-      ...> \"""
-      iex> ctx = Spf.Context.new("example.com", dns: zonedata)
-      iex> {_ctx, dns_result} = resolve(ctx, "example.com", type: :txt)
-      iex>
-      iex> dns_result
-      {:ok, ["another txt record", "v=spf1 -all"]}
-      iex>
-      iex> filter(dns_result, &Spf.Eval.spf?/1)
-      {:ok, ["v=spf1 -all"]}
+       iex> zonedata = ["example.com TXT v=spf1 -all", "example.com TXT another txt record"]
+       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
+       iex> {_ctx, dns_result} = resolve(ctx, "example.com", type: :txt)
+       iex>
+       iex> dns_result
+       {:ok, ["another txt record", "v=spf1 -all"]}
+       iex>
+       iex> filter(dns_result, &Spf.Eval.spf?/1)
+       {:ok, ["v=spf1 -all"]}
 
-      iex> Spf.DNS.filter({:error, :nxdomain}, &Spf.Eval.spf?/1)
-      {:error, :nxdomain}
+       iex> dns_result = {:error, :nxdomain}
+       iex> Spf.DNS.filter(dns_result, &Spf.Eval.spf?/1)
+       {:error, :nxdomain}
 
   """
   @spec filter(dns_result(), function()) :: dns_result()
@@ -288,11 +281,7 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = \"""
-      ...> example.com TXT v=spf1 +all
-      ...> example.com A timeout
-      ...> EXAMPLE.NET servfail
-      ...> \"""
+      iex> zonedata = ["example.com TXT v=spf1 +all", "example.com A timeout", "EXAMPLE.NET servfail"]
       iex> ctx = Spf.Context.new("some.domain.tld")
       ...> |> Spf.DNS.load(zonedata)
       iex>
