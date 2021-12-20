@@ -425,7 +425,7 @@ defmodule Spf.DNS do
         "example.com TXT \"v=spf1 -all\"",
         "a.example.com A 1.2.3.4"
       ]
-      iex> Spf.DNS.to_list(ctx, valid: false)
+      iex> to_list(ctx, valid: false)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
       [
         "b.example.com AAAA TIMEOUT"
