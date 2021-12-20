@@ -413,11 +413,11 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = \"""
-      ...> example.com TXT v=spf1 -all
-      ...> a.example.com A 1.2.3.4
-      ...> b.example.com AaAa timeout
-      ...> \"""
+      iex> zonedata = [
+      ...> "example.com TXT v=spf1 -all",
+      ...> "a.example.com A 1.2.3.4",
+      ...> "b.example.com AaAa timeout"
+      ...> ] |> Enum.join("\n")
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> Spf.DNS.to_list(ctx)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
