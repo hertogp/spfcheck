@@ -294,6 +294,24 @@ defmodule SpfcheckTest do
 
       assert ctx.verdict == verdict, msg
     end
+
+    test "010 - trailing dots don't fool the loop detection" do
+      sender = "someone@example.com"
+      verdict = :permerror
+
+      zonedata = """
+      example.com TXT v=spf1 redirect=b.example.com.
+      b.example.com TXT v=spf1 redirect=c.example.com
+      c.example.com. TXT v=spf1 redirect=example.com.
+      """
+
+      ctx = Spf.check(sender, dns: zonedata)
+
+      msg =
+        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
+
+      assert ctx.verdict == verdict, msg
+    end
   end
 
   describe "redirect" do

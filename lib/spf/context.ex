@@ -269,11 +269,23 @@ defmodule Spf.Context do
 
   @spec trace(t, binary) :: t
   defp trace(ctx, new_domain) do
-    new_domain = String.downcase(new_domain)
+    # called when current domain includes or redirects to new_domain
     cur_domain = String.downcase(ctx.domain)
+    new_domain = String.downcase(new_domain)
 
-    Map.update(ctx.traces, cur_domain, [], fn v -> v end)
-    |> Enum.reduce(%{}, fn {k, v}, acc -> Map.put(acc, k, [new_domain | v]) end)
+    # keep track of where domains lead to:
+    # - cur_domain -> new_domain
+    # - if domain -> cur_domain, then it leads to new_domain also
+    upd_trace = fn cur_domain, new_domain, trace ->
+      if cur_domain in trace,
+        do: [new_domain | trace],
+        else: trace
+    end
+
+    Map.update(ctx.traces, cur_domain, [new_domain], fn v -> [new_domain | v] end)
+    |> Enum.reduce(%{}, fn {domain, trace}, acc ->
+      Map.put(acc, domain, upd_trace.(cur_domain, new_domain, trace))
+    end)
     |> then(fn traces -> Map.put(ctx, :traces, traces) end)
   end
 
