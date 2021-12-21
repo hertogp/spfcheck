@@ -8,7 +8,7 @@ defmodule Rfc7208.Section5Test do
   # % mix test --only tst:5.y where y is in [0..5]
 
   describe "rfc7208-05-ptr-mechanism-syntax" do
-    @tag set: 5
+    @tag set: "5"
     @tag tst: "5.0"
     test "5.0 ptr-cidr" do
       # spec 5.5/2 - PTR mechanism syntax - ptr-cidr
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section5Test do
       assert ctx.explanation == "", "5.0 ptr-cidr"
     end
 
-    @tag set: 5
+    @tag set: "5"
     @tag tst: "5.1"
     test "5.1 ptr-empty-domain" do
       # spec 5.5/2 - PTR mechanism syntax - ptr-empty-domain
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section5Test do
       assert ctx.explanation == "", "5.1 ptr-empty-domain"
     end
 
-    @tag set: 5
+    @tag set: "5"
     @tag tst: "5.2"
     test "5.2 ptr-match-implicit" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-match-implicit
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section5Test do
       assert ctx.explanation == "", "5.2 ptr-match-implicit"
     end
 
-    @tag set: 5
+    @tag set: "5"
     @tag tst: "5.3"
     test "5.3 ptr-match-ip6" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-match-ip6
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section5Test do
       assert ctx.explanation == "", "5.3 ptr-match-ip6"
     end
 
-    @tag set: 5
+    @tag set: "5"
     @tag tst: "5.4"
     test "5.4 ptr-match-target" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-match-target
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section5Test do
       assert ctx.explanation == "", "5.4 ptr-match-target"
     end
 
-    @tag set: 5
+    @tag set: "5"
     @tag tst: "5.5"
     test "5.5 ptr-nomatch-invalid" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-nomatch-invalid

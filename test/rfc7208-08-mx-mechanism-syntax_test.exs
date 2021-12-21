@@ -8,7 +8,7 @@ defmodule Rfc7208.Section8Test do
   # % mix test --only tst:8.y where y is in [0..20]
 
   describe "rfc7208-08-mx-mechanism-syntax" do
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.0"
     test "8.0 mx-bad-cidr4" do
       # spec 5.4/2 - MX mechanism syntax - mx-bad-cidr4
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.0 mx-bad-cidr4"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.1"
     test "8.1 mx-bad-cidr6" do
       # spec 5.4/2 - MX mechanism syntax - mx-bad-cidr6
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.1 mx-bad-cidr6"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.2"
     test "8.2 mx-bad-domain" do
       # spec 7.1/2 - MX mechanism syntax - mx-bad-domain
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.2 mx-bad-domain"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.3"
     test "8.3 mx-bad-toplab" do
       # spec 7.1/2 - MX mechanism syntax - mx-bad-toplab
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.3 mx-bad-toplab"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.4"
     test "8.4 mx-cidr4-0" do
       # spec 5.4/3 - MX mechanism syntax - mx-cidr4-0
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.4 mx-cidr4-0"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.5"
     test "8.5 mx-cidr4-0-ip6" do
       # spec 5.4/3 - MX mechanism syntax - mx-cidr4-0-ip6
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.5 mx-cidr4-0-ip6"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.6"
     test "8.6 mx-cidr6" do
       # spec 5.4/2 - MX mechanism syntax - mx-cidr6
@@ -120,7 +120,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.6 mx-cidr6"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.7"
     test "8.7 mx-cidr6-0-ip4" do
       # spec 5.4/3 - MX mechanism syntax - mx-cidr6-0-ip4
@@ -136,7 +136,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.7 mx-cidr6-0-ip4"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.8"
     test "8.8 mx-cidr6-0-ip4mapped" do
       # spec 5.4/3 - MX mechanism syntax - mx-cidr6-0-ip4mapped
@@ -152,7 +152,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.8 mx-cidr6-0-ip4mapped"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.9"
     test "8.9 mx-cidr6-0-ip6" do
       # spec 5.3/3 - MX mechanism syntax - mx-cidr6-0-ip6
@@ -168,7 +168,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.9 mx-cidr6-0-ip6"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.10"
     test "8.10 mx-cidr6-0-nxdomain" do
       # spec 5.4/3 - MX mechanism syntax - mx-cidr6-0-nxdomain
@@ -184,7 +184,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.10 mx-cidr6-0-nxdomain"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.11"
     test "8.11 mx-colon-domain" do
       # spec 7.1/2 - MX mechanism syntax - mx-colon-domain
@@ -200,7 +200,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.11 mx-colon-domain"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.12"
     test "8.12 mx-colon-domain-ip4mapped" do
       # spec 7.1/2 - MX mechanism syntax - mx-colon-domain-ip4mapped
@@ -216,7 +216,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.12 mx-colon-domain-ip4mapped"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.13"
     test "8.13 mx-empty" do
       # spec 5.4/3 - MX mechanism syntax - mx-empty
@@ -232,7 +232,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.13 mx-empty"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.14"
     test "8.14 mx-empty-domain" do
       # spec 5.2/1 - MX mechanism syntax - mx-empty-domain
@@ -248,7 +248,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.14 mx-empty-domain"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.15"
     test "8.15 mx-implicit" do
       # spec 5.4/4 - MX mechanism syntax - mx-implicit
@@ -264,7 +264,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.15 mx-implicit"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.16"
     test "8.16 mx-multi-ip1" do
       # spec 5.4/3 - MX mechanism syntax - mx-multi-ip1
@@ -280,7 +280,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.16 mx-multi-ip1"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.17"
     test "8.17 mx-multi-ip2" do
       # spec 5.4/3 - MX mechanism syntax - mx-multi-ip2
@@ -296,7 +296,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.17 mx-multi-ip2"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.18"
     test "8.18 mx-null" do
       # spec 7.1/2 - MX mechanism syntax - mx-null
@@ -312,7 +312,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.18 mx-null"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.19"
     test "8.19 mx-numeric-top-label" do
       # spec 7.1/2 - MX mechanism syntax - mx-numeric-top-label
@@ -328,7 +328,7 @@ defmodule Rfc7208.Section8Test do
       assert ctx.explanation == "", "8.19 mx-numeric-top-label"
     end
 
-    @tag set: 8
+    @tag set: "8"
     @tag tst: "8.20"
     test "8.20 mx-nxdomain" do
       # spec 5.4/3 - MX mechanism syntax - mx-nxdomain

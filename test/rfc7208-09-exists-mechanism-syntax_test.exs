@@ -8,7 +8,7 @@ defmodule Rfc7208.Section9Test do
   # % mix test --only tst:9.y where y is in [0..6]
 
   describe "rfc7208-09-exists-mechanism-syntax" do
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.0"
     test "9.0 exists-cidr" do
       # spec 5.7/2 - EXISTS mechanism syntax - exists-cidr
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section9Test do
       assert ctx.explanation == "", "9.0 exists-cidr"
     end
 
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.1"
     test "9.1 exists-dnserr" do
       # spec 5/8 - EXISTS mechanism syntax - exists-dnserr
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section9Test do
       assert ctx.explanation == "", "9.1 exists-dnserr"
     end
 
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.2"
     test "9.2 exists-empty-domain" do
       # spec 5.7/2 - EXISTS mechanism syntax - exists-empty-domain
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section9Test do
       assert ctx.explanation == "", "9.2 exists-empty-domain"
     end
 
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.3"
     test "9.3 exists-implicit" do
       # spec 5.7/2 - EXISTS mechanism syntax - exists-implicit
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section9Test do
       assert ctx.explanation == "", "9.3 exists-implicit"
     end
 
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.4"
     test "9.4 exists-ip4" do
       # spec 5.7/3 - EXISTS mechanism syntax - exists-ip4
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section9Test do
       assert ctx.explanation == "", "9.4 exists-ip4"
     end
 
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.5"
     test "9.5 exists-ip6" do
       # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section9Test do
       assert ctx.explanation == "", "9.5 exists-ip6"
     end
 
-    @tag set: 9
+    @tag set: "9"
     @tag tst: "9.6"
     test "9.6 exists-ip6only" do
       # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6only

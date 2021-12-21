@@ -8,7 +8,7 @@ defmodule Rfc7208.Section3Test do
   # % mix test --only tst:3.y where y is in [0..11]
 
   describe "rfc7208-03-record-evaluation" do
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.0"
     test "3.0 default-result" do
       # spec 4.7/1 - Record evaluation - default-result
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.0 default-result"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.1"
     test "3.1 detect-errors-anywhere" do
       # spec 4.6 - Record evaluation - detect-errors-anywhere
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.1 detect-errors-anywhere"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.2"
     test "3.2 invalid-domain" do
       # spec 7.1/2 - Record evaluation - invalid-domain
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.2 invalid-domain"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.3"
     test "3.3 invalid-domain-empty-label" do
       # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-empty-label
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.3 invalid-domain-empty-label"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.4"
     test "3.4 invalid-domain-long" do
       # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-long
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.4 invalid-domain-long"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.5"
     test "3.5 invalid-domain-long-via-macro" do
       # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-long-via-macro
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.5 invalid-domain-long-via-macro"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.6"
     test "3.6 modifier-charset-bad1" do
       # spec 4.6.1/4 - Record evaluation - modifier-charset-bad1
@@ -120,7 +120,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.6 modifier-charset-bad1"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.7"
     test "3.7 modifier-charset-bad2" do
       # spec 4.6.1/4 - Record evaluation - modifier-charset-bad2
@@ -136,7 +136,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.7 modifier-charset-bad2"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.8"
     test "3.8 modifier-charset-good" do
       # spec 4.6.1/2 - Record evaluation - modifier-charset-good
@@ -152,7 +152,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.8 modifier-charset-good"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.9"
     test "3.9 redirect-after-mechanisms1" do
       # spec 4.6.3 - Record evaluation - redirect-after-mechanisms1
@@ -168,7 +168,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.9 redirect-after-mechanisms1"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.10"
     test "3.10 redirect-after-mechanisms2" do
       # spec 4.6.3 - Record evaluation - redirect-after-mechanisms2
@@ -184,7 +184,7 @@ defmodule Rfc7208.Section3Test do
       assert ctx.explanation == "", "3.10 redirect-after-mechanisms2"
     end
 
-    @tag set: 3
+    @tag set: "3"
     @tag tst: "3.11"
     test "3.11 redirect-is-modifier" do
       # spec 4.6.1/4 - Record evaluation - redirect-is-modifier

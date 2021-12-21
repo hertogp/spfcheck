@@ -8,7 +8,7 @@ defmodule Rfc7208.Section6Test do
   # % mix test --only tst:6.y where y is in [0..28]
 
   describe "rfc7208-06-a-mechanism-syntax" do
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.0"
     test "6.0 a-bad-cidr4" do
       # spec 5.3/2 - A mechanism syntax - a-bad-cidr4
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.0 a-bad-cidr4"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.1"
     test "6.1 a-bad-cidr6" do
       # spec 5.3/2 - A mechanism syntax - a-bad-cidr6
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.1 a-bad-cidr6"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.2"
     test "6.2 a-bad-domain" do
       # spec 7.1/2 - A mechanism syntax - a-bad-domain
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.2 a-bad-domain"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.3"
     test "6.3 a-bad-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-bad-toplabel
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.3 a-bad-toplabel"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.4"
     test "6.4 a-cidr4-0" do
       # spec 5.3/3 - A mechanism syntax - a-cidr4-0
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.4 a-cidr4-0"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.5"
     test "6.5 a-cidr4-0-ip6" do
       # spec 5.3/3 - A mechanism syntax - a-cidr4-0-ip6
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.5 a-cidr4-0-ip6"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.6"
     test "6.6 a-cidr6" do
       # spec 5.3/2 - A mechanism syntax - a-cidr6
@@ -120,7 +120,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.6 a-cidr6"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.7"
     test "6.7 a-cidr6-0-ip4" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip4
@@ -136,7 +136,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.7 a-cidr6-0-ip4"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.8"
     test "6.8 a-cidr6-0-ip4mapped" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip4mapped
@@ -152,7 +152,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.8 a-cidr6-0-ip4mapped"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.9"
     test "6.9 a-cidr6-0-ip6" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip6
@@ -168,7 +168,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.9 a-cidr6-0-ip6"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.10"
     test "6.10 a-cidr6-0-nxdomain" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-nxdomain
@@ -184,7 +184,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.10 a-cidr6-0-nxdomain"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.11"
     test "6.11 a-colon-domain" do
       # spec 7.1/2 - A mechanism syntax - a-colon-domain
@@ -200,7 +200,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.11 a-colon-domain"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.12"
     test "6.12 a-colon-domain-ip4mapped" do
       # spec 7.1/2 - A mechanism syntax - a-colon-domain-ip4mapped
@@ -216,7 +216,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.12 a-colon-domain-ip4mapped"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.13"
     test "6.13 a-dash-in-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-dash-in-toplabel
@@ -232,7 +232,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.13 a-dash-in-toplabel"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.14"
     test "6.14 a-dual-cidr-ip4-default" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-default
@@ -248,7 +248,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.14 a-dual-cidr-ip4-default"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.15"
     test "6.15 a-dual-cidr-ip4-err" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-err
@@ -264,7 +264,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.15 a-dual-cidr-ip4-err"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.16"
     test "6.16 a-dual-cidr-ip4-match" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-match
@@ -280,7 +280,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.16 a-dual-cidr-ip4-match"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.17"
     test "6.17 a-dual-cidr-ip6-default" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip6-default
@@ -296,7 +296,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.17 a-dual-cidr-ip6-default"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.18"
     test "6.18 a-dual-cidr-ip6-match" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip6-match
@@ -312,7 +312,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.18 a-dual-cidr-ip6-match"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.19"
     test "6.19 a-empty-domain" do
       # spec 5.3/2 - A mechanism syntax - a-empty-domain
@@ -328,7 +328,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.19 a-empty-domain"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.20"
     test "6.20 a-ip6-dualstack" do
       # spec 5.3/3 - A mechanism syntax - a-ip6-dualstack
@@ -344,7 +344,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.20 a-ip6-dualstack"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.21"
     test "6.21 a-multi-ip1" do
       # spec 5.3/3 - A mechanism syntax - a-multi-ip1
@@ -360,7 +360,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.21 a-multi-ip1"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.22"
     test "6.22 a-multi-ip2" do
       # spec 5.3/3 - A mechanism syntax - a-multi-ip2
@@ -376,7 +376,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.22 a-multi-ip2"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.23"
     test "6.23 a-null" do
       # spec 7.1/2 - A mechanism syntax - a-null
@@ -392,7 +392,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.23 a-null"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.24"
     test "6.24 a-numeric" do
       # spec 7.1/2 - A mechanism syntax - a-numeric
@@ -408,7 +408,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.24 a-numeric"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.25"
     test "6.25 a-numeric-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-numeric-toplabel
@@ -424,7 +424,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.25 a-numeric-toplabel"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.26"
     test "6.26 a-nxdomain" do
       # spec 5.3/3 - A mechanism syntax - a-nxdomain
@@ -440,7 +440,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.26 a-nxdomain"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.27"
     test "6.27 a-only-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-only-toplabel
@@ -456,7 +456,7 @@ defmodule Rfc7208.Section6Test do
       assert ctx.explanation == "", "6.27 a-only-toplabel"
     end
 
-    @tag set: 6
+    @tag set: "6"
     @tag tst: "6.28"
     test "6.28 a-only-toplabel-trailing-dot" do
       # spec 7.1/2 - A mechanism syntax - a-only-toplabel-trailing-dot

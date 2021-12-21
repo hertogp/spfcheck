@@ -8,7 +8,7 @@ defmodule Rfc7208.Section12Test do
   # % mix test --only tst:12.y where y is in [0..22]
 
   describe "rfc7208-12-semantics-of-exp-and-other-modifiers" do
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.0"
     test "12.0 default-modifier-obsolete" do
       # spec 6/3 - Semantics of exp and other modifiers - default-modifier-obsolete
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.0 default-modifier-obsolete"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.1"
     test "12.1 default-modifier-obsolete2" do
       # spec 6/3 - Semantics of exp and other modifiers - default-modifier-obsolete2
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.1 default-modifier-obsolete2"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.2"
     test "12.2 dorky-sentinel" do
       # spec 7.1/6 - Semantics of exp and other modifiers - dorky-sentinel
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "Macro Error in implementation", "12.2 dorky-sentinel"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.3"
     test "12.3 empty-modifier-name" do
       # spec A/3 - Semantics of exp and other modifiers - empty-modifier-name
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.3 empty-modifier-name"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.4"
     test "12.4 exp-dns-error" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-dns-error
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.4 exp-dns-error"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.5"
     test "12.5 exp-empty-domain" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-empty-domain
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.5 exp-empty-domain"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.6"
     test "12.6 exp-multiple-txt" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-multiple-txt
@@ -120,7 +120,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.6 exp-multiple-txt"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.7"
     test "12.7 exp-no-txt" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-no-txt
@@ -136,7 +136,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.7 exp-no-txt"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.8"
     test "12.8 exp-syntax-error" do
       # spec 6.2/1 - Semantics of exp and other modifiers - exp-syntax-error
@@ -152,7 +152,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.8 exp-syntax-error"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.9"
     test "12.9 exp-twice" do
       # spec 6/2 - Semantics of exp and other modifiers - exp-twice
@@ -168,7 +168,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.9 exp-twice"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.10"
     test "12.10 exp-void" do
       # spec 4.6.4/1, 6/2 - Semantics of exp and other modifiers - exp-void
@@ -184,7 +184,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.10 exp-void"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.11"
     test "12.11 explanation-syntax-error" do
       # spec 6.2/4 - Semantics of exp and other modifiers - explanation-syntax-error
@@ -200,7 +200,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.11 explanation-syntax-error"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.12"
     test "12.12 include-ignores-exp" do
       # spec 6.2/13 - Semantics of exp and other modifiers - include-ignores-exp
@@ -216,7 +216,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "Correct!", "12.12 include-ignores-exp"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.13"
     test "12.13 invalid-modifier" do
       # spec A/3 - Semantics of exp and other modifiers - invalid-modifier
@@ -232,7 +232,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.13 invalid-modifier"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.14"
     test "12.14 non-ascii-exp" do
       # spec 6.2/5 - Semantics of exp and other modifiers - non-ascii-exp
@@ -248,7 +248,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.14 non-ascii-exp"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.15"
     test "12.15 redirect-cancels-exp" do
       # spec 6.2/13 - Semantics of exp and other modifiers - redirect-cancels-exp
@@ -264,7 +264,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.15 redirect-cancels-exp"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.16"
     test "12.16 redirect-cancels-prior-exp" do
       # spec 6.2/13 - Semantics of exp and other modifiers - redirect-cancels-prior-exp
@@ -280,7 +280,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "See me.", "12.16 redirect-cancels-prior-exp"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.17"
     test "12.17 redirect-empty-domain" do
       # spec 6.2/4 - Semantics of exp and other modifiers - redirect-empty-domain
@@ -296,7 +296,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.17 redirect-empty-domain"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.18"
     test "12.18 redirect-none" do
       # spec 6.1/4 - Semantics of exp and other modifiers - redirect-none
@@ -312,7 +312,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.18 redirect-none"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.19"
     test "12.19 redirect-syntax-error" do
       # spec 6.1/2 - Semantics of exp and other modifiers - redirect-syntax-error
@@ -328,7 +328,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.19 redirect-syntax-error"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.20"
     test "12.20 redirect-twice" do
       # spec 6/2 - Semantics of exp and other modifiers - redirect-twice
@@ -344,7 +344,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.20 redirect-twice"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.21"
     test "12.21 two-exp-records" do
       # spec 6.2/4 - Semantics of exp and other modifiers - two-exp-records
@@ -360,7 +360,7 @@ defmodule Rfc7208.Section12Test do
       assert ctx.explanation == "", "12.21 two-exp-records"
     end
 
-    @tag set: 12
+    @tag set: "12"
     @tag tst: "12.22"
     test "12.22 unknown-modifier-syntax" do
       # spec A/3 - Semantics of exp and other modifiers - unknown-modifier-syntax

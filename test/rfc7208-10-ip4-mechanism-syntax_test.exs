@@ -8,7 +8,7 @@ defmodule Rfc7208.Section10Test do
   # % mix test --only tst:10.y where y is in [0..8]
 
   describe "rfc7208-10-ip4-mechanism-syntax" do
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.0"
     test "10.0 bad-ip4-port" do
       # spec 5.6/2 - IP4 mechanism syntax - bad-ip4-port
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.0 bad-ip4-port"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.1"
     test "10.1 bad-ip4-short" do
       # spec 5.6/4 - IP4 mechanism syntax - bad-ip4-short
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.1 bad-ip4-short"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.2"
     test "10.2 bare-ip4" do
       # spec 5.6/2 - IP4 mechanism syntax - bare-ip4
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.2 bare-ip4"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.3"
     test "10.3 cidr4-0" do
       # spec 5.6/2 - IP4 mechanism syntax - cidr4-0
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.3 cidr4-0"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.4"
     test "10.4 cidr4-032" do
       # spec 5.6/2 - IP4 mechanism syntax - cidr4-032
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.4 cidr4-032"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.5"
     test "10.5 cidr4-32" do
       # spec 5.6/2 - IP4 mechanism syntax - cidr4-32
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.5 cidr4-32"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.6"
     test "10.6 cidr4-33" do
       # spec 5.6/2 - IP4 mechanism syntax - cidr4-33
@@ -120,7 +120,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.6 cidr4-33"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.7"
     test "10.7 ip4-dual-cidr" do
       # spec 5.6/2 - IP4 mechanism syntax - ip4-dual-cidr
@@ -136,7 +136,7 @@ defmodule Rfc7208.Section10Test do
       assert ctx.explanation == "", "10.7 ip4-dual-cidr"
     end
 
-    @tag set: 10
+    @tag set: "10"
     @tag tst: "10.8"
     test "10.8 ip4-mapped-ip6" do
       # spec 5/9/2 - IP4 mechanism syntax - ip4-mapped-ip6

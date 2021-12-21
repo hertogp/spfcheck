@@ -8,7 +8,7 @@ defmodule Rfc7208.Section1Test do
   # % mix test --only tst:1.y where y is in [0..6]
 
   describe "rfc7208-01-record-lookup" do
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.0"
     test "1.0 alltimeout" do
       # spec 4.4/2 - Record lookup - alltimeout
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section1Test do
       assert ctx.explanation == "", "1.0 alltimeout"
     end
 
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.1"
     test "1.1 both" do
       # spec 4.4/1 - Record lookup - both
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section1Test do
       assert ctx.explanation == "", "1.1 both"
     end
 
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.2"
     test "1.2 nospftxttimeout" do
       # spec 4.4/1 - Record lookup - nospftxttimeout
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section1Test do
       assert ctx.explanation == "", "1.2 nospftxttimeout"
     end
 
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.3"
     test "1.3 spfonly" do
       # spec 4.4/1 - Record lookup - spfonly
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section1Test do
       assert ctx.explanation == "", "1.3 spfonly"
     end
 
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.4"
     test "1.4 spftimeout" do
       # spec 4.4/1 - Record lookup - spftimeout
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section1Test do
       assert ctx.explanation == "", "1.4 spftimeout"
     end
 
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.5"
     test "1.5 txtonly" do
       # spec 4.4/1 - Record lookup - txtonly
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section1Test do
       assert ctx.explanation == "", "1.5 txtonly"
     end
 
-    @tag set: 1
+    @tag set: "1"
     @tag tst: "1.6"
     test "1.6 txttimeout" do
       # spec 4.4/1 - Record lookup - txttimeout
