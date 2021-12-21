@@ -13,13 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## added
 
-- [ ] macros field in verdict output, listing all macros used in the (nested) SPF policy mechanisms
-- [ ] warning if SPF policy is using the i-macro in a mechanism
-- [ ] warning if SPF policy is using the h-macro in a mechanism
+- none
 
 ## changed
 
-- [ ] eliminate DNS warnings/erros when searching for authority information (unnecessary noise)
+- [ ] eliminate DNS warnings/errors when searching for authority information (unnecessary noise)
 
 
 ## [v0.7.0] - 2021-12-18
