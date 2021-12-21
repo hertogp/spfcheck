@@ -8,7 +8,7 @@ defmodule Rfc7208.Section7Test do
   # % mix test --only tst:7.y where y is in [0..8]
 
   describe "rfc7208-07-include-mechanism-semantics-and-syntax" do
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.0"
     test "7.0 include-cidr" do
       # spec 5.2/1 - Include mechanism semantics and syntax - include-cidr
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.0 include-cidr"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.1"
     test "7.1 include-empty-domain" do
       # spec 5.2/1 - Include mechanism semantics and syntax - include-empty-domain
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.1 include-empty-domain"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.2"
     test "7.2 include-fail" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-fail
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.2 include-fail"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.3"
     test "7.3 include-neutral" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-neutral
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.3 include-neutral"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.4"
     test "7.4 include-none" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-none
@@ -88,7 +88,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.4 include-none"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.5"
     test "7.5 include-permerror" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-permerror
@@ -104,7 +104,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.5 include-permerror"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.6"
     test "7.6 include-softfail" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-softfail
@@ -120,7 +120,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.6 include-softfail"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.7"
     test "7.7 include-syntax-error" do
       # spec 5.2/1 - Include mechanism semantics and syntax - include-syntax-error
@@ -136,7 +136,7 @@ defmodule Rfc7208.Section7Test do
       assert ctx.explanation == "", "7.7 include-syntax-error"
     end
 
-    @tag set: 7
+    @tag set: "7"
     @tag tst: "7.8"
     test "7.8 include-temperror" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-temperror

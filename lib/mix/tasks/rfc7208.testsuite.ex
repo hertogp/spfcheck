@@ -79,20 +79,11 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     |> Enum.with_index()
     |> Enum.map(&section_to_test/1)
 
+    # ensure generate files are formatted, otherwise github actions will fail
     Mix.shell().info("Formatting the test/rfc7208-*.exs files ...")
-    # seems like check_mix_format/1 is never called
-    Mix.Shell.cmd("mix format test/rfc7208-*.exs", &check_mix_format/1)
+    result = Mix.Tasks.Format.run(["test/rfc7208-*.exs"])
+    Mix.shell().info("- #{inspect(result)}")
     Mix.shell().info("Done.")
-  end
-
-  defp check_mix_format(response) do
-    IO.inspect(response, label: :response)
-
-    if response == 0 or response == 1 do
-      Mix.shell().info("- ok")
-    else
-      Mix.shell().error("nok - mix format test/rfc7208-*.exs -- #{inspect(response)}")
-    end
   end
 
   defp section_to_test({{desc, dns, tests}, secnum}) do
@@ -105,6 +96,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
     Mix.shell().info(section)
 
+    # create zonedata file
     zonedir = "test/zones"
     zonefile = Path.join(zonedir, "#{section}.zonedata")
     dns = ["# Zonedata for #{section} of the Rfc7208 2014.5 testsuite\n"] ++ dns
@@ -118,6 +110,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
     testcases = section_testcases(secnum, zonefile, tests)
 
+    # create section test file
     testfile = """
     defmodule Rfc7208.Section#{secnum}Test do
       use ExUnit.Case
@@ -147,31 +140,24 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   defp section_testcases(secnum, zonefile, tests) do
     for test <- tests do
       {testname, sender, helo, ip, result, remark, explanation} = test
-      testnumber = testname |> String.split() |> List.first() |> inspect()
-      testname = inspect(testname)
-      sender = inspect(sender)
-      helo = inspect(helo)
-      ip = inspect(ip)
+      testnumber = testname |> String.split() |> List.first()
       result = Enum.map(result, fn x -> inspect(x) end) |> Enum.join(", ")
-      # remark = inspect(remark)
-      explanation = inspect(explanation)
-      dns = inspect(zonefile)
 
       """
-        @tag set: #{secnum}
-        @tag tst: #{testnumber}
-        test #{testname} do
+        @tag set: "#{secnum}"
+        @tag tst: "#{testnumber}"
+        test "#{testname}" do
           # #{remark}
 
           ctx =
-            Spf.check(#{sender},
-              helo: #{helo},
-              ip: #{ip},
-              dns: #{dns}
+            Spf.check("#{sender}",
+              helo: "#{helo}",
+              ip: "#{ip}",
+              dns: "#{zonefile}"
             )
 
-          assert to_string(ctx.verdict) in [#{result}], #{testname}
-          assert ctx.explanation == #{explanation}, #{testname}
+          assert to_string(ctx.verdict) in [#{result}], "#{testname}"
+          assert ctx.explanation == "#{explanation}", "#{testname}"
         end
       """
     end

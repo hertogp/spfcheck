@@ -8,7 +8,7 @@ defmodule Rfc7208.Section4Test do
   # % mix test --only tst:4.y where y is in [0..4]
 
   describe "rfc7208-04-all-mechanism-syntax" do
-    @tag set: 4
+    @tag set: "4"
     @tag tst: "4.0"
     test "4.0 all-arg" do
       # spec 5.1/1 - ALL mechanism syntax - all-arg
@@ -24,7 +24,7 @@ defmodule Rfc7208.Section4Test do
       assert ctx.explanation == "", "4.0 all-arg"
     end
 
-    @tag set: 4
+    @tag set: "4"
     @tag tst: "4.1"
     test "4.1 all-cidr" do
       # spec 5.1/1 - ALL mechanism syntax - all-cidr
@@ -40,7 +40,7 @@ defmodule Rfc7208.Section4Test do
       assert ctx.explanation == "", "4.1 all-cidr"
     end
 
-    @tag set: 4
+    @tag set: "4"
     @tag tst: "4.2"
     test "4.2 all-dot" do
       # spec 5.1/1 - ALL mechanism syntax - all-dot
@@ -56,7 +56,7 @@ defmodule Rfc7208.Section4Test do
       assert ctx.explanation == "", "4.2 all-dot"
     end
 
-    @tag set: 4
+    @tag set: "4"
     @tag tst: "4.3"
     test "4.3 all-double" do
       # spec 5.1/1 - ALL mechanism syntax - all-double
@@ -72,7 +72,7 @@ defmodule Rfc7208.Section4Test do
       assert ctx.explanation == "", "4.3 all-double"
     end
 
-    @tag set: 4
+    @tag set: "4"
     @tag tst: "4.4"
     test "4.4 all-neutral" do
       # spec 5.1/1 - ALL mechanism syntax - all-neutral
