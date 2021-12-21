@@ -12,6 +12,7 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
   <TR><TD>v=spf1</TD></TR>
   <TR><TD>a:bad.%{d2}</TD></TR>
+  <TR><TD PORT="1">include:unused.example.com</TD></TR>
   <TR><TD>ip4:1.1.1.1</TD></TR>
   <TR><TD>-all</TD></TR>
   <TR><TD>1 warnings</TD></TR>
@@ -19,7 +20,7 @@ reason: spf[8] a:bad.%{d2} - timeout";
   </TABLE>
   >, shape="plaintext"];
 
-  
+  "spf-c.example.com":"1" -> "unused.example.com":"TOP";
 
 
 "netblocks6.example.com" [label=<

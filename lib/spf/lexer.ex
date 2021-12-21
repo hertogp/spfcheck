@@ -16,6 +16,7 @@ defmodule Spf.Lexer do
 
   """
   @type range :: Range.t()
+
   @typedoc """
   The token's `type`.
 
@@ -79,7 +80,15 @@ defmodule Spf.Lexer do
 
   """
   @type token :: {type, list(), range}
+
+  @typedoc """
+  An ok/error tuple produced by lexing some input
+  """
   @type result :: {:ok, [token], binary, map} | {:error, atom, binary, map}
+
+  @typedoc """
+  A lexer is a function that takes a binary & a context, and returns a `t:result/0`
+  """
   @type lexer :: (binary, map -> result)
 
   @wspace [?\s, ?\t]
@@ -91,10 +100,47 @@ defmodule Spf.Lexer do
   # when used to slice a string -> yields ""
   @null_slice 1..0//-1
 
+  @doc """
+  Returns a lexer `t:result/0` after consuming an SPF string.
+
+  The SPF string can be a full SPF TXT string or a partial string.
+  The lexer produces a list of tokens found, including a catch-all
+  `:error` token for character sequences that were not recognized.
+
+  ## Example
+
+      iex> {:ok, tokens, _rest, _map} = Spf.Lexer.tokenize_spf("a:%{d}")
+      iex> tokens
+      [{:a, [43, {:expand, [100, -1, false, ["."]], 2..5}, {:cidr, [32, 128], 1..0//-1}], 0..5}]
+
+  """
   @spec tokenize_spf(binary) :: result
   def tokenize_spf(input),
     do: spf_tokenize().(input, %{offset: 0, input: input})
 
+  @doc """
+  Returns a lexer `t:result/0` after consuming an explain-string.
+
+  An explaing-string is the TXT RR value of the domain specified by the
+  domain specification of the `exp`-modifier and is basically a series
+  of macro-strings and spaces.  This is the only time `c`, `r`, `t`-macros
+  may be used.
+
+  The lexer produces an `:error` token for character-sequences it doesn't know.
+
+  ## Example
+
+      iex> {:ok, tokens, _rest, _map} = Spf.Lexer.tokenize_exp("timestamp %{t}")
+      iex> tokens
+      [
+        {:exp_str,
+         [{:literal, ["timestamp"], 0..8},
+          {:whitespace, [" "], 9..9},
+          {:expand, [116, -1, false, ["."]], 10..13}
+         ], 0..13}
+      ]
+
+  """
   @spec tokenize_exp(binary) :: result
   def tokenize_exp(input),
     do: exp_tokenize().(input, %{offset: 0, input: input})

@@ -3,66 +3,74 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   alias Mix
 
   @moduledoc """
-  Rfc7208 testsuite yaml definitions translated to ExUnit test files in test
-  directory.
+  This mix task takes the
+  [rfc7208](https://www.rfc-editor.org/rfc/rfc7208.html) testsuite (a yaml
+  file) and for each section it creates:
 
-  This mix task takes the rfc7208 testsuite (a yaml file) and for each section
-  it creates:
   - a test-file in the test dir, and
   - a zone-file in the test/zones subdir.
 
-  More information at:
-  - http://www.open-spf.org/Test_Suite/
-  - http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-2014-05-yml
-  - http://www.open-spf.org/Test_Suite/Schema/
+  Usage:
+  ```
+  mix rfc7208.testsuite
+  mix test
+  mix test --only set:x, where x is in 0..14
+  mix test --only tst:x.y, where y refers to a specific test in section x
+  ```
 
-  # From the testsuite description
+  More information at [www.open-spf.org](http://www.open-spf.org):
+  - [open-spf testsuite](http://www.open-spf.org/Test_Suite)
+  - [rfc7208.2014-05 tests](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-2014-05-yml)
+  - [schema](http://www.open-spf.org/Test_Suite/Schema/)
 
-  ## The zonedata map in the yml-file:
+  ### Sections of the rfc7208 testsuite include:
 
-  - its keys are dns names
-  - its values are lists of map's, each with a single entry
-  - the key of the entry-map, is the RR-type
-  - the value of the entry-map, is a string or list (eg for MX records)
-    A value of a string is promoted to a list of 1 string
-
-  ## DNS errors:
-
-  - *TIMEOUT*, when the last entry for a dns name in the zonedata is TIMEOUT,
-     then all non-specified RR's should result in a timeout
-  - *NONE*, when a TXT RR's value is none, the SPF record is NOT copied to the
-    TXT RR: this allows record selection testing (see below)
-  - RCODE: n, is not used at the moment
-
-   For RFC 4408, the test suite was designed for use with SPF (type 99) and TXT
-   implementations.  In RFC 7208, use of type SPF has been removed.
-
-   ## The "Selecting records"
-
-   Test section 2 is the only one concerned with weeding out (incorrect)
-   queries for type SPF of any kind or proper response to duplicate or
-   conflicting records.  Other sections rely on auto-magic duplication of SPF
-   to TXT records (by test suite drivers) to test all implementation types with
-   one specification.
-
-   ## Available test sections
-
-   - 0  - Initial processing
-   - 1  - Record lookup
-   - 2  - Selecting records     <- keep SPF as SPF, donot convert to TXT record
-   - 3  - Record evaluation
-   - 4  - ALL mechanism syntax
-   - 5  - PTR mechanism syntax
-   - 6  - A   mechanism syntax
-   - 7  - Include mechanism syntax
-   - 8  - MX  mechanism syntax
-   - 9  - EXISTS mechanism syntax
-   - 10 - IP4 mechanism syntax
-   - 11 - IP6 mechanism syntax
-   - 12 - Semantics of exp and other modifiers
-   - 13 - Macro expansion rules
-   - 14 - Processing limits
+  - 0  - Initial processing
+  - 1  - Record lookup
+  - 2  - Selecting records     <- keep SPF as SPF, donot convert to TXT record
+  - 3  - Record evaluation
+  - 4  - ALL mechanism syntax
+  - 5  - PTR mechanism syntax
+  - 6  - A   mechanism syntax
+  - 7  - Include mechanism syntax
+  - 8  - MX  mechanism syntax
+  - 9  - EXISTS mechanism syntax
+  - 10 - IP4 mechanism syntax
+  - 11 - IP6 mechanism syntax
+  - 12 - Semantics of exp and other modifiers
+  - 13 - Macro expansion rules
+  - 14 - Processing limits
   """
+
+  # ## From the testsuite description
+
+  # ### The zonedata map in the yml-file:
+
+  # - its keys are dns names
+  # - its values are lists of map's, each with a single entry
+  # - the key of the entry-map, is the RR-type
+  # - the value of the entry-map, is a string or list (eg for MX records)
+  #   A value of a string is promoted to a list of 1 string
+
+  # ### DNS errors:
+
+  # - *TIMEOUT*, when the last entry for a dns name in the zonedata is TIMEOUT,
+  #   then all non-specified RR's should result in a timeout
+  # - *NONE*, when a TXT RR's value is none, the SPF record is NOT copied to the
+  #   TXT RR: this allows record selection testing (see below)
+  # - RCODE: n, is not used at the moment
+
+  # For RFC 4408, the test suite was designed for use with SPF (type 99) and TXT
+  # implementations.  In RFC 7208, use of type SPF has been removed.
+
+  # ### The Selecting records:
+
+  # Test section 2 is the only one concerned with weeding out (incorrect)
+  # queries for type SPF of any kind or proper response to duplicate or
+  # conflicting records.  Other sections rely on auto-magic duplication of SPF
+  # to TXT records (by test suite drivers) to test all implementation types with
+  # one specification.
+
   @shortdoc "Creates the rfc7208 ExUnit testsuite from the rfc's yaml file"
 
   @impl Mix.Task
@@ -238,13 +246,12 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
     # http://www.open-spf.org/Test_Suite/Schema/
     # records of type SPF get special treatment:
     # - If no records of type TXT are given for the same DNS name, then
-    #   an identical TXT record is also generated for the DNS data.
-    #   note: for all SPF records found
-    # this reflects the recommendation of section 3.1.1 and allows the test
-    # suite to be used with implementations that choose any of the three
+    #   the SPF record is copied to a TXT record for all SPF RR's found.
+    #
+    # this reflects the recommendation of rfc4408, section 3.1.1 and allows the
+    # test suite to be used with implementations that choose any of the three
     # options in section 4.4.
 
-    # wtf?
     # in addition:
     # - when the value of an SPF name is the string NONE, then that record
     #   is not added to the DNS data.

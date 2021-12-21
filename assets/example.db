@@ -4,5 +4,6 @@ spf-a.example.com txt v=spf1 a mx include:spf-b.example.com ~all
 spf-b.example.com txt v=spf1 include:netblocks4.example.com include:netblocks6.example.com
 netblocks4.example.com txt v=spf1 ip4:10.10.10.0/24 ip4:192.168.0.0/16 ip4:172.16.0.0/12 -all
 netblocks6.example.com txt v=spf1 ip6:2001:db8:2001::/64 ip6:2001:db8:2002::/64 ip6:2001:db8:2003::/64 -all
-spf-c.example.com txt v=spf1 a:bad.%{d2} ip4:1.1.1.1 -all
+spf-c.example.com txt v=spf1 a:bad.%{d2} include:unused.example.com ip4:1.1.1.1 -all
 bad.example.com a TIMEOUT
+unused.example.com TXT v=spf1 all

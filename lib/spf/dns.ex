@@ -268,13 +268,14 @@ defmodule Spf.DNS do
 
   Lines should be formatted as
   - `name  rr-type  data`, or
+  - `name  rr-type  error`, or
   - `name  error`
 
   where
   - `rr-type` is `a`, `aaaa`, `cname`, `mx`, `ns`, `ptr`, `soa`, `spf`, or `txt`
   - `error` is `formerr`, `nxdomain`, `servfail`, `timeout` or `zero_answers`
 
-  The second format will set the rdata for given `name` to given `error` for
+  The third format will set the rdata for given `name` to given `error` for
   all known `rr-type`'s.
 
   Unknown rr-types are ignored and logged as a warning during preloading.
@@ -415,19 +416,17 @@ defmodule Spf.DNS do
         "a.example.com A 1.2.3.4",
         "b.example.com AAAA TIMEOUT"
       ]
-
-      # iex> to_list(ctx, valid: :true)
-      # ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
-      # [
-      #   "example.com TXT \"v=spf1 -all\"",
-      #   "a.example.com A 1.2.3.4"
-      # ]
-
-      # iex> to_list(ctx, valid: false)
-      # ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
-      # [
-      #   "b.example.com AAAA TIMEOUT"
-      # ]
+      iex> to_list(ctx, valid: :true)
+      ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
+      [
+        "example.com TXT \"v=spf1 -all\"",
+        "a.example.com A 1.2.3.4"
+      ]
+      iex> to_list(ctx, valid: false)
+      ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
+      [
+        "b.example.com AAAA TIMEOUT"
+      ]
 
   """
   @spec to_list(Spf.Context.t(), Keyword.t()) :: list(binary)

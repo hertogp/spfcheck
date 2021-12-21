@@ -22,6 +22,15 @@ defmodule Spf.Parser do
   the `:explanation` key.
 
   In case of any syntax errors, sets the explanation string to an empty string.
+
+  ## Example
+
+      iex> Spf.Context.new("example.com", ip: "1.2.3.4")
+      ...> |> Map.put(:explain_string, "%{i} is bad")
+      ...> |> Spf.Parser.explain()
+      ...> |> Map.get(:explanation)
+      "1.2.3.4 is bad"
+
   """
   @spec explain(Spf.Context.t()) :: Spf.Context.t()
   def explain(%{explain_string: explain} = context) do
@@ -30,7 +39,6 @@ defmodule Spf.Parser do
         Map.put(context, :explanation, "")
 
       {:ok, [{:exp_str, tokens, _range}], _, _} ->
-        # TODO: log errors as encountered by expand
         case expand(context, tokens, :explain) do
           {:error, reason} ->
             log(context, :parse, :warn, "explain - invalid (#{reason})")
@@ -87,6 +95,14 @@ defmodule Spf.Parser do
   - `msg`, the message string
 
   In the absence of an error, `context.ast` is fit for evaluation.
+
+  ## Example
+
+      iex> Spf.Context.new("example.com")
+      ...> |> Map.put(:spf, "v=spf1 -all")
+      ...> |> Spf.Parser.parse()
+      ...> |> Map.get(:ast)
+      [{:all, '-', 7..10}]
 
   """
   @spec parse(Spf.Context.t()) :: Spf.Context.t()

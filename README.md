@@ -477,17 +477,19 @@ spf-a.example.com txt v=spf1 a mx include:spf-b.example.com ~all
 spf-b.example.com txt v=spf1 include:netblocks4.example.com include:netblocks6.example.com
 netblocks4.example.com txt v=spf1 ip4:10.10.10.0/24 ip4:192.168.0.0/16 ip4:172.16.0.0/12 -all
 netblocks6.example.com txt v=spf1 ip6:2001:db8:2001::/64 ip6:2001:db8:2002::/64 ip6:2001:db8:2003::/64 -all
-spf-c.example.com txt v=spf1 a:bad.%{d2} ip4:1.1.1.1 -all
+spf-c.example.com txt v=spf1 a:bad.%{d2} include:unused.example.com ip4:1.1.1.1 -all
 bad.example.com a TIMEOUT
+unused.example.com TXT v=spf1 all
 
 % spfcheck example.com --no-color -v 2 -d assets/example.db -r g 2> assets/example.com.log> assets/example.com.dot
 % dot -Tpng -O assets/example.com.dot
 
 % cat assets/example.com.log
+
 example.com %spf[1]-dns-warn:   | > DNS QUERY (4) a spf-a.example.com - NXDOMAIN
 example.com %spf[1]-dns-warn:   | > DNS QUERY (5) mx spf-a.example.com - NXDOMAIN
-example.com %spf[2]-parse-warn: | | > SPF record has implicit end (?all)
-example.com %spf[5]-parse-warn: | > SPF record has implicit end (?all)
+example.com %spf[2]-parse-warn: | | > spf[2] spf-b.example.com - has implicit end (?all)
+example.com %spf[5]-parse-warn: | > spf[5] spf-b.example.com - has implicit end (?all)
 example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:10.10.10.0/24 - redundant entry, already have: spf[3] ip4:10.10.10.0/24
 example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:192.168.0.0/16 - redundant entry, already have: spf[3] ip4:192.168.0.0/16
 example.com %spf[6]-ipt-warn:   | | > spf[6] ip4:172.16.0.0/12 - redundant entry, already have: spf[3] ip4:172.16.0.0/12
@@ -518,10 +520,18 @@ A few notes on interpretation:
 - `netblocks4.example.com` has 3 warnings
     - it is included twice and the second time around the 3 networks are known already
 - `netblocks6.example.com` also has 3 warnings, due to the same reason
-- only SPF records required to arrive at a verdict are shown
+- `spf-c.example.com` was redirected to by `example.com`
+    - `a:bad.%{d2}` failed with `TIMEOUT`, causing a `temperror`
+    - thus the terms `include:unused.example.com` and `ip4:1.1.1.1` were not evaluated
+    - hence, the SPF contents of the `unused.example.com` was not retrieved
+      which is why it is shown by name only
+- only SPF records required to arrive at a verdict are shown (with details)
     - early success or failure, means the graph does not show the full policy
     - to show as much as possible, use e.g. -i `127.0.0.1` (the default) or e.g.
       `0.0.0.0`
+- the DNS warnings for the `soa` queries can be ignored
+    - the authority is searched by querying for the soa record while dropping front-labels
+    - their stats (num_dnsq and/or num_dnsv) are not included in the stats shown in the verdict
 
 ## Verbosity flag
 
@@ -572,7 +582,7 @@ wide as necessary.
 
 ## Installation
 
-`spfcheck` requires Elixir 1.12.0 or later and can be installed as escript:
+[`spfcheck`](`Spfcheck`) requires Elixir 1.12.0 or later and can be installed as escript:
 
 ```bash
 mix escript.install hex spfcheck
@@ -580,7 +590,7 @@ mix escript.install hex spfcheck
 
 After installation, `~/.mix/escripts/spfcheck` invokes the escript.
 
-Use the underlying Spf modules in a project by adding `spfcheck` to the list of
+Use the underlying `Spf` module in a project by adding `spfcheck` to the list of
 dependencies in `mix.exs`:
 
 ```elixir
