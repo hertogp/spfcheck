@@ -206,7 +206,7 @@ defmodule Spf.DNS do
   @spec from_cache(Spf.Context.t(), binary, atom) :: dns_result()
   def from_cache(context, name, type) do
     # TODO:
-    # - check validity of name and return {:error, :illegal_name} is not valid
+    # - check validity of name and return {:error, :illegal_name} if not valid
     {context, name} = if type == :cname, do: {context, name}, else: cname(context, name)
     cache = Map.get(context, :dns, %{})
 

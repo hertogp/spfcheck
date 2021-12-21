@@ -83,6 +83,21 @@ defmodule SpfDNSTest do
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :mx)
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :ns)
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :soa)
+      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :ptr)
+      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
+      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :cname)
+    end
+
+    test "02 - dns cache withstands circular cname's" do
+      zonedata = """
+      example.com cname example.org
+      example.org cname example.net
+      example.net cname example.com
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+
+      {ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :a)
     end
   end
 end
