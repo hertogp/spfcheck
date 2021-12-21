@@ -42,28 +42,25 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   - 14 - Processing limits
   """
 
-  # ## From the testsuite description
+  # From the testsuite description
 
-  # ### The zonedata map in the yml-file:
-
+  # 1) The zonedata map in the yml-file:
   # - its keys are dns names
   # - its values are lists of map's, each with a single entry
   # - the key of the entry-map, is the RR-type
   # - the value of the entry-map, is a string or list (eg for MX records)
   #   A value of a string is promoted to a list of 1 string
 
-  # ### DNS errors:
-
+  # 2) DNS errors:
   # - *TIMEOUT*, when the last entry for a dns name in the zonedata is TIMEOUT,
   #   then all non-specified RR's should result in a timeout
   # - *NONE*, when a TXT RR's value is none, the SPF record is NOT copied to the
   #   TXT RR: this allows record selection testing (see below)
   # - RCODE: n, is not used at the moment
-
   # For RFC 4408, the test suite was designed for use with SPF (type 99) and TXT
   # implementations.  In RFC 7208, use of type SPF has been removed.
 
-  # ### The Selecting records:
+  # 3) The Selecting records:
 
   # Test section 2 is the only one concerned with weeding out (incorrect)
   # queries for type SPF of any kind or proper response to duplicate or

@@ -207,7 +207,7 @@ defmodule Spf.DNS do
   def from_cache(context, name, type) do
     # TODO:
     # - check validity of name and return {:error, :illegal_name} is not valid
-    {_context, name} = cname(context, name)
+    {context, name} = if type == :cname, do: {context, name}, else: cname(context, name)
     cache = Map.get(context, :dns, %{})
 
     case cache[{name, type}] do
@@ -538,8 +538,6 @@ defmodule Spf.DNS do
     timeout = Map.get(ctx, :dns_timeout, 2000)
     opts = Keyword.put(opts, :timeout, timeout)
 
-    # nameservers = Map.get(ctx, :nameservers)
-    # opts = if nameservers, do: Keyword.put(opts, :nameservers, nameservers), else: opts
     opts =
       case Map.get(ctx, :nameservers) do
         nil -> opts
@@ -553,8 +551,6 @@ defmodule Spf.DNS do
       |> :inet_res.resolve(:in, type, opts)
       |> rrentries()
       |> cache(ctx, name, type)
-
-    # |> :inet_res.resolve(:in, type, [{:timeout, timeout}])
 
     # get result (or not) from cache
     result =
@@ -773,10 +769,22 @@ defmodule Spf.DNS do
 
   defp rr_fromstrp(str, ctx) do
     case rr_line(str) do
-      {:ok, rrs} -> Enum.reduce(rrs, ctx, fn entry, ctx -> update(ctx, entry) end)
+      {:ok, rrs} -> Enum.reduce(rrs, ctx, fn entry, ctx -> only_new(ctx, entry) end)
       {:error, reason} -> Spf.Context.log(ctx, :dns, :warn, "#{reason} -- ignored rr '#{str}'")
     end
   end
+
+  defp only_new(ctx, {name, type, {:error, reason}}) do
+    # only add {:error, reason} if there is no existing RR for {name, type}
+    # note: assumes rr_line_parts has normalize both `name` and `type`
+    case ctx.dns[{name, type}] do
+      nil -> update(ctx, {name, type, {:error, reason}})
+      _ -> ctx
+    end
+  end
+
+  defp only_new(ctx, entry),
+    do: update(ctx, entry)
 
   defp rr_line(line) do
     # return {:ok, [{name, type, rdata}] or {:error, reason}
@@ -875,7 +883,7 @@ defmodule Spf.DNS do
   end
 
   defp rr_line_unquote(rdata) do
-    # Returns either:
+    # returns either:
     # - an unquote'd rdata (NOT changing case) or
     # - a known, supported rdata error-tuple
     rdata = no_quotes(rdata)
