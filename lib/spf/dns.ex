@@ -633,16 +633,12 @@ defmodule Spf.DNS do
     |> Enum.map(fn x -> rrentry(x) end)
   end
 
-  @spec cname(Spf.Context.t(), binary, map) ::
-          {Spf.Context.t(), {:ok, binary}} | {Spf.Context.t(), {:error, :cname}}
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
     name = charlists_tostr(name) |> normalize()
     cache = Map.get(ctx, :dns, %{})
 
     if seen[name] do
-      IO.inspect({name, seen}, label: :cname_loop)
-
       ctx =
         log(ctx, :dns, :error, "circular CNAMEs: #{inspect(seen)}")
         |> log(:dns, :warn, "DNS CNAME: using #{name} to break circular reference")
