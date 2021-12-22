@@ -14,7 +14,6 @@ e6.example.com TXT v=spf1 exists:err.example.com -all
 e6.example.com SPF v=spf1 exists:err.example.com -all
 err.example.com A TIMEOUT
 err.example.com AAAA TIMEOUT
-err.example.com CNAME TIMEOUT
 err.example.com MX TIMEOUT
 err.example.com PTR TIMEOUT
 err.example.com SOA TIMEOUT

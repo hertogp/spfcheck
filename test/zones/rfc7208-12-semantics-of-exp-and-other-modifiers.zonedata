@@ -6,7 +6,6 @@ twoexp.example.com TXT two
 badexp.example.com TXT ï»¿Explanation
 e21msg.example.com A TIMEOUT
 e21msg.example.com AAAA TIMEOUT
-e21msg.example.com CNAME TIMEOUT
 e21msg.example.com MX TIMEOUT
 e21msg.example.com PTR TIMEOUT
 e21msg.example.com SOA TIMEOUT

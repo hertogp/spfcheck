@@ -27,7 +27,6 @@ ip7.example.com TXT v=spf1 ip4:1.2.3.7 ?all
 ip7.example.com SPF v=spf1 ip4:1.2.3.7 ?all
 ip8.example.com A TIMEOUT
 ip8.example.com AAAA TIMEOUT
-ip8.example.com CNAME TIMEOUT
 ip8.example.com MX TIMEOUT
 ip8.example.com PTR TIMEOUT
 ip8.example.com SOA TIMEOUT

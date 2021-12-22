@@ -2,7 +2,6 @@
 
 alltimeout.example.net A TIMEOUT
 alltimeout.example.net AAAA TIMEOUT
-alltimeout.example.net CNAME TIMEOUT
 alltimeout.example.net MX TIMEOUT
 alltimeout.example.net PTR TIMEOUT
 alltimeout.example.net SOA TIMEOUT
@@ -13,7 +12,6 @@ both.example.net SPF v=spf1 -all
 nospftxttimeout.example.net SPF v=spf3 !a:yahoo.com -all
 nospftxttimeout.example.net A TIMEOUT
 nospftxttimeout.example.net AAAA TIMEOUT
-nospftxttimeout.example.net CNAME TIMEOUT
 nospftxttimeout.example.net MX TIMEOUT
 nospftxttimeout.example.net PTR TIMEOUT
 nospftxttimeout.example.net SOA TIMEOUT
@@ -22,7 +20,6 @@ spfonly.example.net SPF v=spf1 -all
 spftimeout.example.net TXT v=spf1 -all
 spftimeout.example.net A TIMEOUT
 spftimeout.example.net AAAA TIMEOUT
-spftimeout.example.net CNAME TIMEOUT
 spftimeout.example.net MX TIMEOUT
 spftimeout.example.net PTR TIMEOUT
 spftimeout.example.net SOA TIMEOUT
@@ -31,7 +28,6 @@ txtonly.example.net TXT v=spf1 -all
 txttimeout.example.net SPF v=spf1 -all
 txttimeout.example.net A TIMEOUT
 txttimeout.example.net AAAA TIMEOUT
-txttimeout.example.net CNAME TIMEOUT
 txttimeout.example.net MX TIMEOUT
 txttimeout.example.net PTR TIMEOUT
 txttimeout.example.net SOA TIMEOUT
