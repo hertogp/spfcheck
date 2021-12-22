@@ -20,8 +20,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral"], "12.0 default-modifier-obsolete"
-      assert ctx.explanation == "", "12.0 default-modifier-obsolete"
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral"], "12.1 default-modifier-obsolete2"
-      assert ctx.explanation == "", "12.1 default-modifier-obsolete2"
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.2 dorky-sentinel"
-      assert ctx.explanation == "Macro Error in implementation", "12.2 dorky-sentinel"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "Macro Error in implementation"
     end
 
     @tag set: "12"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.3 empty-modifier-name"
-      assert ctx.explanation == "", "12.3 empty-modifier-name"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.4 exp-dns-error"
-      assert ctx.explanation == "", "12.4 exp-dns-error"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.5 exp-empty-domain"
-      assert ctx.explanation == "", "12.5 exp-empty-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.6 exp-multiple-txt"
-      assert ctx.explanation == "", "12.6 exp-multiple-txt"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -132,8 +132,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.7 exp-no-txt"
-      assert ctx.explanation == "", "12.7 exp-no-txt"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -148,8 +148,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.8 exp-syntax-error"
-      assert ctx.explanation == "", "12.8 exp-syntax-error"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -164,8 +164,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.9 exp-twice"
-      assert ctx.explanation == "", "12.9 exp-twice"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -180,8 +180,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.10 exp-void"
-      assert ctx.explanation == "", "12.10 exp-void"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -196,8 +196,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.11 explanation-syntax-error"
-      assert ctx.explanation == "", "12.11 explanation-syntax-error"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -212,8 +212,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.12 include-ignores-exp"
-      assert ctx.explanation == "Correct!", "12.12 include-ignores-exp"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "Correct!"
     end
 
     @tag set: "12"
@@ -228,8 +228,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.13 invalid-modifier"
-      assert ctx.explanation == "", "12.13 invalid-modifier"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -244,8 +244,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.14 non-ascii-exp"
-      assert ctx.explanation == "", "12.14 non-ascii-exp"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -260,8 +260,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.15 redirect-cancels-exp"
-      assert ctx.explanation == "", "12.15 redirect-cancels-exp"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -276,8 +276,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.16 redirect-cancels-prior-exp"
-      assert ctx.explanation == "See me.", "12.16 redirect-cancels-prior-exp"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "See me."
     end
 
     @tag set: "12"
@@ -292,8 +292,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.17 redirect-empty-domain"
-      assert ctx.explanation == "", "12.17 redirect-empty-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -308,8 +308,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.18 redirect-none"
-      assert ctx.explanation == "", "12.18 redirect-none"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -324,8 +324,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.19 redirect-syntax-error"
-      assert ctx.explanation == "", "12.19 redirect-syntax-error"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -340,8 +340,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.20 redirect-twice"
-      assert ctx.explanation == "", "12.20 redirect-twice"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -356,8 +356,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "12.21 two-exp-records"
-      assert ctx.explanation == "", "12.21 two-exp-records"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "12"
@@ -372,8 +372,8 @@ defmodule Rfc7208.Section12Test do
           dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "12.22 unknown-modifier-syntax"
-      assert ctx.explanation == "", "12.22 unknown-modifier-syntax"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
   end
 end

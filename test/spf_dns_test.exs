@@ -3,6 +3,7 @@ defmodule SpfDNSTest do
   doctest Spf.DNS, import: true
 
   describe "DNS cache" do
+    @tag tst: "00"
     test "00 - caches zonedata from heredoc" do
       zonedata = """
       example.com A 1.2.3.4
@@ -67,6 +68,7 @@ defmodule SpfDNSTest do
       assert result == {:ok, ["1.1.1.1"]}
     end
 
+    @tag tst: "01"
     test "01 - DNS cache from a list of lines" do
       zonedata =
         """
@@ -133,6 +135,7 @@ defmodule SpfDNSTest do
       assert result == {:ok, ["1.1.1.1"]}
     end
 
+    @tag tst: "03"
     test "03 - dns cache should insert errors properly" do
       zonedata = """
       example.com A 1.2.3.4
@@ -154,9 +157,12 @@ defmodule SpfDNSTest do
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :soa)
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :ptr)
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
-      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :cname)
+
+      # errors NEVER propagate to a CNAME record!
+      {_ctx, {:error, :cache_miss}} = Spf.DNS.from_cache(ctx, "example.com", type: :cname)
     end
 
+    @tag tst: "04"
     test "04 - dns cache errors out on circular cname's" do
       zonedata = """
       example.com cname example.org
@@ -181,14 +187,14 @@ defmodule SpfDNSTest do
       # rfc1035 - servfail: name server was unable to process the query due to
       # a (database) problem with the name server.
 
-      # {ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :a)
-      # assert result == {:error, :servfail}
+      {ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :a)
+      assert result == {:error, :servfail}
 
-      # {ctx, result} = Spf.DNS.resolve(ctx, "example.org", type: :a)
-      # assert result == {:error, :servfail}
+      {ctx, result} = Spf.DNS.resolve(ctx, "example.org", type: :a)
+      assert result == {:error, :servfail}
 
-      # {_ctx, result} = Spf.DNS.resolve(ctx, "example.net", type: :a)
-      # assert result == {:error, :servfail}
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.net", type: :a)
+      assert result == {:error, :servfail}
     end
   end
 end

@@ -20,10 +20,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.0 domain-name-truncation"
-
-      assert ctx.explanation == "Congratulations!  That was tricky.",
-             "13.0 domain-name-truncation"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "Congratulations!  That was tricky."
     end
 
     @tag set: "13"
@@ -38,8 +36,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "13.1 exp-only-macro-char"
-      assert ctx.explanation == "", "13.1 exp-only-macro-char"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -54,10 +52,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.2 exp-txt-macro-char"
-
-      assert ctx.explanation == "Connections from 192.168.218.40 not authorized.",
-             "13.2 exp-txt-macro-char"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "Connections from 192.168.218.40 not authorized."
     end
 
     @tag set: "13"
@@ -72,8 +68,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.3 hello-domain-literal"
-      assert ctx.explanation == "", "13.3 hello-domain-literal"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -88,8 +84,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "13.4 hello-macro"
-      assert ctx.explanation == "", "13.4 hello-macro"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -104,8 +100,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "13.5 invalid-embedded-macro-char"
-      assert ctx.explanation == "", "13.5 invalid-embedded-macro-char"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -120,8 +116,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.6 invalid-hello-macro"
-      assert ctx.explanation == "", "13.6 invalid-hello-macro"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -136,8 +132,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "13.7 invalid-macro-char"
-      assert ctx.explanation == "", "13.7 invalid-macro-char"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -152,8 +148,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "13.8 invalid-trailing-macro-char"
-      assert ctx.explanation == "", "13.8 invalid-trailing-macro-char"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -168,8 +164,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "13.9 macro-mania-in-domain"
-      assert ctx.explanation == "", "13.9 macro-mania-in-domain"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -184,8 +180,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "13.10 macro-multiple-delimiters"
-      assert ctx.explanation == "", "13.10 macro-multiple-delimiters"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -200,8 +196,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "13.11 macro-reverse-split-on-dash"
-      assert ctx.explanation == "", "13.11 macro-reverse-split-on-dash"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -216,8 +212,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.12 p-macro-ip4-novalid"
-      assert ctx.explanation == "connect from unknown", "13.12 p-macro-ip4-novalid"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "connect from unknown"
     end
 
     @tag set: "13"
@@ -232,8 +228,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.13 p-macro-ip4-valid"
-      assert ctx.explanation == "connect from mx.example.com", "13.13 p-macro-ip4-valid"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "connect from mx.example.com"
     end
 
     @tag set: "13"
@@ -248,8 +244,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.14 p-macro-ip6-novalid"
-      assert ctx.explanation == "connect from unknown", "13.14 p-macro-ip6-novalid"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "connect from unknown"
     end
 
     @tag set: "13"
@@ -264,8 +260,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.15 p-macro-ip6-valid"
-      assert ctx.explanation == "connect from mx.example.com", "13.15 p-macro-ip6-valid"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "connect from mx.example.com"
     end
 
     @tag set: "13"
@@ -280,8 +276,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass", "softfail"], "13.16 p-macro-multiple"
-      assert ctx.explanation == "", "13.16 p-macro-multiple"
+      assert to_string(ctx.verdict) in ["pass", "softfail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -296,8 +292,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.17 require-valid-helo"
-      assert ctx.explanation == "", "13.17 require-valid-helo"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -312,8 +308,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "13.18 trailing-dot-domain"
-      assert ctx.explanation == "", "13.18 trailing-dot-domain"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -328,8 +324,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.19 trailing-dot-exp"
-      assert ctx.explanation == "This is a test.", "13.19 trailing-dot-exp"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "This is a test."
     end
 
     @tag set: "13"
@@ -344,8 +340,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "13.20 undef-macro"
-      assert ctx.explanation == "", "13.20 undef-macro"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "13"
@@ -360,10 +356,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.21 upper-macro"
-
-      assert ctx.explanation == "http://example.com/why.html?l=jack%26jill%3Dup",
-             "13.21 upper-macro"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "http://example.com/why.html?l=jack%26jill%3Dup"
     end
 
     @tag set: "13"
@@ -378,10 +372,8 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.22 v-macro-ip4"
-
-      assert ctx.explanation == "192.168.218.40 is queried as 40.218.168.192.in-addr.arpa",
-             "13.22 v-macro-ip4"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "192.168.218.40 is queried as 40.218.168.192.in-addr.arpa"
     end
 
     @tag set: "13"
@@ -396,11 +388,10 @@ defmodule Rfc7208.Section13Test do
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "13.23 v-macro-ip6"
+      assert to_string(ctx.verdict) in ["fail"]
 
       assert ctx.explanation ==
-               "cafe:babe::1 is queried as 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.E.B.A.B.E.F.A.C.ip6.arpa",
-             "13.23 v-macro-ip6"
+               "cafe:babe::1 is queried as 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.E.B.A.B.E.F.A.C.ip6.arpa"
     end
   end
 end

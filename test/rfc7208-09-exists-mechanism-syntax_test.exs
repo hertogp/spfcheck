@@ -20,8 +20,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "9.0 exists-cidr"
-      assert ctx.explanation == "", "9.0 exists-cidr"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "9"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["temperror"], "9.1 exists-dnserr"
-      assert ctx.explanation == "", "9.1 exists-dnserr"
+      assert to_string(ctx.verdict) in ["temperror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "9"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "9.2 exists-empty-domain"
-      assert ctx.explanation == "", "9.2 exists-empty-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "9"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "9.3 exists-implicit"
-      assert ctx.explanation == "", "9.3 exists-implicit"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "9"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "9.4 exists-ip4"
-      assert ctx.explanation == "", "9.4 exists-ip4"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "9"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "9.5 exists-ip6"
-      assert ctx.explanation == "", "9.5 exists-ip6"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "9"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section9Test do
           dns: "test/zones/rfc7208-09-exists-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "9.6 exists-ip6only"
-      assert ctx.explanation == "", "9.6 exists-ip6only"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
   end
 end

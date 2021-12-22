@@ -20,8 +20,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["softfail"], "2.0 case-insensitive"
-      assert ctx.explanation == "", "2.0 case-insensitive"
+      assert to_string(ctx.verdict) in ["softfail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral"], "2.1 empty"
-      assert ctx.explanation == "", "2.1 empty"
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror", "fail"], "2.2 multispf1"
-      assert ctx.explanation == "", "2.2 multispf1"
+      assert to_string(ctx.verdict) in ["permerror", "fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "2.3 multispf2"
-      assert ctx.explanation == "", "2.3 multispf2"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "2.4 multitxt1"
-      assert ctx.explanation == "", "2.4 multitxt1"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "2.5 multitxt2"
-      assert ctx.explanation == "", "2.5 multitxt2"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "2.6 nospace1"
-      assert ctx.explanation == "", "2.6 nospace1"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -132,8 +132,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "2.7 nospace2"
-      assert ctx.explanation == "", "2.7 nospace2"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -148,8 +148,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "2.8 nospf"
-      assert ctx.explanation == "", "2.8 nospf"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "2"
@@ -164,8 +164,8 @@ defmodule Rfc7208.Section2Test do
           dns: "test/zones/rfc7208-02-selecting-records.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "2.9 spfoverride"
-      assert ctx.explanation == "", "2.9 spfoverride"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
   end
 end

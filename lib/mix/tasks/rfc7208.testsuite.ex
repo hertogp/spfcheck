@@ -153,8 +153,8 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
               dns: "#{zonefile}"
             )
 
-          assert to_string(ctx.verdict) in [#{result}], "#{testname}"
-          assert ctx.explanation == "#{explanation}", "#{testname}"
+          assert to_string(ctx.verdict) in [#{result}]
+          assert ctx.explanation == "#{explanation}"
         end
       """
     end

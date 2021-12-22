@@ -20,8 +20,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.0 a-bad-cidr4"
-      assert ctx.explanation == "", "6.0 a-bad-cidr4"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.1 a-bad-cidr6"
-      assert ctx.explanation == "", "6.1 a-bad-cidr6"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.2 a-bad-domain"
-      assert ctx.explanation == "", "6.2 a-bad-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.3 a-bad-toplabel"
-      assert ctx.explanation == "", "6.3 a-bad-toplabel"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.4 a-cidr4-0"
-      assert ctx.explanation == "", "6.4 a-cidr4-0"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.5 a-cidr4-0-ip6"
-      assert ctx.explanation == "", "6.5 a-cidr4-0-ip6"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.6 a-cidr6"
-      assert ctx.explanation == "", "6.6 a-cidr6"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -132,8 +132,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.7 a-cidr6-0-ip4"
-      assert ctx.explanation == "", "6.7 a-cidr6-0-ip4"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -148,8 +148,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.8 a-cidr6-0-ip4mapped"
-      assert ctx.explanation == "", "6.8 a-cidr6-0-ip4mapped"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -164,8 +164,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.9 a-cidr6-0-ip6"
-      assert ctx.explanation == "", "6.9 a-cidr6-0-ip6"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -180,8 +180,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.10 a-cidr6-0-nxdomain"
-      assert ctx.explanation == "", "6.10 a-cidr6-0-nxdomain"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -196,8 +196,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.11 a-colon-domain"
-      assert ctx.explanation == "", "6.11 a-colon-domain"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -212,8 +212,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.12 a-colon-domain-ip4mapped"
-      assert ctx.explanation == "", "6.12 a-colon-domain-ip4mapped"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -228,8 +228,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.13 a-dash-in-toplabel"
-      assert ctx.explanation == "", "6.13 a-dash-in-toplabel"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -244,8 +244,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.14 a-dual-cidr-ip4-default"
-      assert ctx.explanation == "", "6.14 a-dual-cidr-ip4-default"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -260,8 +260,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.15 a-dual-cidr-ip4-err"
-      assert ctx.explanation == "", "6.15 a-dual-cidr-ip4-err"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -276,8 +276,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.16 a-dual-cidr-ip4-match"
-      assert ctx.explanation == "", "6.16 a-dual-cidr-ip4-match"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -292,8 +292,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.17 a-dual-cidr-ip6-default"
-      assert ctx.explanation == "", "6.17 a-dual-cidr-ip6-default"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -308,8 +308,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.18 a-dual-cidr-ip6-match"
-      assert ctx.explanation == "", "6.18 a-dual-cidr-ip6-match"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -324,8 +324,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.19 a-empty-domain"
-      assert ctx.explanation == "", "6.19 a-empty-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -340,8 +340,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.20 a-ip6-dualstack"
-      assert ctx.explanation == "", "6.20 a-ip6-dualstack"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -356,8 +356,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.21 a-multi-ip1"
-      assert ctx.explanation == "", "6.21 a-multi-ip1"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -372,8 +372,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "6.22 a-multi-ip2"
-      assert ctx.explanation == "", "6.22 a-multi-ip2"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -388,8 +388,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.23 a-null"
-      assert ctx.explanation == "", "6.23 a-null"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -404,8 +404,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.24 a-numeric"
-      assert ctx.explanation == "", "6.24 a-numeric"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -420,8 +420,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.25 a-numeric-toplabel"
-      assert ctx.explanation == "", "6.25 a-numeric-toplabel"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -436,8 +436,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "6.26 a-nxdomain"
-      assert ctx.explanation == "", "6.26 a-nxdomain"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -452,8 +452,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.27 a-only-toplabel"
-      assert ctx.explanation == "", "6.27 a-only-toplabel"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "6"
@@ -468,8 +468,8 @@ defmodule Rfc7208.Section6Test do
           dns: "test/zones/rfc7208-06-a-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "6.28 a-only-toplabel-trailing-dot"
-      assert ctx.explanation == "", "6.28 a-only-toplabel-trailing-dot"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
   end
 end

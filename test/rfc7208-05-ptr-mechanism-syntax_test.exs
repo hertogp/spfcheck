@@ -20,8 +20,8 @@ defmodule Rfc7208.Section5Test do
           dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "5.0 ptr-cidr"
-      assert ctx.explanation == "", "5.0 ptr-cidr"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "5"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section5Test do
           dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "5.1 ptr-empty-domain"
-      assert ctx.explanation == "", "5.1 ptr-empty-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "5"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section5Test do
           dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "5.2 ptr-match-implicit"
-      assert ctx.explanation == "", "5.2 ptr-match-implicit"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "5"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section5Test do
           dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "5.3 ptr-match-ip6"
-      assert ctx.explanation == "", "5.3 ptr-match-ip6"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "5"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section5Test do
           dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "5.4 ptr-match-target"
-      assert ctx.explanation == "", "5.4 ptr-match-target"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "5"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section5Test do
           dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "5.5 ptr-nomatch-invalid"
-      assert ctx.explanation == "", "5.5 ptr-nomatch-invalid"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
   end
 end

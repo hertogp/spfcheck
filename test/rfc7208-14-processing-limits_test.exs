@@ -20,8 +20,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "14.0 false-a-limit"
-      assert ctx.explanation == "", "14.0 false-a-limit"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "14.1 include-at-limit"
-      assert ctx.explanation == "", "14.1 include-at-limit"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "14.2 include-loop"
-      assert ctx.explanation == "", "14.2 include-loop"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "14.3 include-over-limit"
-      assert ctx.explanation == "", "14.3 include-over-limit"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "14.4 mech-at-limit"
-      assert ctx.explanation == "", "14.4 mech-at-limit"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "14.5 mech-over-limit"
-      assert ctx.explanation == "", "14.5 mech-over-limit"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "14.6 mx-limit"
-      assert ctx.explanation == "", "14.6 mx-limit"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -132,8 +132,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral", "pass"], "14.7 ptr-limit"
-      assert ctx.explanation == "", "14.7 ptr-limit"
+      assert to_string(ctx.verdict) in ["neutral", "pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -148,8 +148,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "14.8 redirect-loop"
-      assert ctx.explanation == "", "14.8 redirect-loop"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -164,8 +164,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral"], "14.9 void-at-limit"
-      assert ctx.explanation == "", "14.9 void-at-limit"
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "14"
@@ -180,8 +180,8 @@ defmodule Rfc7208.Section14Test do
           dns: "test/zones/rfc7208-14-processing-limits.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "14.10 void-over-limit"
-      assert ctx.explanation == "", "14.10 void-over-limit"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
   end
 end

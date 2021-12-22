@@ -20,8 +20,8 @@ defmodule Rfc7208.Section4Test do
           dns: "test/zones/rfc7208-04-all-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "4.0 all-arg"
-      assert ctx.explanation == "", "4.0 all-arg"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "4"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section4Test do
           dns: "test/zones/rfc7208-04-all-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "4.1 all-cidr"
-      assert ctx.explanation == "", "4.1 all-cidr"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "4"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section4Test do
           dns: "test/zones/rfc7208-04-all-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "4.2 all-dot"
-      assert ctx.explanation == "", "4.2 all-dot"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "4"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section4Test do
           dns: "test/zones/rfc7208-04-all-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "4.3 all-double"
-      assert ctx.explanation == "", "4.3 all-double"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "4"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section4Test do
           dns: "test/zones/rfc7208-04-all-mechanism-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral"], "4.4 all-neutral"
-      assert ctx.explanation == "", "4.4 all-neutral"
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
     end
   end
 end

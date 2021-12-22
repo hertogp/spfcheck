@@ -179,56 +179,54 @@ defmodule Spf.DNS do
   end
 
   @doc """
-  Returns a cached `t:dns_result/0` for given `name`, `type` and `context` or a `t:cache_miss/0`.
+  Returns an updated context, a normalized name and a cache result in a 3-tuple
 
-  The result returned is one of:
-  - `{:error, :cache_miss}`, for a cache miss
-  - `{:error, reason}`, for a cache hit (of a previous negative result)
+  The cache result can be one of:
+  - `{:error, reason}`
   - `{:ok, rrs}`, for a cache hit (where `rrs` is a list of rrdata's).
 
   Where `reason` includes:
-  - `:nxdomain`
-  - `:servfail`
-  - `:timeout`
-  - `:zero_answers`
-  - `:illegal_name`
+  - `:cache_miss`, nothing found in the cache
+  - `:nxdomain`, a previously cached result
+  - `:servfail`, a previously cached result or a cname loop was found
+  - `:timeout`, a previously cached result
+  - `:zero_answers`, a previously cached result
+  - `:illegal_name`, name was not a proper domain name
 
-  Note that this function normalizes given `name` and unrolls CNAME(s) and does
-  not make any actual DNS requests nor does it do any statistics.
+  Note that this function does not make any real DNS requests.
 
   ## Example
 
-       iex> zonedata = ["example.net CNAME example.com", "EXAMPLE.COM A 1.2.3.4"]
-       iex> Spf.Context.new("some.domain.tld", dns: zonedata)
+       iex> zonedata = ["example.net CNAME example.com", "EXAMPLE.COM. A 1.2.3.4"]
+       iex> {_ctx, result} = Spf.Context.new("some.domain.tld", dns: zonedata)
        ...> |> Spf.DNS.from_cache("example.net", :a)
+       iex> result
        {:ok, ["1.2.3.4"]}
 
   """
-  @spec from_cache(Spf.Context.t(), binary, atom) :: dns_result()
+  @spec from_cache(Spf.Context.t(), binary, atom) :: {Spf.Context.t(), dns_result()}
   def from_cache(context, name, type) do
-    # TODO:
-    # - check validity of name and return {:error, :illegal_name} if not valid
-    # NOTE:
-    # - cname returns {ctx, {:ok, binary}} or {ctx, {:error, reason}}
-    #   reason is one of :cname, :illegal_name
-    #
-    # with {:ok, context, name} <- cname(context, name, type) do
-    #   case cache[{name, type}] do
-    #     nil -> {context, {:error, :cache_miss}}
-    #     [{:error, reason}] -> {context, {:error, reason}}
-    #     result -> {context, {:ok, result}}
-    #   end
-    # end
-
-    #
-    {context, name} = if type == :cname, do: {context, name}, else: cname(context, name)
-    cache = Map.get(context, :dns, %{})
-
-    case cache[{name, type}] do
-      nil -> {:error, :cache_miss}
-      [{:error, reason}] -> {:error, reason}
-      res -> {:ok, res}
+    with {:ok, name} <- check_domain(name),
+         {context, {:ok, name}} <- cname(context, name, type) do
+      case context.dns[{name, type}] do
+        nil -> {context, {:error, :cache_miss}}
+        [{:error, reason}] -> {context, {:error, reason}}
+        result -> {context, {:ok, result}}
+      end
+    else
+      {:error, reason} -> {context, {:error, reason}}
+      error -> error
     end
+
+    #
+    # {context, name} = if type == :cname, do: {context, name}, else: cname(context, name)
+    # cache = Map.get(context, :dns, %{})
+
+    # case cache[{name, type}] do
+    #   nil -> {:error, :cache_miss}
+    #   [{:error, reason}] -> {:error, reason}
+    #   res -> {:ok, res}
+    # end
   end
 
   @doc """
@@ -290,7 +288,8 @@ defmodule Spf.DNS do
   - `error` is `formerr`, `nxdomain`, `servfail`, `timeout` or `zero_answers`
 
   The third format will set the rdata for given `name` to given `error` for
-  all known `rr-type`'s.
+  all known `rr-type`'s except for CNAME RR-type since autogenerting a CNAME
+  would effectively destroy all access to the domain name's records.
 
   Unknown rr-types are ignored and logged as a warning during preloading.
 
@@ -315,7 +314,6 @@ defmodule Spf.DNS do
         {"example.com", :txt} => ["v=spf1 +all"],
         {"example.net", :a} => [error: :servfail],
         {"example.net", :aaaa} => [error: :servfail],
-        {"example.net", :cname} => [error: :servfail],
         {"example.net", :mx} => [error: :servfail],
         {"example.net", :ns} => [error: :servfail],
         {"example.net", :ptr} => [error: :servfail],
@@ -323,6 +321,8 @@ defmodule Spf.DNS do
         {"example.net", :spf} => [error: :servfail],
         {"example.net", :txt} => [error: :servfail]
       }
+
+      # Note the error did not propagate to the CNAME type.
 
   """
   # @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
@@ -395,14 +395,24 @@ defmodule Spf.DNS do
     stats = Keyword.get(opts, :stats, true)
     type = Keyword.get(opts, :type, Map.get(ctx, :atype, :a))
 
-    case check_domain(name) do
-      {:ok, name} ->
+    case from_cache(ctx, name, type) do
+      {ctx, {:error, :cache_miss}} ->
         tick(ctx, :num_dnsq)
-        |> resolvep(name, type, stats)
+        |> query(name, type, stats)
 
-      {:error, reason} ->
-        {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+      {ctx, result} ->
+        tick(ctx, :num_dnsq)
+        |> do_stats(name, type, result, stats, cached: true)
     end
+
+    # case check_domain(name) do
+    #   {:ok, name} ->
+    #     tick(ctx, :num_dnsq)
+    #     |> resolvep(name, type, stats)
+
+    #   {:error, reason} ->
+    #     {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+    # end
   end
 
   @doc ~S"""
@@ -468,11 +478,12 @@ defmodule Spf.DNS do
   defp authorityp([], _ctx), do: {:error, :nxdomain}
 
   defp authorityp([head | tail], ctx) do
+    # TODO: have authorityp return ctx as well?
     # check ctx's cache for results for `head` to skip soa of a possible CNAME
     {ctx, _} = resolve(ctx, head, type: :soa)
 
     case from_cache(ctx, head, :soa) do
-      {:ok, [{_, contact, _, _, _, _, _}]} ->
+      {_ctx, {:ok, [{_, contact, _, _, _, _, _}]}} ->
         {:ok, head, String.replace(contact, ".", "@", global: false)}
 
       _ ->
@@ -568,10 +579,10 @@ defmodule Spf.DNS do
       |> cache(ctx, name, type)
 
     # get result (or not) from cache
-    result =
+    {ctx, result} =
       case from_cache(ctx, name, type) do
-        {:error, :cache_miss} -> {:error, :zero_answers}
-        result -> result
+        {ctx, {:error, :cache_miss}} -> {ctx, {:error, :zero_answers}}
+        {ctx, result} -> {ctx, result}
       end
 
     do_stats(ctx, name, type, result, stats)
@@ -595,16 +606,16 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  @spec resolvep(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
-  defp resolvep(ctx, name, type, stats) do
-    case from_cache(ctx, name, type) do
-      {:error, :cache_miss} ->
-        query(ctx, name, type, stats)
+  # @spec resolvep(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
+  # defp resolvep(ctx, name, type, stats) do
+  #   case from_cache(ctx, name, type) do
+  #     {ctx, {:error, :cache_miss}} ->
+  #       query(ctx, name, type, stats)
 
-      result ->
-        do_stats(ctx, name, type, result, stats, cached: true)
-    end
-  end
+  #     {ctx, result} ->
+  #       do_stats(ctx, name, type, result, stats, cached: true)
+  #   end
+  # end
 
   defp rrentries(msg) do
     # given a dns_msg {:dns_rec, ...} or error-tuple
@@ -633,22 +644,28 @@ defmodule Spf.DNS do
     |> Enum.map(fn x -> rrentry(x) end)
   end
 
-  defp cname(ctx, name, seen \\ %{}) do
+  @spec cname(Spf.Context.t(), binary, atom, map) :: {Spf.Context.t(), {:ok | :error, any}}
+  defp cname(ctx, name, type, seen \\ %{})
+
+  defp cname(ctx, name, :cname, _),
+    do: {ctx, {:ok, name}}
+
+  defp cname(ctx, name, type, seen) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    name = charlists_tostr(name) |> normalize()
-    cache = Map.get(ctx, :dns, %{})
+    # name = charlists_tostr(name) |> normalize()
+    # cache = Map.get(ctx, :dns, %{})
 
     if seen[name] do
       ctx =
         log(ctx, :dns, :error, "circular CNAMEs: #{inspect(seen)}")
         |> log(:dns, :warn, "DNS CNAME: using #{name} to break circular reference")
 
-      {ctx, name}
+      {ctx, {:error, :servfail}}
     else
-      case cache[{name, :cname}] do
-        nil -> {ctx, name}
-        [{:error, _}] -> {ctx, name}
-        [realname] -> cname(ctx, realname, Map.put(seen, name, realname))
+      case ctx.dns[{name, :cname}] do
+        nil -> {ctx, {:ok, name}}
+        [{:error, reason}] -> {ctx, {:error, reason}}
+        [realname] -> cname(ctx, realname, type, Map.put(seen, name, realname))
       end
     end
   end
@@ -815,13 +832,16 @@ defmodule Spf.DNS do
     # :NOTE: rfc7208's tst:13.9 (macro-mania-in-domain) has a space in a domain, hence:
     # - `name type rdata` is tried first for *known* types, if that fails
     # - `name error` is assumed and the line is split on the last word
+    # - NEVER autogenerate an error record for CNAME, since that destroys lookups
     split =
       case String.split(line, @rgxtypes, parts: 2, include_captures: true) do
         [name, type, rdata] -> [name, String.trim(type), rdata]
         _ -> String.split(line, ~r/\S+$/, include_captures: true, trim: true)
       end
 
-    alltypes = Enum.map(@rrtypes, fn {name, _type} -> name end)
+    alltypes =
+      Enum.filter(@rrtypes, fn {_name, type} -> type != :cname end)
+      |> Enum.map(fn {name, _type} -> name end)
 
     case split do
       [name, type, rdata] -> rr_line_parts(name, [type], rdata)

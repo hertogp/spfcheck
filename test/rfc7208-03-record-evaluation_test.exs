@@ -20,8 +20,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["neutral"], "3.0 default-result"
-      assert ctx.explanation == "", "3.0 default-result"
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "3.1 detect-errors-anywhere"
-      assert ctx.explanation == "", "3.1 detect-errors-anywhere"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "3.2 invalid-domain"
-      assert ctx.explanation == "", "3.2 invalid-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail", "permerror"], "3.3 invalid-domain-empty-label"
-      assert ctx.explanation == "", "3.3 invalid-domain-empty-label"
+      assert to_string(ctx.verdict) in ["fail", "permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail", "permerror"], "3.4 invalid-domain-long"
-      assert ctx.explanation == "", "3.4 invalid-domain-long"
+      assert to_string(ctx.verdict) in ["fail", "permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail", "permerror"], "3.5 invalid-domain-long-via-macro"
-      assert ctx.explanation == "", "3.5 invalid-domain-long-via-macro"
+      assert to_string(ctx.verdict) in ["fail", "permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "3.6 modifier-charset-bad1"
-      assert ctx.explanation == "", "3.6 modifier-charset-bad1"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -132,8 +132,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "3.7 modifier-charset-bad2"
-      assert ctx.explanation == "", "3.7 modifier-charset-bad2"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -148,8 +148,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "3.8 modifier-charset-good"
-      assert ctx.explanation == "", "3.8 modifier-charset-good"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -164,8 +164,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["softfail"], "3.9 redirect-after-mechanisms1"
-      assert ctx.explanation == "", "3.9 redirect-after-mechanisms1"
+      assert to_string(ctx.verdict) in ["softfail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -180,8 +180,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "3.10 redirect-after-mechanisms2"
-      assert ctx.explanation == "", "3.10 redirect-after-mechanisms2"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "3"
@@ -196,8 +196,8 @@ defmodule Rfc7208.Section3Test do
           dns: "test/zones/rfc7208-03-record-evaluation.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "3.11 redirect-is-modifier"
-      assert ctx.explanation == "", "3.11 redirect-is-modifier"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
   end
 end

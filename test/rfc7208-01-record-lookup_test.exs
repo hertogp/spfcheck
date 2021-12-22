@@ -20,8 +20,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["temperror"], "1.0 alltimeout"
-      assert ctx.explanation == "", "1.0 alltimeout"
+      assert to_string(ctx.verdict) in ["temperror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "1"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "1.1 both"
-      assert ctx.explanation == "", "1.1 both"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "1"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["temperror"], "1.2 nospftxttimeout"
-      assert ctx.explanation == "", "1.2 nospftxttimeout"
+      assert to_string(ctx.verdict) in ["temperror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "1"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "1.3 spfonly"
-      assert ctx.explanation == "", "1.3 spfonly"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "1"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "1.4 spftimeout"
-      assert ctx.explanation == "", "1.4 spftimeout"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "1"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "1.5 txtonly"
-      assert ctx.explanation == "", "1.5 txtonly"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "1"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section1Test do
           dns: "test/zones/rfc7208-01-record-lookup.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["temperror"], "1.6 txttimeout"
-      assert ctx.explanation == "", "1.6 txttimeout"
+      assert to_string(ctx.verdict) in ["temperror"]
+      assert ctx.explanation == ""
     end
   end
 end

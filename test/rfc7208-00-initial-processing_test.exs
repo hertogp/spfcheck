@@ -20,8 +20,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "0.0 domain-literal"
-      assert ctx.explanation == "", "0.0 domain-literal"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "0.1 emptylabel"
-      assert ctx.explanation == "", "0.1 emptylabel"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "0.2 helo-domain-literal"
-      assert ctx.explanation == "", "0.2 helo-domain-literal"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "0.3 helo-not-fqdn"
-      assert ctx.explanation == "", "0.3 helo-not-fqdn"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -85,8 +85,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "0.4 longlabel"
-      assert ctx.explanation == "", "0.4 longlabel"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -101,8 +101,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "0.5 nolocalpart"
-      assert ctx.explanation == "postmaster", "0.5 nolocalpart"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == "postmaster"
     end
 
     @tag set: "0"
@@ -117,8 +117,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "0.6 non-ascii-mech"
-      assert ctx.explanation == "", "0.6 non-ascii-mech"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -133,8 +133,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "0.7 non-ascii-non-spf"
-      assert ctx.explanation == "", "0.7 non-ascii-non-spf"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -149,8 +149,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "0.8 non-ascii-policy"
-      assert ctx.explanation == "", "0.8 non-ascii-policy"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -165,8 +165,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "0.9 non-ascii-result"
-      assert ctx.explanation == "", "0.9 non-ascii-result"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "0"
@@ -182,8 +182,8 @@ defmodule Rfc7208.Section0Test do
           dns: "test/zones/rfc7208-00-initial-processing.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["none"], "0.10 toolonglabel"
-      assert ctx.explanation == "", "0.10 toolonglabel"
+      assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
     end
   end
 end

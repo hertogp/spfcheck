@@ -20,8 +20,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "7.0 include-cidr"
-      assert ctx.explanation == "", "7.0 include-cidr"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -36,8 +36,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "7.1 include-empty-domain"
-      assert ctx.explanation == "", "7.1 include-empty-domain"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -52,8 +52,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["softfail"], "7.2 include-fail"
-      assert ctx.explanation == "", "7.2 include-fail"
+      assert to_string(ctx.verdict) in ["softfail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -68,8 +68,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["fail"], "7.3 include-neutral"
-      assert ctx.explanation == "", "7.3 include-neutral"
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -84,8 +84,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "7.4 include-none"
-      assert ctx.explanation == "", "7.4 include-none"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -100,8 +100,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "7.5 include-permerror"
-      assert ctx.explanation == "", "7.5 include-permerror"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -116,8 +116,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["pass"], "7.6 include-softfail"
-      assert ctx.explanation == "", "7.6 include-softfail"
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -132,8 +132,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["permerror"], "7.7 include-syntax-error"
-      assert ctx.explanation == "", "7.7 include-syntax-error"
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
     end
 
     @tag set: "7"
@@ -148,8 +148,8 @@ defmodule Rfc7208.Section7Test do
           dns: "test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata"
         )
 
-      assert to_string(ctx.verdict) in ["temperror"], "7.8 include-temperror"
-      assert ctx.explanation == "", "7.8 include-temperror"
+      assert to_string(ctx.verdict) in ["temperror"]
+      assert ctx.explanation == ""
     end
   end
 end
