@@ -352,7 +352,6 @@ defmodule Spf.Context do
 
   def get_spf(context, domain) when is_binary(domain) do
     case Spf.DNS.from_cache(context, domain, :txt) do
-      # {:ok, []} -> "ERROR SPF NOT FOUND"
       {:error, _} -> "ERROR SPF NOT FOUND"
       {:ok, rrs} -> Enum.find(rrs, "ERROR SPF NOT FOUND", &Spf.Eval.spf?/1)
     end

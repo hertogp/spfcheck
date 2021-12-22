@@ -191,6 +191,7 @@ defmodule Spf.DNS do
   - `:servfail`
   - `:timeout`
   - `:zero_answers`
+  - `:illegal_name`
 
   Note that this function normalizes given `name` and unrolls CNAME(s) and does
   not make any actual DNS requests nor does it do any statistics.
@@ -207,6 +208,19 @@ defmodule Spf.DNS do
   def from_cache(context, name, type) do
     # TODO:
     # - check validity of name and return {:error, :illegal_name} if not valid
+    # NOTE:
+    # - cname returns {ctx, {:ok, binary}} or {ctx, {:error, reason}}
+    #   reason is one of :cname, :illegal_name
+    #
+    # with {:ok, context, name} <- cname(context, name, type) do
+    #   case cache[{name, type}] do
+    #     nil -> {context, {:error, :cache_miss}}
+    #     [{:error, reason}] -> {context, {:error, reason}}
+    #     result -> {context, {:ok, result}}
+    #   end
+    # end
+
+    #
     {context, name} = if type == :cname, do: {context, name}, else: cname(context, name)
     cache = Map.get(context, :dns, %{})
 
@@ -534,6 +548,7 @@ defmodule Spf.DNS do
 
   @spec query(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
   defp query(ctx, name, type, stats) do
+    # query DNS for name, type
     opts = []
     timeout = Map.get(ctx, :dns_timeout, 2000)
     opts = Keyword.put(opts, :timeout, timeout)
@@ -618,12 +633,16 @@ defmodule Spf.DNS do
     |> Enum.map(fn x -> rrentry(x) end)
   end
 
+  @spec cname(Spf.Context.t(), binary, map) ::
+          {Spf.Context.t(), {:ok, binary}} | {Spf.Context.t(), {:error, :cname}}
   defp cname(ctx, name, seen \\ %{}) do
     # return canonical name if present, name otherwise, must follow CNAME's
     name = charlists_tostr(name) |> normalize()
     cache = Map.get(ctx, :dns, %{})
 
     if seen[name] do
+      IO.inspect({name, seen}, label: :cname_loop)
+
       ctx =
         log(ctx, :dns, :error, "circular CNAMEs: #{inspect(seen)}")
         |> log(:dns, :warn, "DNS CNAME: using #{name} to break circular reference")
@@ -663,6 +682,11 @@ defmodule Spf.DNS do
   defp cache({:ok, entries}, ctx, _name, _type),
     do: Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
+  defp update(ctx, {domain, type, {:error, _} = error}) do
+    Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [error]))
+    |> log(:dns, :debug, "added {#{domain}, #{type} -> #{inspect(error)}")
+  end
+
   defp update(ctx, {domain, type, data}) do
     # note: donot use from_cache since that unrolls cnames
     cache = Map.get(ctx, :dns, %{})
@@ -680,10 +704,12 @@ defmodule Spf.DNS do
     end
   end
 
-  # charlists_tostr -> turn any charlists *inside* rrdata into a string.
+  # charlists_tostr -> normalize rrdata by turning any embedded charlists
+  # into string.
   # note:
   # - empty list should turn into {:error, :zero_answers}, and NOT ""
   # - {:error, _} should stay an error-tuple
+  # charlists_tostr/1 is helper for charlists_tostr/2
   defp charlists_tostr([]),
     do: {:error, :zero_answers}
 
@@ -698,6 +724,7 @@ defmodule Spf.DNS do
     rrdata
   end
 
+  # charlists_tostr/2 for types of rrdatas
   # no charlist in error situations
   defp charlists_tostr({:error, reason}, _),
     do: {:error, reason}
@@ -715,14 +742,14 @@ defmodule Spf.DNS do
   defp charlists_tostr(domain, :ptr),
     do: charlists_tostr(domain)
 
-  # address tuple to string (or keep {:error,_}-tuple)
+  # address tuple to string (or keep {:error, _}-tuple)
   defp charlists_tostr(ip, :a) do
     "#{Pfx.new(ip)}"
   rescue
     _ -> ip
   end
 
-  # address tuple to string (or keep {:error,_}-tuple)
+  # address tuple to string (or keep {:error, _}-tuple)
   defp charlists_tostr(ip, :aaaa) do
     "#{Pfx.new(ip)}"
   rescue
