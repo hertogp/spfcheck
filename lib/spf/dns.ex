@@ -214,8 +214,8 @@ defmodule Spf.DNS do
         result -> {context, {:ok, result}}
       end
     else
-      {:error, reason} -> {context, {:error, reason}}
-      error -> error
+      {:error, reason} -> {log(context, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+      {context, {:error, reason}} -> {context, {:error, reason}}
     end
 
     #
@@ -400,20 +400,35 @@ defmodule Spf.DNS do
         tick(ctx, :num_dnsq)
         |> query(name, type, stats)
 
+      {ctx, {:error, :illegal_name}} ->
+        {ctx, {:error, :illegal_name}}
+
       {ctx, result} ->
         tick(ctx, :num_dnsq)
         |> do_stats(name, type, result, stats, cached: true)
     end
-
-    # case check_domain(name) do
-    #   {:ok, name} ->
-    #     tick(ctx, :num_dnsq)
-    #     |> resolvep(name, type, stats)
-
-    #   {:error, reason} ->
-    #     {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
-    # end
   end
+
+  # old resolve()
+  # case check_domain(name) do
+  #   {:ok, name} ->
+  #     tick(ctx, :num_dnsq)
+  #     |> resolvep(name, type, stats)
+
+  #   {:error, reason} ->
+  #     {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
+  # end
+
+  # @spec resolvep(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
+  # defp resolvep(ctx, name, type, stats) do
+  #   case from_cache(ctx, name, type) do
+  #     {ctx, {:error, :cache_miss}} ->
+  #       query(ctx, name, type, stats)
+
+  #     {ctx, result} ->
+  #       do_stats(ctx, name, type, result, stats, cached: true)
+  #   end
+  # end
 
   @doc ~S"""
   Return all acquired DNS RR's in a flat list of printable lines.
@@ -606,17 +621,6 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  # @spec resolvep(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
-  # defp resolvep(ctx, name, type, stats) do
-  #   case from_cache(ctx, name, type) do
-  #     {ctx, {:error, :cache_miss}} ->
-  #       query(ctx, name, type, stats)
-
-  #     {ctx, result} ->
-  #       do_stats(ctx, name, type, result, stats, cached: true)
-  #   end
-  # end
-
   defp rrentries(msg) do
     # given a dns_msg {:dns_rec, ...} or error-tuple
     # -> return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
@@ -656,9 +660,7 @@ defmodule Spf.DNS do
     # cache = Map.get(ctx, :dns, %{})
 
     if seen[name] do
-      ctx =
-        log(ctx, :dns, :error, "circular CNAMEs: #{inspect(seen)}")
-        |> log(:dns, :warn, "DNS CNAME: using #{name} to break circular reference")
+      ctx = log(ctx, :dns, :error, "DNS SERVFAIL - circular CNAMEs: #{inspect(Map.keys(seen))}")
 
       {ctx, {:error, :servfail}}
     else

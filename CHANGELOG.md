@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - when pre-loading DNS entries, error records are only generated for non-specified entries
 - when updating the cache with an error record, it replaces any existing rrdata
 - queries for domain names with circular CNAME references, now yield :servfail
+- [ ] dot file generation does not choke when no SPF records were found
 
 ### added
 
