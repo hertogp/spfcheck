@@ -71,11 +71,11 @@ defmodule Spf.DNS do
     "zero_answers" => :zero_answers
   }
 
-  # See also:
+  # see also:
   # - https://www.rfc-editor.org/rfc/rfc6895.html
   # - https://erlang.org/doc/man/inet_res.html
   #
-  # Local cache
+  # local cache
   # {domain, type} -> nil | [{:error, :reason}] | [rrdata, rrdata, ..]
 
   # API
@@ -106,6 +106,8 @@ defmodule Spf.DNS do
   def authority(ctx, name) do
     labels = normalize(name) |> String.split(".", trim: true)
 
+    # note: since a zone might be delegated, search needs to start with the
+    # full domain and drops labels as search continues for the soa record
     for d <- 0..(length(labels) - 2) do
       Enum.drop(labels, d) |> Enum.join(".")
     end
@@ -340,7 +342,7 @@ defmodule Spf.DNS do
         {"example.net", :txt} => [error: :servfail]
       }
 
-      # Note the error did not propagate to the CNAME type.
+      # note the error did not propagate to the CNAME type.
 
   """
   @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
@@ -485,7 +487,7 @@ defmodule Spf.DNS do
 
   # Helpers
 
-  @spec authorityp([binary], Spf.Context.t()) :: {:error, atom} | {:ok, binary, binary}
+  @spec authorityp([binary], Spf.Context.t()) :: {:error, atom} | {:ok, domain, binary}
   defp authorityp([], _ctx), do: {:error, :nxdomain}
 
   defp authorityp([head | tail], ctx) do
@@ -542,32 +544,6 @@ defmodule Spf.DNS do
     end
   end
 
-  @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
-  defp load_file(ctx, fpath) when is_binary(fpath) do
-    ctx =
-      case File.read(fpath) do
-        {:ok, binary} ->
-          load_lines(ctx, String.split(binary, "\n"))
-
-        {:error, reason} ->
-          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
-      end
-
-    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
-  rescue
-    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
-  end
-
-  @spec load_lines(Spf.Context.t(), [binary] | binary) :: Spf.Context.t()
-  defp load_lines(ctx, lines) when is_binary(lines),
-    do: load_lines(ctx, String.split(lines, "\n"))
-
-  defp load_lines(ctx, lines) when is_list(lines) do
-    lines
-    |> Enum.map(&String.trim/1)
-    |> Enum.reduce(ctx, &rr_fromstr/2)
-  end
-
   @spec query(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
   defp query(ctx, name, type, stats) do
     # query DNS for name, type
@@ -616,6 +592,8 @@ defmodule Spf.DNS do
 
       {ctx, error}
   end
+
+  # DNS->CACHE
 
   @spec to_dns_results(dns_msg) :: dns_result
   defp to_dns_results(msg) do
@@ -774,21 +752,48 @@ defmodule Spf.DNS do
   defp charlists_tostr(data, _),
     do: data
 
-  defp rr_flatten(domain, type, rrdatas),
-    do: for(rrdata <- rrdatas, do: {domain, type, rrdata})
+  # LINES->CACHE
+  #
+  # zonedata is formatted as:
+  # domain  rrtype  data,   where data depends on rrtype
+  # domain  rrtype  error,  where error is in [TIMEOUT, SERVFAIL, NXDOMAIN, ZERO_ANSWERS]
+  # domain  error,          see above for error.  Propagates to all unspecified rr-types
+  #
+  # In order to be able to load zonedata multiple times, a map is created and
+  # merged with ctx.dns, rather than insert each line into ctx.dns.  This
+  # allows for cleaner handling of the weird-ass rules of the rfc7208 testsuite
+  # schema.
+  #
+  # ALT: just insert {domain, type} -> [rrdata] as found and insert {domain} ->
+  # {:error, atom} and adjust the from_cache to:
+  # 1) look for {domain, :type} first, then
+  # 2) look for {domain} second, and lastly
+  # 3) return a cache-miss
 
-  defp rrs_sort(rrs) do
-    # keeps related records close to each other in report output
-    Enum.sort(rrs, fn {domain1, _type, _data}, {domain2, _type1, _data2} ->
-      String.reverse(domain1) <= String.reverse(domain2)
-    end)
+  @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
+  defp load_file(ctx, fpath) when is_binary(fpath) do
+    ctx =
+      case File.read(fpath) do
+        {:ok, binary} ->
+          load_lines(ctx, String.split(binary, "\n"))
+
+        {:error, reason} ->
+          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
+      end
+
+    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
+  rescue
+    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
-  defp rr_is_error(data) do
-    case data do
-      {:error, _} -> true
-      _ -> false
-    end
+  @spec load_lines(Spf.Context.t(), [binary] | binary) :: Spf.Context.t()
+  defp load_lines(ctx, lines) when is_binary(lines),
+    do: load_lines(ctx, String.split(lines, "\n"))
+
+  defp load_lines(ctx, lines) when is_list(lines) do
+    lines
+    |> Enum.map(&String.trim/1)
+    |> Enum.reduce(ctx, &rr_fromstr/2)
   end
 
   @spec rr_fromstr(binary, Spf.Context.t()) :: Spf.Context.t()
@@ -934,6 +939,7 @@ defmodule Spf.DNS do
     end
   end
 
+  # CACHE->LINES
   @spec rr_tostr(binary, atom, any) :: binary
   defp rr_tostr(domain, type, data) do
     domain = String.pad_trailing(domain, 25) |> String.downcase()
@@ -963,6 +969,23 @@ defmodule Spf.DNS do
 
   defp rr_data_tostr(_type, data) do
     "#{inspect(data)}" |> no_quotes()
+  end
+
+  defp rr_flatten(domain, type, rrdatas),
+    do: for(rrdata <- rrdatas, do: {domain, type, rrdata})
+
+  defp rrs_sort(rrs) do
+    # keeps related records close to each other in report output
+    Enum.sort(rrs, fn {domain1, _type, _data}, {domain2, _type1, _data2} ->
+      String.reverse(domain1) <= String.reverse(domain2)
+    end)
+  end
+
+  defp rr_is_error(data) do
+    case data do
+      {:error, _} -> true
+      _ -> false
+    end
   end
 
   @spec no_quotes(binary) :: binary
