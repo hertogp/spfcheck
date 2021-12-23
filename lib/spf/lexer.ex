@@ -115,7 +115,7 @@ defmodule Spf.Lexer do
 
   """
   @spec tokenize_spf(binary) :: result
-  def tokenize_spf(input),
+  def tokenize_spf(input) when is_binary(input),
     do: spf_tokenize().(input, %{offset: 0, input: input})
 
   @doc """
@@ -142,7 +142,7 @@ defmodule Spf.Lexer do
 
   """
   @spec tokenize_exp(binary) :: result
-  def tokenize_exp(input),
+  def tokenize_exp(input) when is_binary(input),
     do: exp_tokenize().(input, %{offset: 0, input: input})
 
   # Context Helpers

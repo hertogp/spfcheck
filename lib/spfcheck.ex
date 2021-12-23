@@ -222,7 +222,6 @@ defmodule Spfcheck do
         <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
         <TR><TD PORT="TOP" BGCOLOR="#{color}">[#{nths}] #{new.domain}</TD></TR>
         <TR><TD BGCOLOR="lightgray">#{contact}</TD></TR>
-        <TR><TD>v=spf1</TD></TR>
         #{Enum.join(rows, "\n  ")}
         #{warn}
         #{errs}

@@ -12,7 +12,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - when pre-loading DNS entries, error records are only generated for non-specified entries
 - when updating the cache with an error record, it replaces any existing rrdata
 - queries for domain names with circular CNAME references, now yield :servfail
-- [ ] dot file generation does not choke when no SPF records were found
+- dot file generation does not choke when no SPF records were found
+
+### changed
+
+- dot representation of an SPF record only shows the AST created
+    - "v=spf1" was included automatically since it is not part of the AST
+    - was confusing in cases where no SPF record was found
+- when generating zonedata for rfc7208's testsuite omit CNAME and SOA records
+    - they're not used in the testsuite anyway
 
 ### added
 

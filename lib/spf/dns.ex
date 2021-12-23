@@ -27,10 +27,24 @@ defmodule Spf.DNS do
   """
   @type dns_result :: {:ok, [any]} | {:error, atom}
 
+  @type dns_msg :: any
+
   @typedoc """
   An `{:error, :cache_miss}`-tuple
   """
   @type cache_miss :: {:error, :cache_miss}
+
+  @typedoc """
+  An RR type as supported by the cache.
+  """
+  @type rrtype :: atom
+  # TODO: fix so :inet_res.rr_type() can be used
+  @type domain :: binary
+
+  ## XXX: :inet_res dns types
+  @type res_result :: {:ok, term} | {:error, atom}
+
+  # /XXX
 
   # upcase last, since we usually check normalized domain names
   @ldh Enum.concat([?a..?z, [?-], ?0..?9, ?A..?Z])
@@ -88,7 +102,7 @@ defmodule Spf.DNS do
       {:ok, "non-existing.example.com", "example.com", "noc@dns.icann.org"}
 
   """
-  @spec authority(Spf.Context.t(), binary) :: {:ok, binary, binary, binary} | {:error, atom}
+  @spec authority(Spf.Context.t(), binary) :: {:ok, domain, domain, binary} | {:error, atom}
   def authority(ctx, name) do
     labels = normalize(name) |> String.split(".", trim: true)
 
@@ -139,7 +153,7 @@ defmodule Spf.DNS do
       {:ok, "example.c0m"}
 
   """
-  @spec check_domain(binary) :: {:ok, binary} | {:error, binary}
+  @spec check_domain(binary) :: {:ok, domain} | {:error, binary}
   def check_domain(domain) do
     domain = normalize(domain)
     lbs = String.split(domain, ".")
@@ -204,7 +218,7 @@ defmodule Spf.DNS do
        {:ok, ["1.2.3.4"]}
 
   """
-  @spec from_cache(Spf.Context.t(), binary, atom) :: {Spf.Context.t(), dns_result()}
+  @spec from_cache(Spf.Context.t(), domain, rrtype) :: {Spf.Context.t(), dns_result()}
   def from_cache(context, name, type) do
     with {:ok, name} <- check_domain(name),
          {context, {:ok, name}} <- cname(context, name, type) do
@@ -295,7 +309,11 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = ["example.com TXT v=spf1 +all", "example.com A timeout", "EXAMPLE.NET servfail"]
+      iex> zonedata = [
+      ...>   "example.com TXT v=spf1 +all",
+      ...>   "example.com A timeout",
+      ...>   "EXAMPLE.NET servfail"
+      ...> ]
       iex> ctx = Spf.Context.new("some.domain.tld")
       ...> |> Spf.DNS.load(zonedata)
       iex>
@@ -325,8 +343,7 @@ defmodule Spf.DNS do
       # Note the error did not propagate to the CNAME type.
 
   """
-  # @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
-  @spec load(Spf.Context.t(), any) :: Spf.Context.t()
+  @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
   def load(context, dns)
 
   def load(ctx, nil),
@@ -354,7 +371,7 @@ defmodule Spf.DNS do
       "example.c%m"
 
   """
-  @spec normalize(binary | list) :: binary
+  @spec normalize(domain | charlist) :: binary
   def normalize(domain) when is_binary(domain) do
     domain
     |> String.trim()
@@ -390,7 +407,7 @@ defmodule Spf.DNS do
   are not counted.
 
   """
-  @spec resolve(Spf.Context.t(), binary, Keyword.t()) :: {Spf.Context.t(), dns_result}
+  @spec resolve(Spf.Context.t(), domain, Keyword.t()) :: {Spf.Context.t(), dns_result}
   def resolve(ctx, name, opts \\ []) do
     stats = Keyword.get(opts, :stats, true)
     type = Keyword.get(opts, :type, Map.get(ctx, :atype, :a))
@@ -408,27 +425,6 @@ defmodule Spf.DNS do
         |> do_stats(name, type, result, stats, cached: true)
     end
   end
-
-  # old resolve()
-  # case check_domain(name) do
-  #   {:ok, name} ->
-  #     tick(ctx, :num_dnsq)
-  #     |> resolvep(name, type, stats)
-
-  #   {:error, reason} ->
-  #     {log(ctx, :dns, :error, "#{reason}"), {:error, :illegal_name}}
-  # end
-
-  # @spec resolvep(Spf.Context.t(), binary, atom, boolean) :: {Spf.Context.t(), dns_result}
-  # defp resolvep(ctx, name, type, stats) do
-  #   case from_cache(ctx, name, type) do
-  #     {ctx, {:error, :cache_miss}} ->
-  #       query(ctx, name, type, stats)
-
-  #     {ctx, result} ->
-  #       do_stats(ctx, name, type, result, stats, cached: true)
-  #   end
-  # end
 
   @doc ~S"""
   Return all acquired DNS RR's in a flat list of printable lines.
@@ -468,7 +464,7 @@ defmodule Spf.DNS do
       ]
 
   """
-  @spec to_list(Spf.Context.t(), Keyword.t()) :: list(binary)
+  @spec to_list(Spf.Context.t(), Keyword.t()) :: [binary]
   def to_list(ctx, opts \\ []) do
     keep =
       case Keyword.get(opts, :valid, :both) do
@@ -585,7 +581,7 @@ defmodule Spf.DNS do
         list -> Keyword.put(opts, :nameservers, list)
       end
 
-    # resolve and update the cache
+    # resolve and update the cache with dns_msg received
     ctx =
       name
       |> String.to_charlist()
@@ -621,34 +617,28 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
+  @spec rrentries(dns_msg) :: dns_result
   defp rrentries(msg) do
     # given a dns_msg {:dns_rec, ...} or error-tuple
     # -> return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
-    case msg do
-      {:error, reason} -> {:error, reason}
-      {:ok, record} -> {:ok, rrdata(record)}
+    # notes:
+    # - in an `anlist`, each rrdata in the set has its own rrtype
+    # - this happens e.g. when resolving for :A and you get :CNAME + :A back
+    with {:ok, record} <- msg,
+         answers <- :inet_dns.msg(record, :anlist) do
+      rrdatas =
+        for answer <- answers do
+          domain = :inet_dns.rr(answer, :domain) |> charlists_tostr()
+          type = :inet_dns.rr(answer, :type)
+          data = :inet_dns.rr(answer, :data) |> charlists_tostr(type)
+          {domain, type, data}
+        end
+
+      {:ok, rrdatas}
     end
   end
 
-  defp rrentry(answer) do
-    # {:dns_rr, :domain, :type, :in, _, _, :data, :undefined, [], false}
-    # -> {domain, type, data}, where shape of data depends on type
-    # .e.g :mx -> {10, name}, :a -> {1, 1, 1, 1}, etc ..
-    domain = :inet_dns.rr(answer, :domain) |> charlists_tostr()
-    type = :inet_dns.rr(answer, :type)
-    data = :inet_dns.rr(answer, :data) |> charlists_tostr(type)
-    {domain, type, data}
-  end
-
-  defp rrdata(record) do
-    # turn dns record into list of simple rrdata entries: [{domain, type, data}]
-    # see https://erlang.org/doc/man/inet_res.html#type-dns_data
-    record
-    |> :inet_dns.msg(:anlist)
-    |> Enum.map(fn x -> rrentry(x) end)
-  end
-
-  @spec cname(Spf.Context.t(), binary, atom, map) :: {Spf.Context.t(), {:ok | :error, any}}
+  @spec cname(Spf.Context.t(), domain, rrtype, map) :: {Spf.Context.t(), {:ok | :error, any}}
   defp cname(ctx, name, type, seen \\ %{})
 
   defp cname(ctx, name, :cname, _),
@@ -685,8 +675,9 @@ defmodule Spf.DNS do
   # cache stores either
   # - {name, type} -> {:error, :err_code}, or
   # - {name, type} -> [rrdata]
-  defp cache({:error, {reason, _dns_msg}} = _result, ctx, name, type),
-    do: update(ctx, {name, type, {:error, reason}})
+  # @spec cache(dns_result, Spf.Context, binary, rrtype) :: Spf.Context.t()
+  # defp cache({:error, {reason, _dns_msg}} = _result, ctx, name, type),
+  #   do: update(ctx, {name, type, {:error, reason}})
 
   defp cache({:error, reason}, ctx, name, type),
     do: update(ctx, {name, type, {:error, reason}})
@@ -702,8 +693,10 @@ defmodule Spf.DNS do
     |> log(:dns, :debug, "added {#{domain}, #{type} -> #{inspect(error)}")
   end
 
+  @spec update(Spf.Context.t(), {binary, rrtype, any}) :: Spf.Context.t()
   defp update(ctx, {domain, type, data}) do
-    # note: donot use from_cache since that unrolls cnames
+    # update the cache for a single entry
+    # - donot use from_cache since that unrolls cnames
     cache = Map.get(ctx, :dns, %{})
     domain = normalize(domain)
     cached = cache[{domain, type}] || []
@@ -798,10 +791,12 @@ defmodule Spf.DNS do
     end
   end
 
+  @spec rr_fromstr(binary, Spf.Context.t()) :: Spf.Context.t()
   defp rr_fromstr(str, ctx) do
     String.trim(str) |> rr_fromstrp(ctx)
   end
 
+  @spec rr_fromstrp(binary, Spf.Context.t()) :: Spf.Context.t()
   defp rr_fromstrp("#" <> _, ctx),
     # this is why str must be trimmed already
     do: ctx
@@ -818,7 +813,7 @@ defmodule Spf.DNS do
 
   defp only_new(ctx, {name, type, {:error, reason}}) do
     # only add {:error, reason} if there is no existing RR for {name, type}
-    # note: assumes rr_line_parts has normalize both `name` and `type`
+    # note: assumes rr_line_parts has normalized both `name` and `type`
     case ctx.dns[{name, type}] do
       nil -> update(ctx, {name, type, {:error, reason}})
       _ -> ctx

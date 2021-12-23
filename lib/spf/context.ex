@@ -247,7 +247,7 @@ defmodule Spf.Context do
     |> Map.put(:local, local)
     |> Map.put(:domain, domain)
     |> Map.put(:helo, helo)
-    |> Map.put(:map, %{0 => domain, domain => []})
+    |> Map.put(:map, %{0 => domain, domain => ""})
     |> log(:ctx, :info, "sender is '#{sender}'")
     |> log(:ctx, :info, "local part set to '#{local}'")
     |> log(:ctx, :info, "domain part set to '#{domain}'")
@@ -487,8 +487,6 @@ defmodule Spf.Context do
     |> then(&log(&1, :ctx, :debug, "verdict defaults to '#{&1.verdict}'"))
     |> then(&log(&1, :ctx, :info, "created context for '#{&1.domain}'"))
     |> then(&log(&1, :spf, :note, "spfcheck(#{&1.domain}, #{&1.ip}, #{&1.sender})"))
-
-    # |> Map.put(:t0, DateTime.utc_now() |> DateTime.to_unix())
   end
 
   @doc """

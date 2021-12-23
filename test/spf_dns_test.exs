@@ -3,7 +3,7 @@ defmodule SpfDNSTest do
   doctest Spf.DNS, import: true
 
   describe "DNS cache" do
-    @tag tst: "00"
+    @tag tst: "dns.00"
     test "00 - caches zonedata from heredoc" do
       zonedata = """
       example.com A 1.2.3.4
@@ -68,7 +68,7 @@ defmodule SpfDNSTest do
       assert result == {:ok, ["1.1.1.1"]}
     end
 
-    @tag tst: "01"
+    @tag tst: "dns.01"
     test "01 - DNS cache from a list of lines" do
       zonedata =
         """
@@ -135,8 +135,8 @@ defmodule SpfDNSTest do
       assert result == {:ok, ["1.1.1.1"]}
     end
 
-    @tag tst: "03"
-    test "03 - dns cache should insert errors properly" do
+    @tag tst: "dns.03"
+    test "03 - dns cache inserts errors properly" do
       zonedata = """
       example.com A 1.2.3.4
       example.com AAAA TIMEOUT
@@ -162,8 +162,8 @@ defmodule SpfDNSTest do
       {_ctx, {:error, :cache_miss}} = Spf.DNS.from_cache(ctx, "example.com", type: :cname)
     end
 
-    @tag tst: "04"
-    test "04 - dns cache errors out on circular cname's" do
+    @tag tst: "dns.04"
+    test "04 - circular cname's yield :servfail" do
       zonedata = """
       example.com cname example.org
       example.com a 1.1.1.1
@@ -189,12 +189,32 @@ defmodule SpfDNSTest do
 
       {ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :a)
       assert result == {:error, :servfail}
+      {ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :mx)
+      assert result == {:error, :servfail}
 
       {ctx, result} = Spf.DNS.resolve(ctx, "example.org", type: :a)
+      assert result == {:error, :servfail}
+      {ctx, result} = Spf.DNS.resolve(ctx, "example.org", type: :mx)
       assert result == {:error, :servfail}
 
       {_ctx, result} = Spf.DNS.resolve(ctx, "example.net", type: :a)
       assert result == {:error, :servfail}
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.net", type: :mx)
+      assert result == {:error, :servfail}
+    end
+
+    @tag tst: "dns.05"
+    test "05 - updating cache w/ error overwrites" do
+      zonedata = """
+      example.com TXT some text record
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      IO.inspect(ctx.dns)
+
+      ctx = Spf.DNS.load(ctx, "example.com TXT TIMEOUT")
+
+      IO.inspect(ctx.dns)
     end
   end
 end
