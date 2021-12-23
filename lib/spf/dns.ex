@@ -759,17 +759,17 @@ defmodule Spf.DNS do
   # domain  rrtype  error,  where error is in [TIMEOUT, SERVFAIL, NXDOMAIN, ZERO_ANSWERS]
   # domain  error,          see above for error.  Propagates to all unspecified rr-types
   #
-  # In order to be able to load zonedata multiple times, a map is created and
+  # in order to be able to load zonedata multiple times, a map is created and
   # merged with ctx.dns, rather than insert each line into ctx.dns.  This
   # allows for cleaner handling of the weird-ass rules of the rfc7208 testsuite
   # schema.
   #
-  # ALT: just insert {domain, type} -> [rrdata] as found and insert {domain} ->
+  # alt: just insert {domain, type} -> [rrdata] as found and insert {domain} ->
   # {:error, atom} and adjust the from_cache to:
   # 1) look for {domain, :type} first, then
   # 2) look for {domain} second, and lastly
   # 3) return a cache-miss
-  # That way, code could be simpler, less coupled to known 'errors'
+  # that way, code could be simpler, less coupled to known 'errors'
 
   @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
   defp load_file(ctx, fpath) when is_binary(fpath) do
