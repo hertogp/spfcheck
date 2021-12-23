@@ -502,7 +502,7 @@ defmodule Spf.DNS do
     end
   end
 
-  @spec do_stats(Spf.Context.t(), binary, atom, dns_result, boolean, Keyword.t()) ::
+  @spec do_stats(Spf.Context.t(), domain, rrtype, dns_result, boolean, Keyword.t()) ::
           {Spf.Context.t(), dns_result}
   defp do_stats(ctx, name, type, result, stats, opts \\ []) do
     # log any warnings, possibly update stats & return {ctx, result}
@@ -558,7 +558,7 @@ defmodule Spf.DNS do
     err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
-  @spec load_lines(Spf.Context.t(), list() | binary) :: Spf.Context.t()
+  @spec load_lines(Spf.Context.t(), [binary] | binary) :: Spf.Context.t()
   defp load_lines(ctx, lines) when is_binary(lines),
     do: load_lines(ctx, String.split(lines, "\n"))
 
@@ -586,7 +586,7 @@ defmodule Spf.DNS do
       name
       |> String.to_charlist()
       |> :inet_res.resolve(:in, type, opts)
-      |> rrentries()
+      |> to_dns_results()
       |> cache(ctx, name, type)
 
     # get result (or not) from cache
@@ -617,8 +617,8 @@ defmodule Spf.DNS do
       {ctx, error}
   end
 
-  @spec rrentries(dns_msg) :: dns_result
-  defp rrentries(msg) do
+  @spec to_dns_results(dns_msg) :: dns_result
+  defp to_dns_results(msg) do
     # given a dns_msg {:dns_rec, ...} or error-tuple
     # -> return either: {:ok, [{domain, type, value}, ...]} | {:error, reason}
     # notes:
