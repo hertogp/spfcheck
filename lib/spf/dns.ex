@@ -769,6 +769,7 @@ defmodule Spf.DNS do
   # 1) look for {domain, :type} first, then
   # 2) look for {domain} second, and lastly
   # 3) return a cache-miss
+  # That way, code could be simpler, less coupled to known 'errors'
 
   @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
   defp load_file(ctx, fpath) when is_binary(fpath) do
