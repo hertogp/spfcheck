@@ -8,7 +8,6 @@ example.com A TIMEOUT
 example.com AAAA TIMEOUT
 example.com MX TIMEOUT
 example.com PTR TIMEOUT
-example.com SOA TIMEOUT
 example.com SPF TIMEOUT
 example.com TXT TIMEOUT
 example.net TXT v=spf1 -all exp=exp.example.net

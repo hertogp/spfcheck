@@ -8,7 +8,6 @@ e21msg.example.com A TIMEOUT
 e21msg.example.com AAAA TIMEOUT
 e21msg.example.com MX TIMEOUT
 e21msg.example.com PTR TIMEOUT
-e21msg.example.com SOA TIMEOUT
 e21msg.example.com SPF TIMEOUT
 e21msg.example.com TXT TIMEOUT
 exp3.example.com TXT Correct!

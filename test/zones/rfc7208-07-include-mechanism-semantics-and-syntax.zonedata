@@ -29,7 +29,6 @@ ip8.example.com A TIMEOUT
 ip8.example.com AAAA TIMEOUT
 ip8.example.com MX TIMEOUT
 ip8.example.com PTR TIMEOUT
-ip8.example.com SOA TIMEOUT
 ip8.example.com SPF TIMEOUT
 ip8.example.com TXT TIMEOUT
 mail.example.com A 1.2.3.4

@@ -16,7 +16,6 @@ err.example.com A TIMEOUT
 err.example.com AAAA TIMEOUT
 err.example.com MX TIMEOUT
 err.example.com PTR TIMEOUT
-err.example.com SOA TIMEOUT
 err.example.com SPF TIMEOUT
 err.example.com TXT TIMEOUT
 mail.example.com A 1.2.3.4
