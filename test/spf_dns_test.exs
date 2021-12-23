@@ -203,18 +203,18 @@ defmodule SpfDNSTest do
       assert result == {:error, :servfail}
     end
 
-    @tag tst: "dns.05"
-    test "05 - updating cache w/ error overwrites" do
-      zonedata = """
-      example.com TXT some text record
-      """
+    # @tag tst: "dns.05"
+    # test "05 - updating cache w/ error overwrites" do
+    #   zonedata = """
+    #   example.com TXT some text record
+    #   """
 
-      ctx = Spf.Context.new("some.tld", dns: zonedata)
-      IO.inspect(ctx.dns)
+    #   ctx = Spf.Context.new("some.tld", dns: zonedata)
+    #   IO.inspect(ctx.dns)
 
-      ctx = Spf.DNS.load(ctx, "example.com TXT TIMEOUT")
+    #   ctx = Spf.DNS.load(ctx, "example.com TXT TIMEOUT")
 
-      IO.inspect(ctx.dns)
-    end
+    #   IO.inspect(ctx.dns)
+    # end
   end
 end
