@@ -22,31 +22,6 @@ defmodule Spf.DNS do
 
   import Spf.Context
 
-  @typedoc """
-  A DNS result in the form of an ok/error-tuple.
-  """
-  @type dns_result :: {:ok, [any]} | {:error, atom}
-
-  @type dns_msg :: any
-
-  @typedoc """
-  An `{:error, :cache_miss}`-tuple
-  """
-  @type cache_miss :: {:error, :cache_miss}
-
-  @typedoc """
-  An RR type as supported by the cache.
-  """
-  @type rrtype :: atom
-  # TODO: fix so :inet_res.rr_type() can be used
-  @type domain :: binary
-
-  ## XXX: :inet_res dns types
-  @type res_result :: {:ok, term} | {:error, atom}
-
-  # /XXX
-
-  # upcase last, since we usually check normalized domain names
   @ldh Enum.concat([?a..?z, [?-], ?0..?9, ?A..?Z])
 
   @rrtypes %{
@@ -71,12 +46,57 @@ defmodule Spf.DNS do
     "zero_answers" => :zero_answers
   }
 
+  @typedoc """
+  A DNS result in the form of an ok/error-tuple.
+
+  In case of succes, this is a list of
+  [`dns_data()`](https://www.erlang.org/doc/man/inet_res.html#type-dns_data)
+  that is normalized (e.g. charlists are converted to strings as are ip address
+  tuples).  Interpretation by caller depends on the `rrtype` used.
+
+  """
+  @type dns_result :: {:ok, [any]} | {:error, atom}
+
+  @typedoc """
+  An opaque datastructure as returned by `:inet_res.resolve/3` as part of its
+  response.
+
+  Interpretation is done using the (erlang internal) `:inet_dns` functions.
+
+  """
+  @type dns_msg :: any
+
+  @typedoc """
+  An `rrtype` denoted by an atom.
+
+  See also
+  [`inet_res.rr_type`](https://www.erlang.org/doc/man/inet_res.html#type-rr_type).
+
+  In order to experiment with new records, RR records can be specified in a
+  file or a multi-line binary, in which case `rrtype` is one of
+  #{inspect(Map.values(@rrtypes))}
+
+  This is enough to allow experimentation with new records that override DNS.
+
+  """
+  @type rrtype :: atom
+
+  @typedoc """
+  A `domain` is a simply an ascii binary.
+  """
+  @type domain :: binary
+
+  @typedoc """
+  A dns result as returned by `:inet_res.resolve/3`.
+
+  """
+  @type res_result :: {:ok, dns_msg} | {:error, atom}
+
   # see also:
   # - https://www.rfc-editor.org/rfc/rfc6895.html
   # - https://erlang.org/doc/man/inet_res.html
   #
-  # local cache
-  # {domain, type} -> nil | [{:error, :reason}] | [rrdata, rrdata, ..]
+  # local cache is map: {domain, type} -> dns_result()
 
   # API
 
@@ -93,13 +113,19 @@ defmodule Spf.DNS do
   - `{:error, :err_code}`
 
   The given `name` does not need to actually exist, the aim is to find the
-  owner of the domain the `name` belongs to.
+  owner of the domain the `name` belongs to.  CNAME's are ignored in order
+  to find the *real* owner zone.
 
   ## Examples
 
       iex> Spf.Context.new("example.com")
       ...> |> Spf.DNS.authority("non-existing.example.com")
       {:ok, "non-existing.example.com", "example.com", "noc@dns.icann.org"}
+
+      iex> zonedata = [ "www.example.com CNAME example.org" ]
+      iex> Spf.Context.new("some.tld", dns: zonedata)
+      ...> |> Spf.DNS.authority("www.example.com")
+      {:ok, "www.example.com", "example.com", "noc@dns.icann.org"}
 
   """
   @spec authority(Spf.Context.t(), binary) :: {:ok, domain, domain, binary} | {:error, atom}
@@ -121,10 +147,14 @@ defmodule Spf.DNS do
   @doc """
   Checks validity of a domain name and returns `{:ok, name}` or `{:error, reason}`
 
-  Checks that the domain name:
+  Given `domain` can be a binary or a charlist.  It is normalized (lowercase, 
+  trailing dot removed and charlist is converted to a binary) and checked that
+  it:
+
   - is an ascii string
   - is less than 254 chars long
-  - has labels that are 1..63 chars long, and
+  - has labels that are 1..63 chars long
+  - has no empty labels
   - has at least 2 labels
   - has a valid ldh-toplabel
 
@@ -151,8 +181,13 @@ defmodule Spf.DNS do
       iex> check_domain("example.c%m")
       {:error, "tld not ldh"}
 
+      # trailing dot is dropped
       iex> check_domain("example.c0m.")
       {:ok, "example.c0m"}
+
+      # returned as lowercase binary without the trailing dot
+      iex> check_domain('example.COM.')
+      {:ok, "example.com"}
 
   """
   @spec check_domain(binary) :: {:ok, domain} | {:error, binary}
@@ -233,16 +268,6 @@ defmodule Spf.DNS do
       {:error, reason} -> {log(context, :dns, :error, "#{reason}"), {:error, :illegal_name}}
       {context, {:error, reason}} -> {context, {:error, reason}}
     end
-
-    #
-    # {context, name} = if type == :cname, do: {context, name}, else: cname(context, name)
-    # cache = Map.get(context, :dns, %{})
-
-    # case cache[{name, type}] do
-    #   nil -> {:error, :cache_miss}
-    #   [{:error, reason}] -> {:error, reason}
-    #   res -> {:ok, res}
-    # end
   end
 
   @doc """
@@ -419,9 +444,6 @@ defmodule Spf.DNS do
         tick(ctx, :num_dnsq)
         |> query(name, type, stats)
 
-      {ctx, {:error, :illegal_name}} ->
-        {ctx, {:error, :illegal_name}}
-
       {ctx, result} ->
         tick(ctx, :num_dnsq)
         |> do_stats(name, type, result, stats, cached: true)
@@ -491,12 +513,11 @@ defmodule Spf.DNS do
   defp authorityp([], _ctx), do: {:error, :nxdomain}
 
   defp authorityp([head | tail], ctx) do
-    # TODO: have authorityp return ctx as well?
-    # check ctx's cache for results for `head` to skip soa of a possible CNAME
+    # note: checks ctx.dns-cache directly `head`, :soa,  to skip CNAME results
     {ctx, _} = resolve(ctx, head, type: :soa)
 
-    case from_cache(ctx, head, :soa) do
-      {_ctx, {:ok, [{_, contact, _, _, _, _, _}]}} ->
+    case ctx.dns[{head, :soa}] do
+      [{_, contact, _, _, _, _, _}] ->
         {:ok, head, String.replace(contact, ".", "@", global: false)}
 
       _ ->
@@ -507,7 +528,8 @@ defmodule Spf.DNS do
   @spec do_stats(Spf.Context.t(), domain, rrtype, dns_result, boolean, Keyword.t()) ::
           {Spf.Context.t(), dns_result}
   defp do_stats(ctx, name, type, result, stats, opts \\ []) do
-    # log any warnings, possibly update stats & return {ctx, result}
+    # log any warnings, possibly update void stats & return {ctx, result}
+    # note: num_dnsq is updated in resolve, not here
     qry =
       case Keyword.get(opts, :cached, false) do
         true -> "DNS QUERY (#{ctx.num_dnsq}) [cache] #{type} #{name}"
@@ -526,7 +548,7 @@ defmodule Spf.DNS do
          |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :zero_answers} ->
-        # zero answers is a void query
+        # a previously cache_miss, cached as zero answers
         {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :nxdomain} ->
@@ -534,7 +556,7 @@ defmodule Spf.DNS do
         {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - NXDOMAIN"), result}
 
       {:error, reason} ->
-        # any other error, like :servfail
+        # any other error, like :servfail or :illegal_name
         err = String.upcase("#{inspect(reason)}")
 
         {log(ctx, :dns, :warn, "#{qry} - #{err}"), result}

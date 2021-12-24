@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - when updating the cache with an error record, it replaces any existing rrdata
 - queries for domain names with circular CNAME references, now yield :servfail
 - dot file generation does not choke when no SPF records were found
+- authority search ignores CNAME'd results to find real SOA for given domain
+    - the real SOA being the zone that contains the cname or delegation, if any
 
 ### changed
 
