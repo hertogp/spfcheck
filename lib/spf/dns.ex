@@ -251,14 +251,14 @@ defmodule Spf.DNS do
 
   ## Example
 
-     iex> zonedata = "
-     ...> example.net CNAME example.com
-     ...> EXAMPLE.COM. A 1.2.3.4
-     ...> "
-     iex> {_ctx, result} = Spf.Context.new("some.domain.tld", dns: zonedata)
-     ...> |> Spf.DNS.from_cache("example.net", :a)
-     iex> result
-     {:ok, ["1.2.3.4"]}
+      iex> zonedata = "
+      ...> example.net CNAME example.com
+      ...> EXAMPLE.COM. A 1.2.3.4
+      ...> "
+      iex> {_ctx, result} = Spf.Context.new("some.domain.tld", dns: zonedata)
+      ...> |> Spf.DNS.from_cache("example.net", :a)
+      iex> result
+      {:ok, ["1.2.3.4"]}
 
   """
   @spec from_cache(Spf.Context.t(), domain, rrtype) :: {Spf.Context.t(), dns_result()}
@@ -494,11 +494,11 @@ defmodule Spf.DNS do
       end
 
     Map.get(ctx, :dns, %{})
-    |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
+    |> Enum.map(fn entry -> rr_flatten(entry) end)
     |> List.flatten()
     |> rrs_sort()
     |> Enum.filter(fn {_domain, _type, data} -> keep.(data) end)
-    |> Enum.map(fn {domain, type, data} -> rr_tostr(domain, type, data) end)
+    |> Enum.map(fn {domain, type, data} -> rr_encode(domain, type, data) end)
   end
 
   # Helpers
@@ -727,8 +727,8 @@ defmodule Spf.DNS do
     do: {pref, to_string(domain)}
 
   # soa rdata
-  defp charlists_tostr({mname, rname, serial, refresh, retry, expiry, min_ttl}, :soa),
-    do: {to_string(mname), to_string(rname), serial, refresh, retry, expiry, min_ttl}
+  defp charlists_tostr({mname, rname, serial, refresh, retry, expiry, ttl}, :soa),
+    do: {to_string(mname), to_string(rname), serial, refresh, retry, expiry, ttl}
 
   # other rdata, including :txt, :spf, :ptr, :cname, :ns
   defp charlists_tostr(val, type) when type in [:txt, :spf, :ptr, :cname, :ns],
@@ -759,7 +759,7 @@ defmodule Spf.DNS do
   def load_zonedata(ctx, lines) when is_list(lines) do
     {malformed, good} =
       lines
-      |> Enum.map(&rrline_decode/1)
+      |> Enum.map(&rr_decode/1)
       |> List.flatten()
       |> Enum.split_with(fn {k, _, _} -> k == :error end)
 
@@ -775,7 +775,7 @@ defmodule Spf.DNS do
     Enum.reduce(errors, ctx, fn error, ctx -> update(ctx, error) end)
   end
 
-  defp rrline_decode(line) do
+  defp rr_decode(line) do
     with [name, type, rdata] <- String.split(line, @rgxtypes, parts: 2, include_captures: true),
          {:ok, name} <- check_domain(name),
          {:ok, type} <- rrtype_decode(type),
@@ -834,7 +834,7 @@ defmodule Spf.DNS do
 
   defp rrdata_type_decode(:soa, rdata) do
     # ns responsible-name serial refresh retry expire nxdomain-ttl
-    with [ns, rn, serial, refresh, retry, expire, nxttl] <-
+    with [ns, rn, serial, refresh, retry, expire, ttl] <-
            String.split(rdata, ~r/\s+/, parts: 7),
          {:ok, ns} <- check_domain(ns),
          {:ok, rn} <- check_domain(rn),
@@ -842,8 +842,8 @@ defmodule Spf.DNS do
          {:refresh, {refresh, ""}} <- {:refresh, Integer.parse(refresh)},
          {:retry, {retry, ""}} <- {:retry, Integer.parse(retry)},
          {:expire, {expire, ""}} <- {:expire, Integer.parse(expire)},
-         {:nxtttl, {nxttl, ""}} <- {:nxtttl, Integer.parse(nxttl)} do
-      {:ok, {ns, rn, serial, refresh, retry, expire, nxttl}}
+         {:ttl, {ttl, ""}} <- {:ttl, Integer.parse(ttl)} do
+      {:ok, {ns, rn, serial, refresh, retry, expire, ttl}}
     else
       {number, :error} -> {:error, "illegal #{number}"}
       error -> error
@@ -855,37 +855,40 @@ defmodule Spf.DNS do
 
   # CACHE->LINES
 
-  @spec rr_tostr(binary, atom, any) :: binary
-  defp rr_tostr(domain, type, data) do
+  @spec rr_encode(binary, atom, any) :: binary
+  defp rr_encode(domain, type, data) do
     rrtype = String.upcase("#{type}")
-    rrdata = rr_data_tostr(type, data)
+    rrdata = rrdata_encode(type, data)
     "#{domain} #{rrtype} #{rrdata}"
   end
 
-  @spec rr_data_tostr(atom, any) :: binary
-  defp rr_data_tostr(_, {:error, reason}),
-    do: "#{inspect(reason)}" |> String.upcase() |> String.trim_leading(":")
+  @spec rrdata_encode(rrtype, any) :: binary
+  defp rrdata_encode(_, {:error, reason}) do
+    "#{inspect(reason)}"
+    |> String.upcase()
+    |> String.trim_leading(":")
+  end
 
-  defp rr_data_tostr(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
+  defp rrdata_encode(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
     "#{Pfx.new(ip)}"
   rescue
-    # since dns errors are cached as well:
+    # just in case..
     _ -> ip
   end
 
-  defp rr_data_tostr(:mx, {pref, domain}) do
-    "#{pref} #{domain}"
-  end
+  defp rrdata_encode(:mx, {pref, domain}),
+    do: "#{pref} #{domain}"
 
-  defp rr_data_tostr(:txt, txt) do
-    inspect(txt)
-  end
+  defp rrdata_encode(:txt, txt),
+    do: inspect(txt)
 
-  defp rr_data_tostr(_type, data) do
-    "#{inspect(data)}" |> no_quotes()
-  end
+  defp rrdata_encode(:soa, {ns, rn, serial, refresh, retry, expiry, ttl}),
+    do: "#{ns} #{rn} #{serial} #{refresh} #{retry} #{expiry} #{ttl}"
 
-  defp rr_flatten(domain, type, rrdatas),
+  defp rrdata_encode(_type, data),
+    do: "#{inspect(data)}" |> no_quotes()
+
+  defp rr_flatten({{domain, type}, rrdatas}),
     do: for(rrdata <- rrdatas, do: {domain, type, rrdata})
 
   defp rrs_sort(rrs) do
