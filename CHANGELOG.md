@@ -9,17 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- when updating the cache with an error record, it replaces any existing rrdata
-- queries for domain names with circular CNAME references, now yield :servfail
+- when updating the DNS cache with an error, it replaces any existing rrdata
+- queries for cached domain names with circular CNAME references, now yield :servfail
 - dot file generation does not choke when no SPF records were found
-- if a soa record was precached, it is outputted correctly instead as an inspected value
-- authority search ignores CNAME'd results to find real SOA for given domain
-    - the real SOA being the zone that contains the searched name
+- if a soa record was pre-cached, it is outputted correctly instead as an inspected value
+- authority search ignores CNAME results to find real SOA for given domain
+    - the real SOA being the zone that contains the record for original search name
 
 ### changed
 
 - dot representation of an SPF record only shows the AST created
-    - "v=spf1" was included automatically since it is not part of the AST
+    - "v=spf1" was added automatically since it is not part of the AST
     - but this was confusing in cases where no SPF record was found
 - when generating zonedata for rfc7208's testsuite omit CNAME and SOA records
     - they're not used in the testsuite anyway

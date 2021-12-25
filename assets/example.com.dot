@@ -10,7 +10,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="red">[8] spf-c.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>a:bad.%{d2}</TD></TR>
   <TR><TD PORT="1">include:unused.example.com</TD></TR>
   <TR><TD>ip4:1.1.1.1</TD></TR>
@@ -27,7 +26,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[4][7] netblocks6.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>ip6:2001:db8:2001::/64</TD></TR>
   <TR><TD>ip6:2001:db8:2002::/64</TD></TR>
   <TR><TD>ip6:2001:db8:2003::/64</TD></TR>
@@ -44,7 +42,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[3][6] netblocks4.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>ip4:10.10.10.0/24</TD></TR>
   <TR><TD>ip4:192.168.0.0/16</TD></TR>
   <TR><TD>ip4:172.16.0.0/12</TD></TR>
@@ -61,7 +58,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[2][5] spf-b.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD PORT="0">include:netblocks4.example.com</TD></TR>
   <TR><TD PORT="1">include:netblocks6.example.com</TD></TR>
   <TR><TD>2 warnings</TD></TR>
@@ -77,7 +73,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[4][7] netblocks6.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>ip6:2001:db8:2001::/64</TD></TR>
   <TR><TD>ip6:2001:db8:2002::/64</TD></TR>
   <TR><TD>ip6:2001:db8:2003::/64</TD></TR>
@@ -94,7 +89,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[3][6] netblocks4.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>ip4:10.10.10.0/24</TD></TR>
   <TR><TD>ip4:192.168.0.0/16</TD></TR>
   <TR><TD>ip4:172.16.0.0/12</TD></TR>
@@ -111,7 +105,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[2][5] spf-b.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD PORT="0">include:netblocks4.example.com</TD></TR>
   <TR><TD PORT="1">include:netblocks6.example.com</TD></TR>
   <TR><TD>2 warnings</TD></TR>
@@ -127,7 +120,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="yellow">[1] spf-a.example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>a</TD></TR>
   <TR><TD>mx</TD></TR>
   <TR><TD PORT="2">include:spf-b.example.com</TD></TR>
@@ -144,7 +136,6 @@ reason: spf[8] a:bad.%{d2} - timeout";
   <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
   <TR><TD PORT="TOP" BGCOLOR="green">[0] example.com</TD></TR>
   <TR><TD BGCOLOR="lightgray">noc@dns.icann.org</TD></TR>
-  <TR><TD>v=spf1</TD></TR>
   <TR><TD>a:%{d1}.org</TD></TR>
   <TR><TD PORT="1">include:spf-a.example.com</TD></TR>
   <TR><TD PORT="2">include:spf-b.example.com</TD></TR>

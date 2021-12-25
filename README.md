@@ -118,18 +118,20 @@ makes it possible to try out records before publishing them in DNS.  That file
 should contain 1 RR record per line using:
 - `domain type rdata`
 - `domain type error`
-- `domain error`
 
 Where:
-- `type` should be one of `A, AAAA, CNAME, MX, NS, PTR, SOA, SPF or TXT`, and
-- `error` should be one of `FORMERR, NXDOMAIN, SERVFAIL, TIMEOUT or ZERO_ANSWERS`
+- `type` should be one of `A`, `AAAA`, `CNAME`, `MX`, `NS`, `PTR`, `SOA`, `SPF` or `TXT`, and
+- `error` should be one of `FORMERR`, `NXDOMAIN`, `SERVFAIL`, `TIMEOUT` or `ZERO_ANSWERS`
 
 The DNS `type` and `error` are both are case-insensitive and all domains are
-taken relative to root ('.') which is always stripped if present.  Using the
-second format of `domain error` will set the error on all known RR `type`'s.
+taken relative to root ('.') which is always stripped if present.  In case of
+any errors, the resource record is ignored and a warning logged.
 
 For the curious, the RR-type `SPF` is a relic from the past and only used when
-running the rfc7208 testsuite.
+generating the ExUnit test files for the rfc7208 testsuite during development.
+It is not used by `spfcheck` when evaluating an SPF policy.  The same holds
+true for the RR-types `NS` and `SOA`, but the latter does allow for
+manipulating the verdict's owner and/or the DNS reporting, if applicable.
 
 ```txt
 % spfcheck example.com -v 0 -d "example.com TXT v=spf1 +all"
@@ -336,7 +338,7 @@ For example:
 example.com
 me@example.net -i 1.2.3.4
 
-% cat assets/domains.txt | spfcheck -v 5 --no-color 2>assets/log.txt > assets/checked.csv
+% cat assets/domains.txt | spfcheck -v 5 --no-color 2>assets/log.txt >assets/checked.csv
 % cat assets/log.txt
 example.com %spf[0]-ctx-info:   > sender is 'example.com'
 example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
@@ -481,11 +483,10 @@ spf-c.example.com txt v=spf1 a:bad.%{d2} include:unused.example.com ip4:1.1.1.1 
 bad.example.com a TIMEOUT
 unused.example.com TXT v=spf1 all
 
-% spfcheck example.com --no-color -v 2 -d assets/example.db -r g 2> assets/example.com.log> assets/example.com.dot
+% spfcheck example.com --no-color -v 2 -d assets/example.db -r g 2>assets/example.com.log >assets/example.com.dot
 % dot -Tpng -O assets/example.com.dot
 
 % cat assets/example.com.log
-
 example.com %spf[1]-dns-warn:   | > DNS QUERY (4) a spf-a.example.com - NXDOMAIN
 example.com %spf[1]-dns-warn:   | > DNS QUERY (5) mx spf-a.example.com - NXDOMAIN
 example.com %spf[2]-parse-warn: | | > spf[2] spf-b.example.com - has implicit end (?all)
@@ -505,6 +506,7 @@ example.com %spf[8]-dns-warn:   > DNS QUERY (14) soa spf-c.example.com - NXDOMAI
 
 A few notes on interpretation:
 - the check, verdict and reason are on top of the picture
+- the `v=spf1` is never listed since it is not part of the SPF record's AST
 - the `exp=` modifier is never listed, just the AST per SPF record seen
 - terms with syntax errors are also not listed, but the verdict shows the last erronouos term
 - green means an SPF record itself had no errors nor warnings during parsing and evaluation
@@ -525,7 +527,7 @@ A few notes on interpretation:
     - thus the terms `include:unused.example.com` and `ip4:1.1.1.1` were not evaluated
     - hence, the SPF contents of the `unused.example.com` was not retrieved
       which is why it is shown by name only
-- only SPF records required to arrive at a verdict are shown (with details)
+- only SPF records required to arrive at a verdict are shown
     - early success or failure, means the graph does not show the full policy
     - to show as much as possible, use e.g. -i `127.0.0.1` (the default) or e.g.
       `0.0.0.0`
