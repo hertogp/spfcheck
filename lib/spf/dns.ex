@@ -46,6 +46,8 @@ defmodule Spf.DNS do
     "zero_answers" => :zero_answers
   }
 
+  @rrerror_names Map.keys(@rrerrors)
+
   @typedoc """
   A DNS result in the form of an ok/error-tuple.
 
@@ -497,9 +499,7 @@ defmodule Spf.DNS do
         _ -> fn _ -> true end
       end
 
-    cache = Map.get(ctx, :dns, %{})
-
-    cache
+    Map.get(ctx, :dns, %{})
     |> Enum.map(fn {{domain, type}, data} -> rr_flatten(domain, type, data) end)
     |> List.flatten()
     |> rrs_sort()
@@ -628,7 +628,7 @@ defmodule Spf.DNS do
          answers <- :inet_dns.msg(record, :anlist) do
       rrdatas =
         for answer <- answers do
-          domain = :inet_dns.rr(answer, :domain) |> charlists_tostr()
+          domain = :inet_dns.rr(answer, :domain) |> to_string()
           type = :inet_dns.rr(answer, :type)
           data = :inet_dns.rr(answer, :data) |> charlists_tostr(type)
           {domain, type, data}
@@ -646,9 +646,6 @@ defmodule Spf.DNS do
 
   defp cname(ctx, name, type, seen) do
     # return canonical name if present, name otherwise, must follow CNAME's
-    # name = charlists_tostr(name) |> normalize()
-    # cache = Map.get(ctx, :dns, %{})
-
     if seen[name] do
       ctx = log(ctx, :dns, :error, "DNS SERVFAIL - circular CNAMEs: #{inspect(Map.keys(seen))}")
 
@@ -688,12 +685,12 @@ defmodule Spf.DNS do
   defp cache({:ok, entries}, ctx, _name, _type),
     do: Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
+  @spec update(Spf.Context.t(), {binary, rrtype, any}) :: Spf.Context.t()
   defp update(ctx, {domain, type, {:error, _} = error}) do
     Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [error]))
     |> log(:dns, :debug, "added {#{domain}, #{type} -> #{inspect(error)}")
   end
 
-  @spec update(Spf.Context.t(), {binary, rrtype, any}) :: Spf.Context.t()
   defp update(ctx, {domain, type, data}) do
     # update the cache for a single entry
     # - donot use from_cache since that unrolls cnames
@@ -712,67 +709,36 @@ defmodule Spf.DNS do
     end
   end
 
-  # charlists_tostr -> normalize rrdata by turning any embedded charlists
-  # into string.
+  # charlists_tostr/2
   # note:
-  # - empty list should turn into {:error, :zero_answers}, and NOT ""
-  # - {:error, _} should stay an error-tuple
-  # charlists_tostr/1 is helper for charlists_tostr/2
-  defp charlists_tostr([]),
-    do: {:error, :zero_answers}
+  # - given a single rdata & type, turn its charlists into binaries (if any)
+  # - e.g. charlists_tostr('some text record', :txt)
+  # - relies on the fact that query is used for SPF related DNS queries
+  #   and authority (:soa) queries only.
+  #   (so the number of rrtypes to support is limited)
 
-  defp charlists_tostr(rrdata) when is_list(rrdata) do
-    # turn a single (non-empty) charlist or list of charlists into single string
-    # this glues the strings together without spaces.
-    IO.iodata_to_binary(rrdata)
-  end
-
-  defp charlists_tostr(rrdata) do
-    # catch all, keep it as it is
-    rrdata
-  end
-
-  # charlists_tostr/2 for types of rrdatas
-  # no charlist in error situations
+  #  keep error-tuples as is
   defp charlists_tostr({:error, reason}, _),
     do: {:error, reason}
 
-  # mta name to string
+  # :a, :aaaa rdata, preserve error-tuple (if any)
+  defp charlists_tostr(ip, rrtype) when rrtype in [:a, :aaaa] do
+    "#{Pfx.new(ip)}"
+  rescue
+    _ -> ip
+  end
+
+  # :mta name to string
   defp charlists_tostr({pref, domain}, :mx),
-    do: {pref, charlists_tostr(domain)}
+    do: {pref, to_string(domain)}
 
-  # txt value to string
-  defp charlists_tostr(txt, :txt) do
-    charlists_tostr(txt)
-  end
-
-  # domain name of ptr record to string
-  defp charlists_tostr(domain, :ptr),
-    do: charlists_tostr(domain)
-
-  # address tuple to string (or keep {:error, _}-tuple)
-  defp charlists_tostr(ip, :a) do
-    "#{Pfx.new(ip)}"
-  rescue
-    _ -> ip
-  end
-
-  # address tuple to string (or keep {:error, _}-tuple)
-  defp charlists_tostr(ip, :aaaa) do
-    "#{Pfx.new(ip)}"
-  rescue
-    _ -> ip
-  end
-
-  # primary nameserver and admin contact to string
+  # soa rdata
   defp charlists_tostr({mname, rname, serial, refresh, retry, expiry, min_ttl}, :soa),
-    do: {charlists_tostr(mname), charlists_tostr(rname), serial, refresh, retry, expiry, min_ttl}
+    do: {to_string(mname), to_string(rname), serial, refresh, retry, expiry, min_ttl}
 
-  defp charlists_tostr(data, _) when is_list(data),
-    do: charlists_tostr(data)
-
-  defp charlists_tostr(data, _),
-    do: data
+  # other rdata, including :txt, :spf, :ptr, :cname, :ns
+  defp charlists_tostr(val, type) when type in [:txt, :spf, :ptr, :cname, :ns],
+    do: to_string(val)
 
   # LINES->CACHE
   #
@@ -792,6 +758,99 @@ defmodule Spf.DNS do
   # 2) look for {domain} second, and lastly
   # 3) return a cache-miss
   # that way, code could be simpler, less coupled to known 'errors'
+
+  @spec load_zonedata(binary) :: map
+  def load_zonedata(binary) do
+    {malformed, good} =
+      binary
+      |> String.split("\n", trim: true)
+      |> Enum.map(&line_to_rr/1)
+      |> List.flatten()
+      |> Enum.reverse()
+      |> IO.inspect()
+      |> Enum.split_with(fn {k, _, _} -> k == :error end)
+
+    {errors, normal} =
+      Enum.split_with(good, fn {_, _, v} -> is_tuple(v) and elem(v, 0) == :error end)
+
+    IO.inspect(malformed, label: :malformed)
+    IO.inspect(errors, label: :errors)
+    IO.inspect(normal, label: :normals)
+  end
+
+  defp line_to_rr(line) do
+    IO.inspect(line)
+
+    with [name, type, rdata] <- String.split(line, @rgxtypes, parts: 2, include_captures: true),
+         {:ok, name} <- check_domain(name),
+         {:ok, type} <- rrtype_decode(type),
+         {:ok, rdata} <- rrdata_decode(type, String.downcase(rdata)) do
+      {name, type, rdata}
+    else
+      {:error, reason} -> {:error, reason, line}
+      _ -> {:error, "malformed RR", line}
+    end
+  end
+
+  defp rrtype_decode(type) do
+    case @rrtypes[String.trim(type) |> String.downcase()] do
+      nil -> {:error, "unsupported RR type"}
+      type -> {:ok, type}
+    end
+  end
+
+  defp rrdata_decode(_type, rdata) when rdata in @rrerror_names,
+    do: {:ok, {:error, @rrerrors[rdata]}}
+
+  defp rrdata_decode(type, rdata) when type in [:txt, :spf],
+    do: {:ok, no_quotes(rdata)}
+
+  defp rrdata_decode(type, rdata) when type in [:a, :aaaa] do
+    pfx = Pfx.new(rdata)
+
+    case {type, pfx.maxlen} do
+      {:a, 32} -> {:ok, rdata}
+      {:aaaa, 128} -> {:ok, String.downcase(rdata)}
+      _ -> {:error, "illegal address"}
+    end
+  rescue
+    _ -> {:error, "illegal address"}
+  end
+
+  defp rrdata_decode(:mx, rdata) do
+    with [pref, name] <- String.split(rdata, ~r/\s+/, parts: 2),
+         {:ok, domain} <- check_domain(name),
+         {pref, ""} <- Integer.parse(pref) do
+      {:ok, {pref, domain}}
+    else
+      :error -> {:error, "illegal pref"}
+      error -> error
+    end
+  end
+
+  defp rrdata_decode(type, rdata) when type in [:ptr, :cname, :ns],
+    do: check_domain(rdata)
+
+  defp rrdata_decode(:soa, rdata) do
+    # ns responsible-name serial refresh retry expire nxdomain-ttl
+    with [ns, rn, serial, refresh, retry, expire, nxttl] <-
+           String.split(rdata, ~r/\s+/, parts: 7),
+         {:ok, ns} <- check_domain(ns),
+         {:ok, rn} <- check_domain(rn),
+         {:serial, {serial, ""}} <- {:serial, Integer.parse(serial)},
+         {:refresh, {refresh, ""}} <- {:refresh, Integer.parse(refresh)},
+         {:retry, {retry, ""}} <- {:retry, Integer.parse(retry)},
+         {:expire, {expire, ""}} <- {:expire, Integer.parse(expire)},
+         {:nxtttl, {nxttl, ""}} <- {:nxtttl, Integer.parse(nxttl)} do
+      {:ok, {ns, rn, serial, refresh, retry, expire, nxttl}}
+    else
+      {number, :error} -> {:error, "illegal #{number}"}
+      error -> error
+    end
+  end
+
+  defp rrdata_decode(type, _rdata),
+    do: {:error, :rrtype, "#{type}"}
 
   @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
   defp load_file(ctx, fpath) when is_binary(fpath) do
