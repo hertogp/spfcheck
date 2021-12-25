@@ -12,7 +12,9 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = "example.com TXT v=spf1 +all"
+      iex> zonedata = "
+      ...> example.com TXT v=spf1 +all
+      ...> "
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
       iex> result
@@ -46,8 +48,6 @@ defmodule Spf.DNS do
     "zero_answers" => :zero_answers
   }
 
-  @rrerror_names Map.keys(@rrerrors)
-
   @typedoc """
   A DNS result in the form of an ok/error-tuple.
 
@@ -75,10 +75,11 @@ defmodule Spf.DNS do
   [`inet_res.rr_type`](https://www.erlang.org/doc/man/inet_res.html#type-rr_type).
 
   In order to experiment with new records, RR records can be specified in a
-  file or a multi-line binary, in which case `rrtype` is one of
+  file or a multi-line binary, in which case `rrtype` must be one of
   #{inspect(Map.values(@rrtypes))}
 
-  This is enough to allow experimentation with new records that override DNS.
+  This subset is enough to allow experimentation with new records that override
+  DNS.
 
   """
   @type rrtype :: atom
@@ -107,16 +108,14 @@ defmodule Spf.DNS do
 
   SPF evaluation might require evaluating multiple records of different
   domains.  This function allows for reporting the owner and contact for each
-  SPF record encountered. CNAME's are ignored since the goal is to find the
-  authoritative zone for a given (sub)domain `name`.
+  SPF record encountered.
 
   Returns
   - `{:ok, domain, authority, contact}`, or
-  - `{:error, :err_code}`
+  - `{:error, reason}`
 
   The given `name` does not need to actually exist, the aim is to find the
-  owner of the domain the `name` belongs to.  CNAME's are ignored in order
-  to find the *real* owner zone.
+  owner of the zone the `name` belongs to.  Note that CNAME's are ignored.
 
   ## Examples
 
@@ -124,7 +123,9 @@ defmodule Spf.DNS do
       ...> |> Spf.DNS.authority("non-existing.example.com")
       {:ok, "non-existing.example.com", "example.com", "noc@dns.icann.org"}
 
-      iex> zonedata = [ "www.example.com CNAME example.org" ]
+      iex> zonedata = "
+      ...> www.example.com CNAME example.org
+      ...> "
       iex> Spf.Context.new("some.tld", dns: zonedata)
       ...> |> Spf.DNS.authority("www.example.com")
       {:ok, "www.example.com", "example.com", "noc@dns.icann.org"}
@@ -149,9 +150,9 @@ defmodule Spf.DNS do
   @doc """
   Checks validity of a domain name and returns `{:ok, name}` or `{:error, reason}`
 
-  Given `domain` can be a binary or a charlist.  It is normalized (lowercase, 
-  trailing dot removed and charlist is converted to a binary) and checked that
-  it:
+  Given `domain` can be a binary or a charlist.  It is normalized (downcase'd,
+  trailing dot removed and, if applicable, charlist is converted to a binary)
+  and checked that it:
 
   - is an ascii string
   - is less than 254 chars long
@@ -250,11 +251,14 @@ defmodule Spf.DNS do
 
   ## Example
 
-       iex> zonedata = ["example.net CNAME example.com", "EXAMPLE.COM. A 1.2.3.4"]
-       iex> {_ctx, result} = Spf.Context.new("some.domain.tld", dns: zonedata)
-       ...> |> Spf.DNS.from_cache("example.net", :a)
-       iex> result
-       {:ok, ["1.2.3.4"]}
+     iex> zonedata = "
+     ...> example.net CNAME example.com
+     ...> EXAMPLE.COM. A 1.2.3.4
+     ...> "
+     iex> {_ctx, result} = Spf.Context.new("some.domain.tld", dns: zonedata)
+     ...> |> Spf.DNS.from_cache("example.net", :a)
+     iex> result
+     {:ok, ["1.2.3.4"]}
 
   """
   @spec from_cache(Spf.Context.t(), domain, rrtype) :: {Spf.Context.t(), dns_result()}
@@ -280,19 +284,22 @@ defmodule Spf.DNS do
 
   ## Examples
 
-       iex> zonedata = ["example.com TXT v=spf1 -all", "example.com TXT another txt record"]
-       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
-       iex> {_ctx, dns_result} = resolve(ctx, "example.com", type: :txt)
-       iex>
-       iex> dns_result
-       {:ok, ["another txt record", "v=spf1 -all"]}
-       iex>
-       iex> filter(dns_result, &Spf.Eval.spf?/1)
-       {:ok, ["v=spf1 -all"]}
+      iex> zonedata = "
+      ...> example.com TXT v=spf1 -all
+      ...> example.com TXT another txt record
+      ...> "
+      iex> ctx = Spf.Context.new("example.com", dns: zonedata)
+      iex> {_ctx, dns_result} = resolve(ctx, "example.com", type: :txt)
+      iex>
+      iex> dns_result
+      {:ok, ["another txt record", "v=spf1 -all"]}
+      iex>
+      iex> filter(dns_result, &Spf.Eval.spf?/1)
+      {:ok, ["v=spf1 -all"]}
 
-       iex> dns_result = {:error, :nxdomain}
-       iex> Spf.DNS.filter(dns_result, &Spf.Eval.spf?/1)
-       {:error, :nxdomain}
+      iex> dns_result = {:error, :nxdomain}
+      iex> Spf.DNS.filter(dns_result, &Spf.Eval.spf?/1)
+      {:error, :nxdomain}
 
   """
   @spec filter(dns_result(), function()) :: dns_result()
@@ -317,32 +324,28 @@ defmodule Spf.DNS do
 
   `dns` can be a path to an existing file, a multi-line binary containing
   individual RR-records per line or a list thereof. The cache is held in the
-  context under the `:dns` key and is a simple map: `{name, rrtype}` ->
-  `[rdata]`.
-
+  SPF evaluation `context` under the `:dns` key and is a simple map: `{name,
+  rrtype}` -> `[rdata]`.
 
   Lines should be formatted as
-  - `name  rr-type  data`, or
-  - `name  rr-type  error`, or
-  - `name  error`
+  - `name  rrtype  rdata`, or
+  - `name  rrtype  error`
 
   where
-  - `rr-type` is `a`, `aaaa`, `cname`, `mx`, `ns`, `ptr`, `soa`, `spf`, or `txt`
-  - `error` is `formerr`, `nxdomain`, `servfail`, `timeout` or `zero_answers`
+  - `rrtype` is one of #{Map.keys(@rrtypes)}
+  - `error` is one of #{Map.keys(@rrerrors)}
+  - `rdata` text representation of data suitable for given `rrtype`
 
-  The third format will set the rdata for given `name` to given `error` for
-  all known `rr-type`'s except for CNAME RR-type since autogenerting a CNAME
-  would effectively destroy all access to the domain name's records.
-
-  Unknown rr-types are ignored and logged as a warning during preloading.
+  Unknown rr-types or otherwise malformed RR's are ignored and logged as a
+  warning during preloading.
 
   ## Example
 
-      iex> zonedata = [
-      ...>   "example.com TXT v=spf1 +all",
-      ...>   "example.com A timeout",
-      ...>   "EXAMPLE.NET servfail"
-      ...> ]
+      iex> zonedata = "
+      ...> example.com TXT v=spf1 +all
+      ...> example.com A timeout
+      ...> EXAMPLE.NET AAAA servfail
+      ...> "
       iex> ctx = Spf.Context.new("some.domain.tld")
       ...> |> Spf.DNS.load(zonedata)
       iex>
@@ -353,23 +356,14 @@ defmodule Spf.DNS do
       iex> Spf.DNS.resolve(ctx, "example.com", type: :a) |> elem(1)
       {:error, :timeout}
       iex>
-      iex> Spf.DNS.resolve(ctx, "example.net", type: :a) |> elem(1)
+      iex> Spf.DNS.resolve(ctx, "example.net", type: :aaaa) |> elem(1)
       {:error, :servfail}
       iex>
       iex> ctx.dns
       %{{"example.com", :a} => [error: :timeout],
         {"example.com", :txt} => ["v=spf1 +all"],
-        {"example.net", :a} => [error: :servfail],
-        {"example.net", :aaaa} => [error: :servfail],
-        {"example.net", :mx} => [error: :servfail],
-        {"example.net", :ns} => [error: :servfail],
-        {"example.net", :ptr} => [error: :servfail],
-        {"example.net", :soa} => [error: :servfail],
-        {"example.net", :spf} => [error: :servfail],
-        {"example.net", :txt} => [error: :servfail]
+        {"example.net", :aaaa} => [error: :servfail]
       }
-
-      # note the error did not propagate to the CNAME type.
 
   """
   @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
@@ -381,7 +375,7 @@ defmodule Spf.DNS do
   def load(ctx, dns) do
     case File.exists?(dns) do
       true -> load_file(ctx, dns)
-      false -> load_lines(ctx, dns)
+      false -> load_zonedata(ctx, dns)
     end
   end
 
@@ -415,8 +409,8 @@ defmodule Spf.DNS do
   Resolves a query, updates the cache and returns a {`ctx`,
   `t:dns_result/0`}-tuple.
 
-  Returns:
-  - `{ctx, {:error, reason}}` if a DNS error occurred, or
+  Returns one of:
+  - `{ctx, {:error, reason}}` if a DNS error occurred or was cached earlier
   - `{ctx, {:ok, [rrs]}}` where rrs is a list of rrdata's
 
   Although a result with ZERO answers is technically not a DNS error, it
@@ -464,11 +458,11 @@ defmodule Spf.DNS do
 
   ## Example
 
-      iex> zonedata = [
-      ...> "example.com TXT v=spf1 -all",
-      ...> "a.example.com A 1.2.3.4",
-      ...> "b.example.com AaAa timeout"
-      ...> ] |> Enum.join("\n")
+      iex> zonedata = "
+      ...> example.com TXT v=spf1 -all
+      ...> a.example.com A 1.2.3.4
+      ...> b.example.com AaAa timeout
+      ...> "
       iex> ctx = Spf.Context.new("example.com", dns: zonedata)
       iex> Spf.DNS.to_list(ctx)
       ...> |> Enum.map(fn x -> String.replace(x, ~r/\s+/, " ") end)
@@ -513,7 +507,7 @@ defmodule Spf.DNS do
   defp authorityp([], _ctx), do: {:error, :nxdomain}
 
   defp authorityp([head | tail], ctx) do
-    # note: checks ctx.dns-cache directly `head`, :soa,  to skip CNAME results
+    # note: checks ctx.dns-cache directly for {`head`, :soa} skipping CNAME's
     {ctx, _} = resolve(ctx, head, type: :soa)
 
     case ctx.dns[{head, :soa}] do
@@ -741,50 +735,51 @@ defmodule Spf.DNS do
     do: to_string(val)
 
   # LINES->CACHE
-  #
-  # zonedata is formatted as:
-  # domain  rrtype  data,   where data depends on rrtype
-  # domain  rrtype  error,  where error is in [TIMEOUT, SERVFAIL, NXDOMAIN, ZERO_ANSWERS]
-  # domain  error,          see above for error.  Propagates to all unspecified rr-types
-  #
-  # in order to be able to load zonedata multiple times, a map is created and
-  # merged with ctx.dns, rather than insert each line into ctx.dns.  This
-  # allows for cleaner handling of the weird-ass rules of the rfc7208 testsuite
-  # schema.
-  #
-  # alt: just insert {domain, type} -> [rrdata] as found and insert {domain} ->
-  # {:error, atom} and adjust the from_cache to:
-  # 1) look for {domain, :type} first, then
-  # 2) look for {domain} second, and lastly
-  # 3) return a cache-miss
-  # that way, code could be simpler, less coupled to known 'errors'
 
-  @spec load_zonedata(binary) :: map
-  def load_zonedata(binary) do
+  @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
+  defp load_file(ctx, fpath) when is_binary(fpath) do
+    ctx =
+      case File.read(fpath) do
+        {:ok, binary} ->
+          load_zonedata(ctx, binary)
+
+        {:error, reason} ->
+          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
+      end
+
+    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
+  rescue
+    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
+  end
+
+  @spec load_zonedata(Spf.Context.t(), binary | [binary]) :: Spf.Context.t()
+  def load_zonedata(ctx, binary) when is_binary(binary),
+    do: load_zonedata(ctx, String.split(binary, "\n", trim: true))
+
+  def load_zonedata(ctx, lines) when is_list(lines) do
     {malformed, good} =
-      binary
-      |> String.split("\n", trim: true)
-      |> Enum.map(&line_to_rr/1)
+      lines
+      |> Enum.map(&rrline_decode/1)
       |> List.flatten()
-      |> Enum.reverse()
-      |> IO.inspect()
       |> Enum.split_with(fn {k, _, _} -> k == :error end)
 
     {errors, normal} =
       Enum.split_with(good, fn {_, _, v} -> is_tuple(v) and elem(v, 0) == :error end)
 
-    IO.inspect(malformed, label: :malformed)
-    IO.inspect(errors, label: :errors)
-    IO.inspect(normal, label: :normals)
+    ctx =
+      Enum.reduce(malformed, ctx, fn {_, reason, line}, ctx ->
+        log(ctx, :dns, :warn, "#{reason} - #{line}")
+      end)
+
+    ctx = Enum.reduce(normal, ctx, fn entry, ctx -> update(ctx, entry) end)
+    Enum.reduce(errors, ctx, fn error, ctx -> update(ctx, error) end)
   end
 
-  defp line_to_rr(line) do
-    IO.inspect(line)
-
+  defp rrline_decode(line) do
     with [name, type, rdata] <- String.split(line, @rgxtypes, parts: 2, include_captures: true),
          {:ok, name} <- check_domain(name),
          {:ok, type} <- rrtype_decode(type),
-         {:ok, rdata} <- rrdata_decode(type, String.downcase(rdata)) do
+         {:ok, rdata} <- rrdata_decode(type, rdata) do
       {name, type, rdata}
     else
       {:error, reason} -> {:error, reason, line}
@@ -799,13 +794,19 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rrdata_decode(_type, rdata) when rdata in @rrerror_names,
-    do: {:ok, {:error, @rrerrors[rdata]}}
+  defp rrdata_decode(type, rdata) do
+    error = String.downcase(rdata)
 
-  defp rrdata_decode(type, rdata) when type in [:txt, :spf],
+    case @rrerrors[error] do
+      nil -> rrdata_type_decode(type, rdata)
+      atom -> {:ok, {:error, atom}}
+    end
+  end
+
+  defp rrdata_type_decode(type, rdata) when type in [:txt, :spf],
     do: {:ok, no_quotes(rdata)}
 
-  defp rrdata_decode(type, rdata) when type in [:a, :aaaa] do
+  defp rrdata_type_decode(type, rdata) when type in [:a, :aaaa] do
     pfx = Pfx.new(rdata)
 
     case {type, pfx.maxlen} do
@@ -817,7 +818,7 @@ defmodule Spf.DNS do
     _ -> {:error, "illegal address"}
   end
 
-  defp rrdata_decode(:mx, rdata) do
+  defp rrdata_type_decode(:mx, rdata) do
     with [pref, name] <- String.split(rdata, ~r/\s+/, parts: 2),
          {:ok, domain} <- check_domain(name),
          {pref, ""} <- Integer.parse(pref) do
@@ -828,10 +829,10 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rrdata_decode(type, rdata) when type in [:ptr, :cname, :ns],
+  defp rrdata_type_decode(type, rdata) when type in [:ptr, :cname, :ns],
     do: check_domain(rdata)
 
-  defp rrdata_decode(:soa, rdata) do
+  defp rrdata_type_decode(:soa, rdata) do
     # ns responsible-name serial refresh retry expire nxdomain-ttl
     with [ns, rn, serial, refresh, retry, expire, nxttl] <-
            String.split(rdata, ~r/\s+/, parts: 7),
@@ -849,185 +850,16 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rrdata_decode(type, _rdata),
+  defp rrdata_type_decode(type, _rdata),
     do: {:error, :rrtype, "#{type}"}
 
-  @spec load_file(Spf.Context.t(), binary) :: Spf.Context.t()
-  defp load_file(ctx, fpath) when is_binary(fpath) do
-    ctx =
-      case File.read(fpath) do
-        {:ok, binary} ->
-          load_lines(ctx, String.split(binary, "\n"))
-
-        {:error, reason} ->
-          log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
-      end
-
-    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
-  rescue
-    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
-  end
-
-  @spec load_lines(Spf.Context.t(), [binary] | binary) :: Spf.Context.t()
-  defp load_lines(ctx, lines) when is_binary(lines),
-    do: load_lines(ctx, String.split(lines, "\n"))
-
-  defp load_lines(ctx, lines) when is_list(lines) do
-    lines
-    |> Enum.map(&String.trim/1)
-    |> Enum.reduce(ctx, &rr_fromstr/2)
-  end
-
-  @spec rr_fromstr(binary, Spf.Context.t()) :: Spf.Context.t()
-  defp rr_fromstr(str, ctx) do
-    String.trim(str) |> rr_fromstrp(ctx)
-  end
-
-  @spec rr_fromstrp(binary, Spf.Context.t()) :: Spf.Context.t()
-  defp rr_fromstrp("#" <> _, ctx),
-    # this is why str must be trimmed already
-    do: ctx
-
-  defp rr_fromstrp("", ctx),
-    do: ctx
-
-  defp rr_fromstrp(str, ctx) do
-    case rr_line(str) do
-      {:ok, rrs} -> Enum.reduce(rrs, ctx, fn entry, ctx -> only_new(ctx, entry) end)
-      {:error, reason} -> Spf.Context.log(ctx, :dns, :warn, "#{reason} -- ignored rr '#{str}'")
-    end
-  end
-
-  defp only_new(ctx, {name, type, {:error, reason}}) do
-    # only add {:error, reason} if there is no existing RR for {name, type}
-    # note: assumes rr_line_parts has normalized both `name` and `type`
-    case ctx.dns[{name, type}] do
-      nil -> update(ctx, {name, type, {:error, reason}})
-      _ -> ctx
-    end
-  end
-
-  defp only_new(ctx, entry),
-    do: update(ctx, entry)
-
-  defp rr_line(line) do
-    # return {:ok, [{name, type, rdata}] or {:error, reason}
-    #
-    # :NOTE: rfc7208's tst:13.9 (macro-mania-in-domain) has a space in a domain, hence:
-    # - `name type rdata` is tried first for *known* types, if that fails
-    # - `name error` is assumed and the line is split on the last word
-    # - NEVER autogenerate an error record for CNAME, since that destroys lookups
-    split =
-      case String.split(line, @rgxtypes, parts: 2, include_captures: true) do
-        [name, type, rdata] -> [name, String.trim(type), rdata]
-        _ -> String.split(line, ~r/\S+$/, include_captures: true, trim: true)
-      end
-
-    alltypes =
-      Enum.filter(@rrtypes, fn {_name, type} -> type != :cname end)
-      |> Enum.map(fn {name, _type} -> name end)
-
-    case split do
-      [name, type, rdata] -> rr_line_parts(name, [type], rdata)
-      [name, rdata] -> rr_line_parts(name, alltypes, rdata)
-      _ -> {:error, :malformed}
-    end
-  end
-
-  defp rr_line_parts(name, types, rdata) do
-    with {:ok, domain} <- normalize(name) |> check_domain(),
-         {:ok, types} <- rr_line_types(types),
-         {:ok, data} <- rr_line_data(types, rr_line_unquote(rdata)) do
-      {:ok, for(type <- types, do: {domain, type, data})}
-    else
-      error ->
-        if length(types) > 1,
-          do: {:error, :malformed_rr},
-          else: error
-    end
-  end
-
-  defp rr_line_types(types) do
-    types = Enum.map(types, fn type -> @rrtypes[String.downcase(type)] end)
-
-    case Enum.member?(types, nil) do
-      true -> {:error, :unsupported_type}
-      false -> {:ok, types}
-    end
-  end
-
-  defp rr_line_data(_, {:error, error}),
-    do: {:ok, {:error, error}}
-
-  defp rr_line_data([type], rdata) when type in [:a, :aaaa] do
-    pfx = Pfx.new(rdata)
-
-    case {type, pfx.maxlen} do
-      {:a, 32} -> {:ok, rdata}
-      {:aaaa, 128} -> {:ok, String.downcase(rdata)}
-      _ -> {:error, :einvalid_addr}
-    end
-  rescue
-    _ -> {:error, :einvalid_addr}
-  end
-
-  defp rr_line_data([:mx], rdata) do
-    with [pref, name] <- String.split(rdata, ~r/\s+/, parts: 2),
-         {:ok, domain} <- normalize(name) |> check_domain(),
-         {pref, ""} <- Integer.parse(pref) do
-      {:ok, {pref, domain}}
-    else
-      _ -> {:error, :illegal_mx}
-    end
-  end
-
-  defp rr_line_data([type], rdata) when type in [:ptr, :cname, :ns],
-    do: normalize(rdata) |> check_domain()
-
-  defp rr_line_data([type], rdata) when type in [:spf, :txt],
-    do: {:ok, no_quotes(rdata)}
-
-  defp rr_line_data([:soa], rdata) do
-    # master-name responsible-name serial refresh retry expire nxdomain-ttl
-    with [mn, rn, serial, refresh, retry, expire, nxttl] <-
-           String.split(rdata, ~r/\s+/, parts: 7),
-         {:ok, mn} <- normalize(mn) |> check_domain(),
-         {:ok, rn} <- normalize(rn) |> check_domain(),
-         {serial, ""} <- Integer.parse(serial),
-         {refresh, ""} <- Integer.parse(refresh),
-         {retry, ""} <- Integer.parse(retry),
-         {expire, ""} <- Integer.parse(expire),
-         {nxttl, ""} <- Integer.parse(nxttl) do
-      {:ok, {mn, rn, serial, refresh, retry, expire, nxttl}}
-    else
-      _ -> {:error, :illegal_soa}
-    end
-  end
-
-  defp rr_line_data(_type, _rdata) do
-    # either type or rdata is wrong here
-    {:error, :unsupported_rr}
-  end
-
-  defp rr_line_unquote(rdata) do
-    # returns either:
-    # - an unquote'd rdata (NOT changing case) or
-    # - a known, supported rdata error-tuple
-    rdata = no_quotes(rdata)
-
-    case @rrerrors[String.downcase(rdata)] do
-      nil -> rdata
-      error -> {:error, error}
-    end
-  end
-
   # CACHE->LINES
+
   @spec rr_tostr(binary, atom, any) :: binary
   defp rr_tostr(domain, type, data) do
-    domain = String.pad_trailing(domain, 25) |> String.downcase()
-    rrtype = String.upcase("#{type}") |> String.pad_trailing(7)
-    data = rr_data_tostr(type, data)
-    Enum.join([domain, rrtype, data], " ")
+    rrtype = String.upcase("#{type}")
+    rrdata = rr_data_tostr(type, data)
+    "#{domain} #{rrtype} #{rrdata}"
   end
 
   @spec rr_data_tostr(atom, any) :: binary

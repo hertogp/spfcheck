@@ -136,11 +136,13 @@ defmodule SpfDNSTest do
     end
 
     @tag tst: "dns.03"
-    test "03 - dns cache inserts errors properly" do
+    test "03 - dns cache rr-errors overwrite always" do
       zonedata = """
       example.com A 1.2.3.4
-      example.com AAAA TIMEOUT
-      example.com SERVFAIL
+      example.com AAAA acdc:1976::1
+      example.com AAAA Timeout
+      example.com mx ServFail
+      example.com mx 10 mail.example.com
       """
 
       ctx = Spf.Context.new("example.com", dns: zonedata)
@@ -148,18 +150,11 @@ defmodule SpfDNSTest do
       # the A record stays untouched
       {_ctx, {:ok, ["1.2.3.4"]}} = Spf.DNS.resolve(ctx, "example.com", type: :a)
 
-      # the AAAA record remains as TIMEOUT
+      # the AAAA record has the error
       {_ctx, {:error, :timeout}} = Spf.DNS.resolve(ctx, "example.com", type: :aaaa)
 
       # unspecified (known) RR-types are set to SERVFAIL
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :mx)
-      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :ns)
-      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :soa)
-      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :ptr)
-      {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
-
-      # errors NEVER propagate to a CNAME record!
-      {_ctx, {:error, :cache_miss}} = Spf.DNS.from_cache(ctx, "example.com", type: :cname)
     end
 
     @tag tst: "dns.04"
