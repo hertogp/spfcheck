@@ -527,7 +527,7 @@ A few notes on interpretation:
     - thus the terms `include:unused.example.com` and `ip4:1.1.1.1` were not evaluated
     - hence, the SPF contents of the `unused.example.com` was not retrieved
       which is why it is shown by name only
-- only SPF records required to arrive at a verdict are shown
+- only the AST's of SPF records required to arrive at a verdict are shown
     - early success or failure, means the graph does not show the full policy
     - to show as much as possible, use e.g. -i `127.0.0.1` (the default) or e.g.
       `0.0.0.0`
