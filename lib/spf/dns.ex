@@ -772,7 +772,11 @@ defmodule Spf.DNS do
 
   @spec load_zonedata(Spf.Context.t(), binary | [binary]) :: Spf.Context.t()
   defp load_zonedata(ctx, binary) when is_binary(binary),
-    do: load_zonedata(ctx, String.split(binary, "\n", trim: true))
+    do:
+      String.split(binary, "\n", trim: true)
+      |> Enum.map(&String.trim/1)
+      |> Enum.filter(fn line -> not String.match?(line, ~r/\s*#/) end)
+      |> then(fn lines -> load_zonedata(ctx, lines) end)
 
   defp load_zonedata(ctx, lines) when is_list(lines) do
     {malformed, good} =

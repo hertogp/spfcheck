@@ -132,7 +132,7 @@ For the curious, the RR-type `SPF` is a relic from the past and only used when
 generating the ExUnit test files for the rfc7208 testsuite during development.
 It is not used by `spfcheck` when evaluating an SPF policy.  The same holds
 true for the RR-types `NS` and `SOA`, but the latter does allow for
-manipulating the verdict's owner and/or the DNS reporting, if applicable.
+manipulating the owner's contact email, if so desired.
 
 ```txt
 % spfcheck example.com -v 0 -d "example.com TXT v=spf1 +all"
