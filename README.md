@@ -24,8 +24,9 @@ Use `spfcheck` to:
 - generate a csv-file with policy evaluation results for lots of domains
 
 `spfcheck` passes the
-[`rfc7208 test suite`](http://www.open-spf.org/Test_Suite) and should be reasonably
-[`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html) compliant.
+[`rfc7208`](https://www.rfc-editor.org/rfc/rfc7208.html)
+[`test suite`](http://www.open-spf.org/Test_Suite) and should be reasonably rfc
+compliant.
 
 
 ## Usage
@@ -578,13 +579,62 @@ explanation:
 Finally, the `-w` flag can be used to control the width used when printing
 information of certain topics.  Primarily meant so a markdown formatted report
 can be easily converted to pdf.  Default value is 60, but you can make it as
-wide as necessary.
+wide as necessary.  This is useful when expirementating with records.
+
+```txt
+# normally output is wrapped at 60 columns
+
+% spfcheck -v 0 -r d -d assets/example.db example.com
+example.org A 1.2.3.4
+com.org A 34.206.39.153
+example.com TXT "v=spf1 a:%{d1}.org
+    include:spf-a.example.com include:spf-b.example.com
+    redirect=spf-c.example.com"
+netblocks4.example.com TXT "v=spf1 ip4:10.10.10.0/24
+    ip4:192.168.0.0/16 ip4:172.16.0.0/12 -all"
+netblocks6.example.com TXT "v=spf1 ip6:2001:db8:2001::/64
+    ip6:2001:db8:2002::/64 ip6:2001:db8:2003::/64 -all"
+spf-a.example.com A NXDOMAIN
+spf-a.example.com MX NXDOMAIN
+spf-a.example.com TXT "v=spf1 a mx include:spf-b.example.com
+    ~all"
+spf-b.example.com TXT "v=spf1 include:netblocks4.example.com
+    include:netblocks6.example.com"
+spf-c.example.com TXT "v=spf1 a:bad.%{d2}
+    include:unused.example.com ip4:1.1.1.1 -all"
+bad.example.com A TIMEOUT
+unused.example.com TXT "v=spf1 all"
+spf-a.example.com A NXDOMAIN
+spf-a.example.com MX NXDOMAIN
+bad.example.com A TIMEOUT
+
+# If intending to edit the DNS records to experiment, add the -w flag
+
+% spfcheck -v 0 -r d -d assets/example.db -w 300 example.com
+example.org A 1.2.3.4
+com.org A 34.206.39.153
+example.com TXT "v=spf1 a:%{d1}.org include:spf-a.example.com include:spf-b.example.com redirect=spf-c.example.com"
+netblocks4.example.com TXT "v=spf1 ip4:10.10.10.0/24 ip4:192.168.0.0/16 ip4:172.16.0.0/12 -all"
+netblocks6.example.com TXT "v=spf1 ip6:2001:db8:2001::/64 ip6:2001:db8:2002::/64 ip6:2001:db8:2003::/64 -all"
+spf-a.example.com A NXDOMAIN
+spf-a.example.com MX NXDOMAIN
+spf-a.example.com TXT "v=spf1 a mx include:spf-b.example.com ~all"
+spf-b.example.com TXT "v=spf1 include:netblocks4.example.com include:netblocks6.example.com"
+spf-c.example.com TXT "v=spf1 a:bad.%{d2} include:unused.example.com ip4:1.1.1.1 -all"
+bad.example.com A TIMEOUT
+unused.example.com TXT "v=spf1 all"
+spf-a.example.com A NXDOMAIN
+spf-a.example.com MX NXDOMAIN
+bad.example.com A TIMEOUT
+
+```
+
 
 <!-- @MODULEDOC -->
 
 ## Installation
 
-[`spfcheck`](`Spfcheck`) requires Elixir 1.12.0 or later and can be installed as escript:
+[`spfcheck`](`Spfcheck`) requires Elixir 1.12.0 or later and can be installed as an escript:
 
 ```bash
 mix escript.install hex spfcheck
@@ -592,7 +642,7 @@ mix escript.install hex spfcheck
 
 After installation, `~/.mix/escripts/spfcheck` invokes the escript.
 
-Use the underlying `Spf` module in a project by adding `spfcheck` to the list of
+Use the underlying `Spf` modules in a project by adding `spfcheck` to the list of
 dependencies in `mix.exs`:
 
 ```elixir
@@ -602,5 +652,3 @@ def deps do
   ]
 end
 ```
-
-

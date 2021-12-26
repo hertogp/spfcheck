@@ -17,6 +17,59 @@ defmodule Spf.Context do
 
   @typedoc """
   An SPF evaluation context.
+
+  Field notes:
+  - `ast` is a list of SPF terms to be evaluated as produced by `Spf.Parser`
+  - `atype` is set according to the sender's IP address
+  - `contact` is gleaned from the soa record for `domain` under evaluation
+  - `depth` is the nested depth during recursion, used to print a tree of log messages
+  - `dns` is the DNS cache, used to report on DNS information gathered during evaluation
+  - `duration` is the time (in seconds) it took to evaluate the SPF policy
+  - `error` set by either `Spf.Parser` or `Spf.Eval` and halts evaluation if set
+  - `explain` is the token for the `exp=`-modifier, if any (not needed for actual evaluation)
+  - `explain_string` is the explanation after all expansions (when available and applicable)
+  - `helo` as set by the command line or options given to `Spf.check/2`
+  - `ip` is the sender IP
+  - `ipt` is an `t:Iptrie.t/0` used to record addresses and/or prefixes authorized to send mails
+  - `local` is the local part of the `sender`
+  - `log` is the user callback log function, if any
+  - `map` is used to record `nth` => domain and domain => spf-string
+  - `max_dnsm` is the max of dns-mechanisms allowed (default 10), if it took more => permerror
+  - `max_dnsv` is the max of void dns-responses allowed (default 2), if it took more => permerror
+  - `msg` the list of logged messages by the Spf modules
+  - `nameservers` a list of nameservers to use or nil (uses system default)
+  - `nth` is the nth SPF record being evaluated
+  - `num_checks` counts how many checks were performed during evaluation
+  - `num_dnsm` counts the number of dns-mechanisms seen during evaluation
+  - `num_dnsq` counts the number of dns queries performed during evaluation
+  - `num_dnsv` counts the number of void DNS responses seen during evaluation
+  - `num_error` counts the number of errors seen during evaluation
+  - `num_spf` counts the number of SPF records evaluated
+  - `num_warn` counts the number of warnings seen during evaluation
+  - `owner` shows the SOA zone for the original SPF domain being evaluated
+  - `reason` shows the reason for the verdict, usually in the form of an SPF term
+  - `sender` is the sender as given on the command line or to `Spf.check/2`
+  - `spf` is the SPF string of the `domain` being evaluated (if any)
+  - `spf_rest` is the remainder of the SPF string (should always by "")
+  - `spf_tokens` is the `Spf.Lexer`'s result of lexing the SPF string (last seen)
+  - `stack` is used to push/pop the evaluation state during recursive calls
+  - `t0` is the Unix Epoch time the evaluation started
+  - `traces` is a map used to detect loops in an SPF policy
+  - `verbosity` controls the level of logged messages to stderr
+  - `verdict` is the final result of the SPF evaluation by `Spf.check/2`
+
+  Other notes:
+  - `max_dnsm` and `max_dnsv` are only checked *after* evaluating the entire policy
+     - this allows to debug most of the SPF policy under consideration
+  - `Spf.Parser` may set an syntax `error`, in which case the SPF record results in a permerror
+      - the `ast` is produced by the parser by processing *all* `spf_tokens`
+      - whitespace tokens are used to report on repeated whitespace in an SPF string
+      - whitespace tokens donot end up in the AST
+      - `v=spf1`-modifier is checked and if not present, results in an error
+      - by processing all tokens, any `error` set reflects the last error seen
+  - `Spf.Eval` may set an evaluation `error`, which *may* result in an overall permerror
+  - a void DNS response is either a `NXDOMAIN` or `ZERO ANSWERS`
+
   """
   @type t :: %{
           :ast => list(),
