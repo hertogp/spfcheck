@@ -332,14 +332,18 @@ defmodule Spf.DNS do
   - `name  rrtype  error`
 
   where
-  - `rrtype` is one of #{Map.keys(@rrtypes)}
-  - `error` is one of #{Map.keys(@rrerrors)}
+  - `rrtype` is one of: #{Enum.join(Map.keys(@rrtypes), ", ")}
+  - `error` is one of #{Enum.join(Map.keys(@rrerrors), ", ")}
   - `rdata` text representation of data suitable for given `rrtype`
 
   Unknown rr-types or otherwise malformed RR's are ignored and logged as a
   warning during preloading.
 
-  ## Example
+  It is possible to load zonedata multiple times, each one adds to the cache.
+  Note that when setting errors, they always override other similar RR's
+  regardless of ordering.
+
+  ## Examples
 
       iex> zonedata = "
       ...> example.com TXT v=spf1 +all
@@ -364,6 +368,27 @@ defmodule Spf.DNS do
         {"example.com", :txt} => ["v=spf1 +all"],
         {"example.net", :aaaa} => [error: :servfail]
       }
+
+      iex> zonedata1 = "
+      ...> example.com A 1.2.3.4
+      ...> example.com A timeout
+      ...> example.net A 9.10.11.12
+      ...> "
+      iex> zonedata2 = "
+      ...> example.com AAAA servfail
+      ...> example.com AAAA acdc:1976::1
+      ...> example.net A 5.6.7.8
+      ...> example.net A 9.10.11.12
+      ...> "
+      iex> ctx = Spf.Context.new("some.tld")
+      ...> |> Spf.DNS.load(zonedata1)
+      ...> |> Spf.DNS.load(zonedata2)
+      iex> ctx.dns[{"example.com", :a}]
+      [{:error, :timeout}]
+      iex> ctx.dns[{"example.com", :aaaa}]
+      [{:error, :servfail}]
+      iex> ctx.dns[{"example.net", :a}]
+      ["5.6.7.8", "9.10.11.12"]
 
   """
   @spec load(Spf.Context.t(), nil | binary | [binary]) :: Spf.Context.t()
