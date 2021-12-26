@@ -86,7 +86,7 @@ defmodule Spf.DNS do
   A dns result as returned by `:inet_res.resolve/3`.
 
   """
-  @type res_result :: {:ok, dns_msg} | {:error, atom}
+  @type res_result :: {:ok, dns_msg} | {:error, any}
 
   # see also:
   # - https://www.rfc-editor.org/rfc/rfc6895.html
@@ -705,7 +705,13 @@ defmodule Spf.DNS do
     do: Enum.reduce(entries, ctx, fn entry, acc -> update(acc, entry) end)
 
   @spec update(Spf.Context.t(), {binary, rrtype, any}) :: Spf.Context.t()
-  defp update(ctx, {domain, type, {:error, _} = error}) do
+  defp update(ctx, {domain, type, {:error, reason}}) do
+    error =
+      case reason do
+        {:servfail, _} -> {:error, :servfail}
+        reason -> {:error, reason}
+      end
+
     Map.put(ctx, :dns, Map.put(ctx.dns, {domain, type}, [error]))
     |> log(:dns, :debug, "added {#{domain}, #{type} -> #{inspect(error)}")
   end
