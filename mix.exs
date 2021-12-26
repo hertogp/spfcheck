@@ -15,7 +15,7 @@ defmodule Spfcheck.MixProject do
   # mix hex.publish
 
   @source_url "https://github.com/hertogp/spfcheck"
-  @version "0.7.1"
+  @version "0.8.0"
   def project do
     [
       app: :spfcheck,

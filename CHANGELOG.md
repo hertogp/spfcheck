@@ -5,7 +5,8 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+
+## [0.8.0] - 2021-12-26
 
 ### added
 
@@ -26,13 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- when updating the DNS cache with an error, it replaces any existing rrdata
+- when updating the DNS cache with an error, it now replaces any existing rrdata
 - queries for cached domain names with circular CNAME references, now yield :servfail
 - dot file generation does not choke when no SPF records were found
 - reporting on DNS data gathered now outputs any soa records properly
 - authority search ignores CNAME results to find real SOA for given domain
     - the real SOA being the zone that contains the record for original search name
-
 
 
 ## [v0.7.1] - 2021-12-21

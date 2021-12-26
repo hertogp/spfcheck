@@ -648,7 +648,7 @@ dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.7.1"}
+    {:spfcheck, "~> 0.8.0"}
   ]
 end
 ```
