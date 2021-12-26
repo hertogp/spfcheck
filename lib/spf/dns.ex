@@ -110,6 +110,11 @@ defmodule Spf.DNS do
   The given `name` does not need to actually exist, the aim is to find the
   owner of the zone the `name` belongs to.  Note that CNAME's are ignored.
 
+  This function should be used *after* evaluation has completed, since it may
+  cause void DNS responses. The soa-record is searched by querying for the
+  soa-record and dropping the front-label (possibly mulitple times) while
+  trying again.
+
   ## Examples
 
       iex> Spf.Context.new("example.com")
@@ -240,7 +245,9 @@ defmodule Spf.DNS do
   - `:zero_answers`, a previously cached result
   - `:illegal_name`, name was not a proper domain name
 
-  Note that this function does not make any real DNS requests.
+  Note that this function does not make any real DNS requests and does not
+  update any dns counters.  The only time the context is updated is when there
+  was an error in either `domain` or the `t:rrtype/0` given.
 
   ## Example
 

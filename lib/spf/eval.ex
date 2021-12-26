@@ -30,17 +30,17 @@ defmodule Spf.Eval do
   Given a [`context`](`t:Spf.Context.t/0`) retrieve and evaluate the associated SPF record.
 
   After an (attempted) evaluation, returns an updated context where:
-  - `:verdict` will be one of `:pass, :fail, :softfail, :neutral`
-  - `:reason` show the mechanism responsible for the verdict
-  - `:explanation` the expanded explain-string (if possible and applicable)
-  - `:error` in case one occurred
+  - `:verdict` is an `t:Spf.Context.verdict/0`
+  - `:reason` shows the SPF term responsible for the verdict
+  - `:explanation` is the expanded explain-string (if possible and applicable)
+  - `:error` shows what (last) error was seen (if any)
   - `:ipt` which maps the prefixes seen during evaluation to their source
   - `:msg` which lists log messages accumulated during evaluation
 
   and other fields containing information gathered during the evaluation.
 
   The context is passed around accumulating information and tracks the state of
-  the evaluation. Its `:log` is either `nil` or points to a `log_function/4`
+  the evaluation. Its `:log` is either `nil` or points to a `log/4`-function
   that then called with the `context`, `facility`, `severity` and a `message`
   so it can dump it to screen or somewhere else.
 

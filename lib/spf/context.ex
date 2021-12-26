@@ -28,11 +28,11 @@ defmodule Spf.Context do
   - `error` set by either `Spf.Parser` or `Spf.Eval` and halts evaluation if set
   - `explain` is the token for the `exp=`-modifier, if any (not needed for actual evaluation)
   - `explain_string` is the explanation after all expansions (when available and applicable)
-  - `helo` as set by the command line or options given to `Spf.check/2`
-  - `ip` is the sender IP
+  - `helo` as set by the `:helo` option given to `Spf.check/2`
+  - `ip` is the sender IP, as set by the `:ip` option given to `Spf.check/2` (default `127.0.0.1`)
   - `ipt` is an `t:Iptrie.t/0` used to record addresses and/or prefixes authorized to send mails
   - `local` is the local part of the `sender`
-  - `log` is the user callback log function, if any
+  - `log` is the user callback log function as provided by the `:log` option to `Spf.check/2`
   - `map` is used to record `nth` => domain and domain => spf-string
   - `max_dnsm` is the max of dns-mechanisms allowed (default 10), if it took more => permerror
   - `max_dnsv` is the max of void dns-responses allowed (default 2), if it took more => permerror
@@ -48,7 +48,7 @@ defmodule Spf.Context do
   - `num_warn` counts the number of warnings seen during evaluation
   - `owner` shows the SOA zone for the original SPF domain being evaluated
   - `reason` shows the reason for the verdict, usually in the form of an SPF term
-  - `sender` is the sender as given on the command line or to `Spf.check/2`
+  - `sender` is the sender as given to `Spf.check/2`
   - `spf` is the SPF string of the `domain` being evaluated (if any)
   - `spf_rest` is the remainder of the SPF string (should always by "")
   - `spf_tokens` is the `Spf.Lexer`'s result of lexing the SPF string (last seen)
@@ -413,8 +413,8 @@ defmodule Spf.Context do
   @doc """
   Given a current `context` and a `range`, return the SPF term in that range.
 
-  Retrieves a slice of the `context.spf` current record being evaluated.
-  Used for logging events.
+  Retrieves a slice of the current SPF record being evaluated. Used for logging
+  events.
 
   """
   @spec spf_term(t, Range.t()) :: binary
@@ -601,7 +601,7 @@ defmodule Spf.Context do
   Reinitializes current `context` for given `domain` of a redirect modifier.
 
   When a redirect modifier is encountered it basically replaces the current SPF
-  record and the context is modified accordingly..
+  record and the context is modified accordingly.
 
   """
   @spec redirect(t, binary) :: t
@@ -625,8 +625,8 @@ defmodule Spf.Context do
   @doc """
   If `test` is true, logs the given `msg` with its `facility` and `severity`.
 
-  A convencience function to quickly perform some test (in the call) and, if
-  true, log it as well.
+  A convencience function to quickly check some test and, if true, log it as
+  well in one go.
 
   """
   @spec test(t, atom, atom, boolean, binary) :: t

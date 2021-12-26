@@ -33,6 +33,17 @@ defmodule Spf do
   The keyword list may contain multiple entries of the `:nameserver` option, in
   which case they will be tried in the order listed.
 
+  The user supplied callback `log/4` is called with:
+  - `context`, the current evaluation context
+  - `facility`, an atom denoting which part of Spf logged the message
+  - `severity`, one of: `:error`, `:warn`, `:info`, `:debug`
+  - `message`, the log message as a binary
+
+  This is what `Spfcheck` uses to log information to stderr during an SPF
+  evaluation.
+
+  This function returns the evaluation context.
+
   ## Examples
 
       iex> zone = \"""

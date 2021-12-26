@@ -87,7 +87,7 @@ defmodule Spf.Lexer do
   @type result :: {:ok, [token], binary, map} | {:error, atom, binary, map}
 
   @typedoc """
-  A lexer is a function that takes a binary & a context, and returns a `t:result/0`
+  A lexer is a function that takes a binary & a lexer-context, and returns a `t:result/0`
   """
   @type lexer :: (binary, map -> result)
 

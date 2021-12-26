@@ -27,17 +27,17 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
 
   - 0  - Initial processing
   - 1  - Record lookup
-  - 2  - Selecting records     <- keep SPF as SPF, donot convert to TXT record
+  - 2  - Selecting records <- donot copy `SPF` record to a `TXT` record
   - 3  - Record evaluation
-  - 4  - ALL mechanism syntax
-  - 5  - PTR mechanism syntax
-  - 6  - A   mechanism syntax
-  - 7  - Include mechanism syntax
-  - 8  - MX  mechanism syntax
-  - 9  - EXISTS mechanism syntax
-  - 10 - IP4 mechanism syntax
-  - 11 - IP6 mechanism syntax
-  - 12 - Semantics of exp and other modifiers
+  - 4  - `ALL` mechanism syntax
+  - 5  - `PTR` mechanism syntax
+  - 6  - `A` mechanism syntax
+  - 7  - `INCLUDE` mechanism syntax
+  - 8  - `MX` mechanism syntax
+  - 9  - `EXISTS` mechanism syntax
+  - 10 - `IP4` mechanism syntax
+  - 11 - `IP6` mechanism syntax
+  - 12 - Semantics of EXP and other modifiers
   - 13 - Macro expansion rules
   - 14 - Processing limits
   """
