@@ -126,6 +126,7 @@ defmodule Spf.Parser do
     |> check(:all_no_redirect)
     |> check(:redirect_last)
     |> check(:all_last)
+    |> check(:tracking)
     |> then(&Map.update(&1, :map, %{}, fn m -> Map.put(m, &1.domain, spf) end))
   end
 
@@ -541,6 +542,32 @@ defmodule Spf.Parser do
       _ ->
         ctx
     end
+  end
+
+  defp check(ctx, :tracking) do
+    terms = [:a, :mx, :exists, :include, :redirect]
+
+    trackers = %{
+      ?i => "Sender IP",
+      ?h => "HELO/EHLO domain",
+      ?p => "Sender IP's validated name"
+    }
+
+    tracking =
+      Enum.filter(ctx.spf_tokens, fn {type, _, _} -> type in terms end)
+      |> Enum.map(fn {_, args, _} -> args end)
+      |> List.flatten()
+      |> Enum.filter(fn x -> is_tuple(x) end)
+      |> Enum.filter(fn {type, _, _} -> type == :expand end)
+      |> Enum.map(fn {_, [ltr | _], _} -> ltr end)
+      |> Enum.filter(fn ltr -> ltr in [?i, ?h, ?p] end)
+      |> Enum.map(fn ltr -> trackers[ltr] end)
+      |> Enum.join(", ")
+
+    tracks = String.length(tracking) > 0
+
+    ctx
+    |> test(:parse, :info, tracks, "spf[#{ctx.nth}](#{ctx.domain}) - is tracking #{tracking}")
   end
 
   # PARSER

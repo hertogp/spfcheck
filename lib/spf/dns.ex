@@ -74,13 +74,6 @@ defmodule Spf.DNS do
   See also
   [`inet_res.rr_type`](https://www.erlang.org/doc/man/inet_res.html#type-rr_type).
 
-  In order to experiment with new records, RR records can be specified in a
-  file or a multi-line binary, in which case `rrtype` must be one of
-  #{inspect(Map.values(@rrtypes))}
-
-  This subset is enough to allow experimentation with new records that override
-  DNS.
-
   """
   @type rrtype :: atom
 
@@ -332,8 +325,8 @@ defmodule Spf.DNS do
   - `name  rrtype  error`
 
   where
-  - `rrtype` is one of: #{Enum.join(Map.keys(@rrtypes), ", ")}
-  - `error` is one of #{Enum.join(Map.keys(@rrerrors), ", ")}
+  - `rrtype` is one of: #{inspect(Map.keys(@rrtypes))}
+  - `error` is one of #{inspect(Map.keys(@rrerrors))}
   - `rdata` text representation of data suitable for given `rrtype`
 
   Unknown rr-types or otherwise malformed RR's are ignored and logged as a
@@ -772,16 +765,16 @@ defmodule Spf.DNS do
           log(ctx, :dns, :error, "failed to read #{fpath}: #{inspect(reason)}")
       end
 
-    log(ctx, :dns, :debug, "cached #{map_size(ctx.dns)} entries from #{fpath}")
+    log(ctx, :dns, :debug, "DNS cache has #{map_size(ctx.dns)} entries")
   rescue
     err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
   @spec load_zonedata(Spf.Context.t(), binary | [binary]) :: Spf.Context.t()
-  def load_zonedata(ctx, binary) when is_binary(binary),
+  defp load_zonedata(ctx, binary) when is_binary(binary),
     do: load_zonedata(ctx, String.split(binary, "\n", trim: true))
 
-  def load_zonedata(ctx, lines) when is_list(lines) do
+  defp load_zonedata(ctx, lines) when is_list(lines) do
     {malformed, good} =
       lines
       |> Enum.map(&rr_decode/1)
@@ -793,7 +786,7 @@ defmodule Spf.DNS do
 
     ctx =
       Enum.reduce(malformed, ctx, fn {_, reason, line}, ctx ->
-        log(ctx, :dns, :warn, "#{reason} - #{line}")
+        log(ctx, :dns, :warn, "RR ignored: #{reason} - #{line}")
       end)
 
     ctx = Enum.reduce(normal, ctx, fn entry, ctx -> update(ctx, entry) end)
