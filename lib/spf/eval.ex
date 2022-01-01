@@ -310,6 +310,14 @@ defmodule Spf.Eval do
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.t0)
     |> check_limits()
+    |> then(
+      &log(
+        &1,
+        :eval,
+        :note,
+        "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}, reason #{&1.reason}"
+      )
+    )
   end
 
   @spec evalp(Spf.Context.t(), list) :: Spf.Context.t()
@@ -384,7 +392,6 @@ defmodule Spf.Eval do
         log(ctx, :eval, :note, "#{term} - recurse")
         |> push(domain)
         |> evaluate()
-        |> then(&log(&1, :eval, :note, "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}"))
 
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
