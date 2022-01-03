@@ -63,18 +63,18 @@ notification messages to stderr.
 ```txt
 % spfcheck example.com --no-color
 
-example.com %spf[0]-ctx-info:   > sender is 'example.com'
-example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
-example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > helo set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip set to '127.0.0.1'
+example.com %spf[0]-ctx-info:   > sender domain is 'example.com'
+example.com %spf[0]-ctx-info:   > sender local  is 'postmaster'
+example.com %spf[0]-ctx-info:   > spf domain is    'example.com'
+example.com %spf[0]-ctx-info:   > sender ip is     '127.0.0.1'
 example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 4
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
-example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["v=spf1 -all", "yxvy9m4blrswgrsz8ndjh467n2y7mgl2"]
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["yxvy9m4blrswgrsz8ndjh467n2y7mgl2", "v=spf1 -all"]
 example.com %spf[0]-eval-note:  > spf[0] -all - matches
-example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120707, 7200, 3600, 1209600, 3600}]
+example.com %spf[0]-eval-note:  > spf[0] example.com - verdict fail, reason spf[0] -all
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}]
 
 domain     : example.com
 ip         : 127.0.0.1
@@ -91,7 +91,7 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 0
-explanation: 
+explanation:
 ```
 
 
@@ -213,19 +213,20 @@ nested SPF policy for given `sender`.  Notes:
 
 ```txt
 % spfcheck example.com --no-color -i "::ffff:1.2.3.4"
-example.com %spf[0]-ctx-info:   > sender is 'example.com'
-example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
-example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip is '1.2.3.4'
+
+example.com %spf[0]-ctx-info:   > sender domain is 'example.com'
+example.com %spf[0]-ctx-info:   > sender local  is 'postmaster'
+example.com %spf[0]-ctx-info:   > spf domain is    'example.com'
+example.com %spf[0]-ctx-info:   > sender ip is     '1.2.3.4'
 example.com %spf[0]-ctx-note:   > '1.2.3.4' was extracted from IPv4-mapped IPv6 address '::ffff:1.2.3.4'
-example.com %spf[0]-ctx-info:   > helo set to 'example.com'
 example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 4
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 1.2.3.4, example.com)
-example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["yxvy9m4blrswgrsz8ndjh467n2y7mgl2", "v=spf1 -all"]
 example.com %spf[0]-eval-note:  > spf[0] -all - matches
-example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+example.com %spf[0]-eval-note:  > spf[0] example.com - verdict fail, reason spf[0] -all
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}]
 
 domain     : example.com
 ip         : 1.2.3.4
@@ -247,18 +248,18 @@ explanation:
 # or check for some prefix
 
 % spfcheck example.com -i 1.1.255.0/24 -d "example.com txt v=spf1 ip4:1.1.0.0/16 -all" --no-color
-example.com %spf[0]-ctx-info:   > sender is 'example.com'
-example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
-example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip is '1.1.255.0/24'
-example.com %spf[0]-ctx-info:   > helo set to 'example.com'
+example.com %spf[0]-ctx-info:   > sender domain is 'example.com'
+example.com %spf[0]-ctx-info:   > sender local  is 'postmaster'
+example.com %spf[0]-ctx-info:   > spf domain is    'example.com'
+example.com %spf[0]-ctx-info:   > sender ip is     '1.1.255.0/24'
 example.com %spf[0]-ctx-info:   > DNS cache preloaded with 1 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 4
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 1.1.255.0/24, example.com)
 example.com %spf[0]-dns-info:   > DNS QUERY (1) [cache] txt example.com - ["v=spf1 ip4:1.1.0.0/16 -all"]
 example.com %spf[0]-eval-note:  > spf[0] ip4:1.1.0.0/16 - matches 1.1.255.0/24
-example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+example.com %spf[0]-eval-note:  > spf[0] example.com - verdict pass, reason spf[0] ip4:1.1.0.0/16
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}]
 
 domain     : example.com
 ip         : 1.1.255.0/24
@@ -275,7 +276,7 @@ num_checks : 1
 num_warn   : 0
 num_error  : 0
 duration   : 0
-explanation: 
+explanation:
 ```
 
 ## Nameserver flag
@@ -289,28 +290,29 @@ tried in the order listed.
 ```txt
 % spfcheck example.com -n 2001:4860:4860::8888 -v 5 --no-color
 
-example.com %spf[0]-ctx-info:   > sender is 'example.com'
-example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
-example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip set to '127.0.0.1'
-example.com %spf[0]-ctx-debug:  > atype set to 'a'
-example.com %spf[0]-ctx-info:   > helo set to 'example.com'
+example.com %spf[0]-ctx-info:   > sender domain is 'example.com'
+example.com %spf[0]-ctx-info:   > sender local  is 'postmaster'
+example.com %spf[0]-ctx-info:   > spf domain is    'example.com'
+example.com %spf[0]-ctx-debug:  > helo set to 'example.com'
 example.com %spf[0]-ctx-debug:  > helo defaults to sender value
+example.com %spf[0]-ctx-info:   > sender ip is     '127.0.0.1'
+example.com %spf[0]-ctx-debug:  > atype set to 'a'
+example.com %spf[0]-ctx-debug:  > nameservers set to [{{8193, 18528, 18528, 0, 0, 0, 0, 34952}, 53}]
 example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 5
 example.com %spf[0]-ctx-debug:  > DNS timeout set to 2000
 example.com %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
 example.com %spf[0]-ctx-debug:  > max void DNS lookups set to 2
 example.com %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
-example.com %spf[0]-ctx-debug:  > nameservers set to [{{8193, 18528, 18528, 0, 0, 0, 0, 34952}, 53}]
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
 example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
-example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"
-example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "yxvy9m4blrswgrsz8ndjh467n2y7mgl2"
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["yxvy9m4blrswgrsz8ndjh467n2y7mgl2", "v=spf1 -all"]
 example.com %spf[0]-eval-note:  > spf[0] -all - matches
-example.com %spf[0]-dns-debug:  > added {example.com, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
-example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+example.com %spf[0]-eval-note:  > spf[0] example.com - verdict fail, reason spf[0] -all
+example.com %spf[0]-dns-debug:  > added {example.com, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}]
 
 domain     : example.com
 ip         : 127.0.0.1
@@ -345,50 +347,52 @@ me@example.net -i 1.2.3.4
 
 % cat assets/domains.txt | spfcheck -v 5 --no-color 2>assets/log.txt >assets/checked.csv
 % cat assets/log.txt
-example.com %spf[0]-ctx-info:   > sender is 'example.com'
-example.com %spf[0]-ctx-info:   > local part set to 'postmaster'
-example.com %spf[0]-ctx-info:   > domain part set to 'example.com'
-example.com %spf[0]-ctx-info:   > ip set to '127.0.0.1'
-example.com %spf[0]-ctx-debug:  > atype set to 'a'
-example.com %spf[0]-ctx-info:   > helo set to 'example.com'
+example.com %spf[0]-ctx-info:   > sender domain is 'example.com'
+example.com %spf[0]-ctx-info:   > sender local  is 'postmaster'
+example.com %spf[0]-ctx-info:   > spf domain is    'example.com'
+example.com %spf[0]-ctx-debug:  > helo set to 'example.com'
 example.com %spf[0]-ctx-debug:  > helo defaults to sender value
+example.com %spf[0]-ctx-info:   > sender ip is     '127.0.0.1'
+example.com %spf[0]-ctx-debug:  > atype set to 'a'
+example.com %spf[0]-ctx-debug:  > nameservers set to default
 example.com %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.com %spf[0]-ctx-info:   > verbosity level 5
 example.com %spf[0]-ctx-debug:  > DNS timeout set to 2000
 example.com %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
 example.com %spf[0]-ctx-debug:  > max void DNS lookups set to 2
 example.com %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
-example.com %spf[0]-ctx-debug:  > nameservers set to default
 example.com %spf[0]-ctx-info:   > created context for 'example.com'
 example.com %spf[0]-spf-note:   > spfcheck(example.com, 127.0.0.1, example.com)
 example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "v=spf1 -all"
-example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm"
-example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["8j5nfqld20zpcyr8xjw0ydcfq9rk8hgm", "v=spf1 -all"]
+example.com %spf[0]-dns-debug:  > added {example.com, txt} -> "yxvy9m4blrswgrsz8ndjh467n2y7mgl2"
+example.com %spf[0]-dns-info:   > DNS QUERY (1) txt example.com - ["yxvy9m4blrswgrsz8ndjh467n2y7mgl2", "v=spf1 -all"]
 example.com %spf[0]-eval-note:  > spf[0] -all - matches
-example.com %spf[0]-dns-debug:  > added {example.com, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
-example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
-example.net %spf[0]-ctx-info:   > sender is 'me@example.net'
-example.net %spf[0]-ctx-info:   > local part set to 'me'
-example.net %spf[0]-ctx-info:   > domain part set to 'example.net'
-example.net %spf[0]-ctx-info:   > ip set to '1.2.3.4'
-example.net %spf[0]-ctx-debug:  > atype set to 'a'
-example.net %spf[0]-ctx-info:   > helo set to 'me@example.net'
+example.com %spf[0]-eval-note:  > spf[0] example.com - verdict fail, reason spf[0] -all
+example.com %spf[0]-dns-debug:  > added {example.com, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}
+example.com %spf[0]-dns-info:   > DNS QUERY (2) soa example.com - [{"ns.icann.org", "noc.dns.icann.org", 2021120718, 7200, 3600, 1209600, 3600}]
+example.net %spf[0]-ctx-info:   > sender domain is 'me@example.net'
+example.net %spf[0]-ctx-info:   > sender local  is 'me'
+example.net %spf[0]-ctx-info:   > spf domain is    'example.net'
+example.net %spf[0]-ctx-debug:  > helo set to 'me@example.net'
 example.net %spf[0]-ctx-debug:  > helo defaults to sender value
+example.net %spf[0]-ctx-info:   > sender ip is     '1.2.3.4'
+example.net %spf[0]-ctx-debug:  > atype set to 'a'
+example.net %spf[0]-ctx-debug:  > nameservers set to default
 example.net %spf[0]-ctx-info:   > DNS cache preloaded with 0 entrie(s)
 example.net %spf[0]-ctx-info:   > verbosity level 5
 example.net %spf[0]-ctx-debug:  > DNS timeout set to 2000
 example.net %spf[0]-ctx-debug:  > max DNS mechanisms set to 10
 example.net %spf[0]-ctx-debug:  > max void DNS lookups set to 2
 example.net %spf[0]-ctx-debug:  > verdict defaults to 'neutral'
-example.net %spf[0]-ctx-debug:  > nameservers set to default
 example.net %spf[0]-ctx-info:   > created context for 'example.net'
 example.net %spf[0]-spf-note:   > spfcheck(example.net, 1.2.3.4, me@example.net)
 example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "v=spf1 -all"
-example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "5fpl1ghm7scnth0907z0pft8c79lvc8t"
-example.net %spf[0]-dns-info:   > DNS QUERY (1) txt example.net - ["5fpl1ghm7scnth0907z0pft8c79lvc8t", "v=spf1 -all"]
+example.net %spf[0]-dns-debug:  > added {example.net, txt} -> "r8x8fdvqqbcqcv56nhzxwyrq35lsxcn2"
+example.net %spf[0]-dns-info:   > DNS QUERY (1) txt example.net - ["r8x8fdvqqbcqcv56nhzxwyrq35lsxcn2", "v=spf1 -all"]
 example.net %spf[0]-eval-note:  > spf[0] -all - matches
-example.net %spf[0]-dns-debug:  > added {example.net, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}
-example.net %spf[0]-dns-info:   > DNS QUERY (2) soa example.net - [{"ns.icann.org", "noc.dns.icann.org", 2021111701, 7200, 3600, 1209600, 3600}]
+example.net %spf[0]-eval-note:  > spf[0] example.net - verdict fail, reason spf[0] -all
+example.net %spf[0]-dns-debug:  > added {example.net, soa} -> {"ns.icann.org", "noc.dns.icann.org", 2021120318, 7200, 3600, 1209600, 3600}
+example.net %spf[0]-dns-info:   > DNS QUERY (2) soa example.net - [{"ns.icann.org", "noc.dns.icann.org", 2021120318, 7200, 3600, 1209600, 3600}]
 ```
 
 ## Report flag
