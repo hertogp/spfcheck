@@ -633,12 +633,12 @@ bad.example.com A TIMEOUT
 
 ```
 
-
 <!-- @MODULEDOC -->
 
 ## Installation
 
-[`spfcheck`](`Spfcheck`) requires Elixir 1.12.0 or later and can be installed as an escript:
+[`spfcheck`](`Spfcheck`) requires Elixir 1.12.0 or later and can be installed
+as an escript:
 
 ```bash
 mix escript.install hex spfcheck
@@ -646,13 +646,13 @@ mix escript.install hex spfcheck
 
 After installation, `~/.mix/escripts/spfcheck` invokes the escript.
 
-Use the underlying `Spf` modules in a project by adding `spfcheck` to the list of
-dependencies in `mix.exs`:
+Use the underlying `Spf` modules in a project by adding `spfcheck` to the list
+of dependencies in `mix.exs`:
 
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.8.1"}
+    {:spfcheck, "~> 0.9.0"}
   ]
 end
 ```
