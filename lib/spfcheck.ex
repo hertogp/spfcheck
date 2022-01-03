@@ -8,6 +8,7 @@ defmodule Spfcheck do
 
   @options [
     author: :string,
+    batch: :integer,
     color: :boolean,
     dns: :string,
     helo: :string,
@@ -16,6 +17,7 @@ defmodule Spfcheck do
     markdown: :boolean,
     nameserver: :keep,
     report: :string,
+    timeout: :integer,
     title: :string,
     verbosity: :integer,
     width: :integer
@@ -24,6 +26,7 @@ defmodule Spfcheck do
   @aliases [
     H: :help,
     a: :author,
+    b: :batch,
     c: :color,
     d: :dns,
     h: :helo,
@@ -32,6 +35,7 @@ defmodule Spfcheck do
     n: :nameserver,
     r: :report,
     t: :title,
+    T: :timeout,
     v: :verbosity,
     w: :width
   ]
@@ -79,18 +83,18 @@ defmodule Spfcheck do
       do: Application.put_env(:elixir, :ansi_enabled, true),
       else: Application.put_env(:elixir, :ansi_enabled, false)
 
-    # opts = Keyword.put(opts, :nameservers, nameservers)
     opts = Keyword.put(opts, :log, &log/4)
 
-    if [] == senders,
-      do: do_stdin(opts)
+    if senders == [] do
+      do_stdin(opts)
+    else
+      # used by report to print meta information only once.
+      opts = Keyword.put(opts, :first, List.first(senders))
 
-    # used by report to print meta information only once.
-    opts = Keyword.put(opts, :first, List.first(senders))
-
-    for sender <- senders do
-      Spf.check(sender, opts)
-      |> report(opts)
+      for sender <- senders do
+        Spf.check(sender, opts)
+        |> report(opts)
+      end
     end
   end
 
@@ -149,16 +153,32 @@ defmodule Spfcheck do
 
   defp do_stdin(opts) do
     IO.puts(Enum.join(@csv_fields, ","))
+    batch = Keyword.get(opts, :batch, 0)
 
-    IO.stream()
-    |> Enum.each(&do_stdin(opts, String.trim(&1)))
+    if batch > 0 do
+      Task.Supervisor.start_link(name: Spf.TaskSupervisor)
+
+      fun = fn line -> do_line(opts, line) end
+
+      IO.stream()
+      |> Stream.chunk_every(batch)
+      |> Stream.map(fn chunk -> Enum.map(chunk, fn s -> String.trim(s) end) end)
+      |> Stream.map(fn chunk ->
+        Task.Supervisor.async_stream_nolink(Spf.TaskSupervisor, chunk, fun, timeout: :infinity)
+      end)
+      |> Enum.to_list()
+      |> Enum.map(fn stream -> Enum.to_list(stream) end)
+    else
+      IO.stream()
+      |> Enum.each(&do_line(opts, String.trim(&1)))
+    end
   end
 
   # skip comments and empty lines
-  defp do_stdin(_opts, "#" <> _comment), do: nil
-  defp do_stdin(_opts, ""), do: nil
+  defp do_line(_opts, "#" <> _comment), do: nil
+  defp do_line(_opts, ""), do: nil
 
-  defp do_stdin(opts, line) do
+  defp do_line(opts, line) do
     argv = String.split(line, ~r/\s+/, trim: true)
     {parsed, senders, _invalid} = OptionParser.parse(argv, aliases: @aliases, strict: @options)
     opts = Keyword.merge(opts, parsed)

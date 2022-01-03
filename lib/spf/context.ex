@@ -259,7 +259,7 @@ defmodule Spf.Context do
     ctx
     |> Map.put(:atype, atype)
     |> Map.put(:ip, "#{pfx}")
-    |> log(:ctx, :info, "ip set to '#{pfx}'")
+    |> log(:ctx, :info, "sender ip is     '#{pfx}'")
     |> test(:ctx, :error, ipinvalid, "ip '#{ip}' is invalid, so using '#{pfx}' instead")
     |> test(:ctx, :note, xtracted, "'#{pfx}' was extracted from IPv4-mapped IPv6 address '#{ip}'")
     |> log(:ctx, :debug, "atype set to '#{atype}'")
@@ -301,10 +301,10 @@ defmodule Spf.Context do
     |> Map.put(:domain, domain)
     |> Map.put(:helo, helo)
     |> Map.put(:map, %{0 => domain, domain => ""})
-    |> log(:ctx, :info, "sender is '#{sender}'")
-    |> log(:ctx, :info, "local part set to '#{local}'")
-    |> log(:ctx, :info, "domain part set to '#{domain}'")
-    |> log(:ctx, :info, "helo set to '#{helo}'")
+    |> log(:ctx, :info, "sender domain is '#{sender}'")
+    |> log(:ctx, :info, "sender local  is '#{local}'")
+    |> log(:ctx, :info, "spf domain is    '#{domain}'")
+    |> log(:ctx, :debug, "helo set to '#{helo}'")
     |> test(:ctx, :debug, helo == sender, "helo defaults to sender value")
   end
 
@@ -527,6 +527,7 @@ defmodule Spf.Context do
     @context
     |> Map.put(:log, Keyword.get(opts, :log, nil))
     |> Map.put(:verbosity, Keyword.get(opts, :verbosity, 4))
+    |> Map.put(:dns_timeout, Keyword.get(opts, :timeout, 2000))
     |> opt_sender(sender, opts)
     |> opt_ip(opts)
     |> opt_nameserver(opts)

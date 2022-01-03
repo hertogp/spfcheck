@@ -7,9 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
+### added
+
+- `-b`, `--batch N` flag to run Nx SPF evaluations concurrently when in batch mode
+- `-T`, `--timeout N` flag to set the timeout for DNS queries
+
 ### changed
 
-- [x] also log the final verdict, not just the intermediate verdicts
+- also log the final verdict, not just the intermediate verdicts
 
 
 ## [0.8.1] - 2021-12-26

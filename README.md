@@ -38,10 +38,12 @@ where sender = [localpart@]domain and localpart defaults to 'postmaster'
 
 Options:
   -H, --help              print this message and exit
+  -T, --timeout           timeout [ms] for DNS queries (default 2000)
   -a, --author=string     sets author in the markdown metadata (default spfcheck)
+  -b, --batch=number      sets batch size to use when in batch mode (default none)
   -c, --color             use color for log messages on stderr (default is true)
   -d, --dns=filepath      file with DNS RR records to prepopulate the DNS cache
-  -h, --helo=string       sending MTA helo/ehlo identity (defaults to nil)
+  -h, --helo=string       sending MTA helo/ehlo identity (defaults to `sender`)
   -i, --ip=string         sending MTA IPv4/IPv6 address (defaults to 127.0.0.1)
   -m, --markdown          use markdown format for output (default depends, see Report flag)
   -n, --nameserver=string an IPv4/IPv6 address of a nameserver to use
@@ -97,7 +99,9 @@ explanation:
 
 If no `sender` is given on the command line, `spfcheck` will read stdin for the
 domains (and options) to check.  In this case, the verdict(s) are output on
-stdout in csv-format as each domain is (sequentially) evaluated.
+stdout in csv-format as each domain is sequentially evaluated.  To speed things
+up, provide the `-b N` flag to run `N` SPF checks concurrently.
+
 
 ```txt
 % cat assets/domains.txt
