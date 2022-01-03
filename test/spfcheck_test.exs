@@ -1,463 +1,301 @@
 defmodule SpfcheckTest do
   use ExUnit.Case
-  doctest Spfcheck
+  import ExUnit.CaptureIO
 
-  defp info(ctx) do
-    dns_good = Spf.DNS.to_list(ctx) |> Enum.join("\n")
-    dns_bad = Spf.DNS.to_list(ctx, valid: false) |> Enum.join("\n")
-    msg = "\n\n"
-    msg = msg <> "verdict #{ctx.verdict}\n"
-    msg = msg <> "reason  #{ctx.reason}\n"
-    msg = msg <> "error   #{ctx.error}\n\n"
-    msg = msg <> "LOG\n" <> (Enum.map(ctx.msg, fn x -> inspect(x) end) |> Enum.join("\n"))
-    msg = msg <> "\n\nDNS good\n" <> dns_good
-    msg = msg <> "\n\nDNS bad\n" <> dns_bad
-    msg <> "\n\n"
+  # standard args using -d to keep things local during testing
+
+  @soa "example.com soa ns.example.com dns.example.com 1 2 3 4 5"
+  @dns ["-d", "example.com txt v=spf1 +all\n#{@soa}"]
+  @args ["example.com" | @dns]
+
+  defp spfcheck_verdict(args) do
+    # captures stdout and returns verdict lines as a map
+    # downcase the keys, just to be sure
+    transform = fn
+      [x] -> {String.trim(x) |> String.downcase(), ""}
+      [x, v] -> {String.trim(x) |> String.downcase(), String.trim(v)}
+    end
+
+    capture_io(fn ->
+      capture_io(:stderr, fn -> Spfcheck.main(args) end)
+    end)
+    |> String.split("\n", trim: true)
+    |> Enum.map(fn s -> String.split(s, ":", parts: 2, trim: true) end)
+    |> Enum.into(%{}, transform)
   end
 
-  # TODO:
-  describe "domain name checks" do
-    @describetag :domain_names
-    test "001 - dns label > 63 chars is invalid" do
-      # spec: 4.3/1, initial processing:
-      # - an invalid dns label in domain -> None
-      # - a DNS timeout -> TempError
-      domain = "A123456789012345678901234567890123456789012345678901234567890123.example.com"
-      sender = "lyme.eater@#{domain}"
-      verdict = :none
+  defp spfcheck_stdout(args) do
+    # run spfcheck and capture stderr
+    capture_io(:stdio, fn ->
+      capture_io(:stderr, fn -> Spfcheck.main(args) end)
+    end)
+  end
 
-      zonedata = """
-      example.com TXT v=spf1 -all
-      """
+  defp spfcheck_stderr(args) do
+    # run spfcheck and capture stderr
+    capture_io(:stderr, fn ->
+      capture_io(:stdio, fn -> Spfcheck.main(args) end)
+    end)
+  end
 
-      # ctx =
-      #   Spf.Context.new(sender)
-      #   |> Spf.DNS.load_lines(zonedata)
-      #   |> Spf.Eval.evaluate()
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
-      assert ctx.verdict == :none, msg
-      assert ctx.error != nil, msg
+  describe "spfcheck --ip flag" do
+    # resolves against real DNS
+    test "001 - default ip" do
+      res = spfcheck_verdict(@args)
+      assert "127.0.0.1" == res["ip"]
     end
 
-    test "002 - dns label <= 63 chars is allowed" do
-      # for initial processing, max label length is 63 chars
-      # spec: 4.3/1
-      domain = "A12345678901234567890123456789012345678901234567890123456789012.example.com"
-      sender = "lyme.eater@#{domain}"
-      ip = "1.2.3.5"
-
-      zonedata = """
-      example.com TXT TIMEOUT
-      a12345678901234567890123456789012345678901234567890123456789012.example.com txt v=spf1 -all
-      """
-
-      ctx = Spf.check(sender, ip: ip, dns: zonedata)
-      # first label is 63 chars, domain is valid -> -all yields a fail
-      assert ctx.verdict == :fail, info(ctx)
+    test "002 - domain ipv4" do
+      res = spfcheck_verdict(@args ++ ["-i", "1.2.3.4"])
+      assert "1.2.3.4" == res["ip"]
     end
 
-    test "003 - ptr domain spec must be valid" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      example.com TXT v=spf1 ptr:example.-com
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-      msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
-      assert ctx.verdict == verdict, msg
+    test "003 - domain ipv6" do
+      res = spfcheck_verdict(@args ++ ["-i", "acdc:1976::1"])
+      assert "acdc:1976:0:0:0:0:0:1" == res["ip"]
     end
 
-    test "004 - ptr domain spec must be valid" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      example.com TXT v=spf1 ptr:example.123
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-      msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
-      assert ctx.verdict == verdict, msg
+    test "004 - domain ipv4-mapped ipv6" do
+      res = spfcheck_verdict(@args ++ ["-i", "::ffff:1.2.3.4"])
+      assert "1.2.3.4" == res["ip"]
     end
 
-    test "005 - exists domain spec must be valid" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      example.com TXT v=spf1 exists:example.123
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-      msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
-      assert ctx.verdict == verdict, msg
+    test "005 - illegal ipv4" do
+      res = spfcheck_verdict(@args ++ ["-i", "1.2.3.400"])
+      assert "127.0.0.1" == res["ip"]
     end
 
-    test "006 - include domain spec must be valid" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # :permerror due to all numeric toplevel domain
-      example.com TXT v=spf1 include:example.123
-      example.123 A 1.2.3.4
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-      msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
-      assert ctx.verdict == verdict, msg
+    test "006 - illegal ipv6" do
+      res = spfcheck_verdict(@args ++ ["-i", "acdc:1976::beer"])
+      assert "127.0.0.1" == res["ip"]
     end
 
-    test "007 - redirect domain spec must be valid" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # :permerror due to all numeric toplevel domain
-      example.com TXT v=spf1 redirect:example.123
-      example.123 TXT v=spf1 +all
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-      msg = "got #{ctx.verdict}, expected #{verdict}\n\n" <> info(ctx)
-      assert ctx.verdict == verdict, msg
+    test "007 - illegal ipv4-mapped ipv6" do
+      res = spfcheck_verdict(@args ++ ["-i", "::ffff:1.2.3.400"])
+      assert "127.0.0.1" == res["ip"]
     end
   end
 
-  describe "loop detection" do
-    @describetag :loop_detection
-    test "001 - including twice is not an error" do
-      sender = "someone@example.com"
-      verdict = :fail
+  describe "spfcheck from stdin" do
+    res =
+      capture_io("example.com", fn -> Spfcheck.main(["-v", "0" | @dns]) end)
+      |> String.split("\n", trim: true)
 
-      zonedata = """
-      # including the same domain twice is not an error
-      example.com TXT v=spf1 include:a.example.com include:a.example.com -all
-      a.example.com TXT v=spf1 ~all
-      """
+    assert 2 == length(res)
+    assert String.contains?(List.last(res), ":pass")
+  end
 
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
+  describe "spfcheck --verbose flag" do
+    test "001 - queit" do
+      res = spfcheck_stderr(["-v", "0" | @args])
+      assert "" == res
     end
 
-    test "002 - including twice is not an error" do
-      sender = "someone@example.com"
-      verdict = :fail
-
-      zonedata = """
-      # :fail despite included domains
-      example.com TXT v=spf1 include:a.example.com include:b.example.com -all
-      a.example.com TXT v=spf1 include:c.example.com ~all
-      b.example.com TXT v=spf1 include:c.example.com ~all
-      c.example.com TXT v=spf1 ~all
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
+    test "002 - error" do
+      dns = "example.com txt v=spf1 a/33 -all"
+      res = spfcheck_stderr(["-v", "1", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-parse-error")
     end
 
-    test "003 - including self is permerror" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # loop: example.com cannot include itself
-      example.com TXT v=spf1 include:EXAMPLE.COM +all
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
+    test "003 - warning" do
+      dns = "example.com txt v=spf1 +all"
+      res = spfcheck_stderr(["-v", "2", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-parse-warn")
     end
 
-    test "004 - include loop is permerror" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # loop: a.example.com cannot include example.com
-      example.com TXT v=spf1 include:a.example.com +all
-      a.example.com TXT v=spf1 include:example.com -all
-      x.example.com TXT %{d} says %{i} is not ok
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
+    test "004 - note" do
+      dns = "example.com txt v=spf1 +all"
+      res = spfcheck_stderr(["-v", "3", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-eval-note")
     end
 
-    test "005 - repeated exists is not an error" do
-      sender = "someone@example.com"
-      verdict = :pass
-
-      zonedata = """
-      # :fail despite included domains
-      example.com TXT v=spf1 exists:example.com exists:example.com -all
-      example.com A 1.2.3.4
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-      msg = "got #{ctx.verdict}, expected #{verdict}" <> info(ctx)
-      assert ctx.verdict == verdict, msg
+    test "005 - info" do
+      dns = "example.com txt v=spf1 +all\n#{@soa}"
+      res = spfcheck_stderr(["-v", "4", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-ctx-info")
     end
 
-    test "006 - redirect loop is permerror" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # loop: example.com cannot redirect to example.com
-      example.com TXT v=spf1 redirect=example.com
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
-    end
-
-    test "007 - redirect loop is permerror" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # loop: b.example.com cannot redirect to example.com
-      example.com TXT v=spf1 redirect=b.example.com
-      b.example.com TXT v=spf1 redirect=example.com
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
-    end
-
-    test "008 - redirect loop is permerror" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # loop: example.com cannot redirect to example.com
-      example.com TXT v=spf1 redirect=b.example.com
-      b.example.com TXT v=spf1 redirect=c.example.com
-      c.example.com TXT v=spf1 include:d.example.com
-      d.example.com TXT v=spf1 redirect=b.example.com
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
-    end
-
-    test "009 - macro's won't hide a loop" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      # macro's won't hide a loop
-      example.com TXT v=spf1 redirect=b.example.com
-      b.example.com TXT v=spf1 redirect=c.example.com
-      c.example.com TXT v=spf1 include:d.example.com
-      d.example.com TXT v=spf1 redirect=b.%{d2}
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
-    end
-
-    test "010 - trailing dots don't fool the loop detection" do
-      sender = "someone@example.com"
-      verdict = :permerror
-
-      zonedata = """
-      example.com TXT v=spf1 redirect=b.example.com.
-      b.example.com TXT v=spf1 redirect=c.example.com
-      c.example.com. TXT v=spf1 redirect=example.com.
-      """
-
-      ctx = Spf.check(sender, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
+    test "006 - debug" do
+      dns = "example.com txt v=spf1 +all\n#{@soa}"
+      res = spfcheck_stderr(["-v", "5", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-ctx-debug")
     end
   end
 
-  describe "redirect" do
-    test "001 - redirect evaluated last" do
-      sender = "someone@example.com"
-      ip = "1.2.3.4"
-      verdict = :pass
-
-      zonedata = """
-      # redirect takes effect after all mechanisms have been evaluated
-      example.com TXT v=spf1 redirect=b.example.com a
-      example.com A 1.2.3.4
-      b.example.com TXT v=spf1 -all
-      """
-
-      ctx = Spf.check(sender, ip: ip, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
-    end
-
-    test "002 - redirect ignored if all is present" do
-      sender = "someone@example.com"
-      ip = "1.2.3.4"
-      verdict = :pass
-
-      zonedata = """
-      example.com TXT v=spf1 redirect=b.example.com +all
-      b.example.com TXT v=spf1 -all
-      """
-
-      ctx = Spf.check(sender, ip: ip, dns: zonedata)
-
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
-
-      assert ctx.verdict == verdict, msg
+  describe "spfcheck --no-color" do
+    test "001 - no colors" do
+      res = spfcheck_stderr(["-v", "5", "--no-color" | @args])
+      # no ANSI escapes in syslog id
+      assert String.contains?(res, " %spf[0]-ctx-debug: ")
     end
   end
 
-  describe "verdict is correct" do
-    test "001 - -all does not add sender's ip to ctx.ipt" do
-      sender = "someone@example.com"
-      ip = "1.2.3.4"
-      verdict = :pass
+  describe "spfcheck --report" do
+    # vgsewpdat
+    test "001 - verdict" do
+      res = spfcheck_stdout(["-v", "0", "-r", "v" | @args])
+      # no ANSI escapes in syslog id
+      assert String.contains?(res, "pass")
+      assert String.contains?(res, "dns@example.com")
+    end
 
-      zonedata = """
-      # -all does not add sender's ip to the ip table if it did, the
-      # ip4-mechanism would not be a longest prefix match anymore
+    test "002 - graph" do
+      res = spfcheck_stdout(["-v", "0", "-r", "g" | @args])
+      # no ANSI escapes in syslog id
+      assert String.contains?(res, "digraph")
+      assert String.contains?(res, "dns@example.com")
 
-      example.com TXT v=spf1 include:a.example.com include:b.example.com ip4:1.2.3.0/24 -all
-      a.example.com TXT v=spf1 -all
-      b.example.com TXT v=spf1 -all
+      res = spfcheck_stdout(["-d", "assets/example.db", "-v", "0", "-r", "g", "example.com"])
+      assert String.contains?(res, "digraph")
+      assert String.contains?(res, "errors")
+      assert String.contains?(res, "warnings")
+
+      # use soa with error
+      dns = """
+      example.com txt v=spf1 -all"
+      example.com soa servfail
       """
 
-      ctx = Spf.check(sender, ip: ip, dns: zonedata)
+      res = spfcheck_stdout(["-d", dns, "-v", "0", "-r", "g", "example.com"])
+      assert String.contains?(res, "digraph")
+      # contact cannot be found
+      assert String.contains?(res, "nxdomain")
+    end
 
-      msg =
-        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
+    test "003 - spf" do
+      res = spfcheck_stdout(["-v", "0", "-r", "s" | @args])
+      # no ANSI escapes in syslog id
+      assert String.contains?(res, "v=spf1 +all")
+      assert String.contains?(res, "[0] example.com")
 
-      assert ctx.verdict == verdict, msg
+      # use soa with error
+      dns = """
+      example.com txt v=spf1 -all"
+      example.com soa servfail
+      """
+
+      res = spfcheck_stdout(["-d", dns, "-v", "0", "-r", "s", "example.com"])
+      assert String.contains?(res, "nxdomain")
+    end
+
+    test "004 - errors" do
+      dns = "example.com txt v=spf1 a/33 -all"
+      res = spfcheck_stdout(["-v", "0", "-r", "e", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-parse-error")
+    end
+
+    test "005 - warnings" do
+      dns = "example.com txt v=spf1 +all"
+      res = spfcheck_stdout(["-v", "0", "-r", "w", "-d", dns, "example.com"])
+      assert String.contains?(res, "spf[0]-parse-warn")
+    end
+
+    test "006 - prefixes" do
+      dns = "example.com txt v=spf1 ip4:1.2.3.0/24 ip6:acdc:1976::/32 -all"
+      res = spfcheck_stdout(["-v", "0", "-r", "p", "-d", dns, "example.com"])
+      assert String.contains?(res, "1.2.3.0/24")
+      assert String.contains?(res, "acdc:1976:0:0:0:0:0:0/32")
+    end
+
+    test "007 - dns" do
+      res = spfcheck_stdout(["-v", "0", "-r", "d" | @args])
+      # check via artificial soa record, setting contact
+      assert String.contains?(res, "dns.example.com")
+
+      res =
+        spfcheck_stdout(["-v", "0", "-r", "d", "-m", "-d", "assets/example.db", "example.com"])
+
+      assert String.contains?(res, "## DNS issues")
+    end
+
+    test "008 - ast" do
+      dns = "example.com txt v=spf1 ip4:1.2.3.0/24 ip6:acdc:1976::/32 -all"
+      res = spfcheck_stdout(["-v", "0", "-r", "a", "-d", dns, "example.com"])
+      refute String.contains?(res, ":version")
+      refute String.contains?(res, ":whitespace")
+      assert String.contains?(res, ":ip4")
+      assert String.contains?(res, ":ip6")
+      assert String.contains?(res, ":all")
+    end
+
+    test "008 - tokens" do
+      dns = "example.com txt v=spf1 ip4:1.2.3.0/24 ip6:acdc:1976::/32 -all\n#{@soa}"
+      res = spfcheck_stdout(["-v", "0", "-r", "t", "-d", dns, "example.com"])
+      assert String.contains?(res, ":version")
+      assert String.contains?(res, ":whitespace")
+      assert String.contains?(res, ":ip4")
+      assert String.contains?(res, ":ip6")
+      assert String.contains?(res, ":all")
+    end
+
+    test "009 - all" do
+      dns = "example.com txt v=spf1 ip4:1.2.3.0/24 ip6:acdc:1976::/32 -all\n#{@soa}"
+      res = spfcheck_stdout(["-v", "0", "-r", "all", "-d", dns, "example.com"])
+      assert String.contains?(res, "title")
+      assert String.contains?(res, "author")
+      assert String.contains?(res, "date")
+      assert String.contains?(res, "## Verdict")
+      assert String.contains?(res, "## Graphviz")
+      assert String.contains?(res, "## SPF")
+      assert String.contains?(res, "## Errors")
+      assert String.contains?(res, "## Warnings")
+      assert String.contains?(res, "## Prefixes")
+      assert String.contains?(res, "## DNS")
+      assert String.contains?(res, "## AST")
+      assert String.contains?(res, "## Tokens")
+    end
+
+    test "010 - unknown topic ignored" do
+      dns = "example.com txt v=spf1 ip4:1.2.3.0/24 ip6:acdc:1976::/32 -all\n#{@soa}"
+      res = spfcheck_stdout(["-v", "0", "-r", "x", "-d", dns, "example.com"])
+      assert String.contains?(res, "topic x ignored")
     end
   end
 
-  describe "warnings about inconsistent entries" do
-    test "001 - detect multiple, inconsistent entries" do
-      zonedata = """
-      example.com TXT v=spf1 -a +a -mx +mx -ip4:10.10.10.10 +ip4:10.10.10.10
-      example.com A 10.10.10.10
-      example.com MX 10 mail.example.com
-      mail.example.com A 11.11.11.11
-      """
+  describe "spfcheck help flag" do
+    test "-H" do
+      exit =
+        catch_exit do
+          spfcheck_stdout(["-H"])
+        end
 
-      ctx = Spf.check("someone@example.com", dns: zonedata)
-
-      warnings =
-        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
-        |> Enum.map(fn {_, _, _, msg} -> msg end)
-        |> Enum.filter(&String.contains?(&1, "inconsistent"))
-
-      assert length(warnings) > 0
-    end
-
-    test "002 - detect multiple, inconsistent entries across SPF's" do
-      zonedata = """
-      example.com   TXT v=spf1 -ip4:10.10.10.10 include:a.example.com -all
-      a.example.com TXT v=spf1 ip4:10.10.10.10
-      """
-
-      ctx = Spf.check("someone@example.com", dns: zonedata)
-
-      warnings =
-        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
-        |> Enum.map(fn {_, _, _, msg} -> msg end)
-        |> Enum.filter(&String.contains?(&1, "inconsistent"))
-
-      assert length(warnings) > 0
+      assert exit == {:shutdown, 1}
     end
   end
 
-  describe "warnings about prefix lengths" do
-    test "001 - warn about a/mx/ip4/ip6-mech's with zero prefix" do
-      zonedata = """
-      example.com   TXT v=spf1 a/0 mx/0 ip4:1.1.1.1/0 ip6:acdc::/0 -all
-      """
+  describe "spfcheck width flag" do
+    test "001 - 10 wrapping point" do
+      dns = "example.com txt v=spf1 ip4:1.1.1.0/24 ip4:1.1.2/24 ip6:acdc:1976::/32 -all\n#{@soa}"
 
-      ctx = Spf.check("someone@example.com", dns: zonedata)
+      res =
+        spfcheck_stdout(["-v", "0", "-r", "d", "-w", "18", "-d", dns, "example.com"])
+        |> String.split("\n", trim: true)
+        |> Enum.map(&String.length/1)
 
-      warnings =
-        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
-        |> Enum.map(fn {_, _, _, msg} -> msg end)
-        |> Enum.filter(&String.contains?(&1, "ZERO"))
-
-      assert length(warnings) == 4
+      # wrap at 18 or so, but allow for the offset
+      refute Enum.any?(res, fn len -> len > 5 + 18 end)
     end
+  end
 
-    test "002 - warn about a/mx-mech's with macros and zero prefix" do
-      zonedata = """
-      example.com   TXT v=spf1 a:%{d}/0 mx:%{d}/0 -all
+  describe "spfcheck batch mode" do
+    test "001 - from stdin" do
+      stdin = """
+      # See assets/example.db
+
+      example.com
+      example.com
+      example.com
+      example.com
       """
 
-      ctx = Spf.check("someone@example.com", dns: zonedata)
+      res =
+        capture_io(stdin, fn ->
+          Spfcheck.main(["-v", "0", "-b", "2", "-d", "assets/example.db"])
+        end)
 
-      warnings =
-        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
-        |> Enum.map(fn {_, _, _, msg} -> msg end)
-        |> Enum.filter(&String.contains?(&1, "ZERO"))
-
-      assert length(warnings) == 2
-    end
-
-    test "003 - warn about a/mx/ip4/ip6-mech's with max len4 prefix" do
-      zonedata = """
-      example.com   TXT v=spf1 a/32 mx/32 ip4:1.1.1.1/32 ip6:acdc::/128 -all
-      """
-
-      ctx = Spf.check("someone@example.com", dns: zonedata)
-
-      warnings =
-        Enum.filter(ctx.msg, fn {_nth, _facility, type, _msg} -> type == :warn end)
-        |> Enum.map(fn {_, _, _, msg} -> msg end)
-        |> Enum.filter(&String.contains?(&1, "default mask"))
-
-      assert length(warnings) > 0
+      assert String.contains?(res, "spf-c.example.com")
+      assert String.contains?(res, "temperror")
+      assert String.contains?(res, "timeout")
     end
   end
 end

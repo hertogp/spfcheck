@@ -201,6 +201,7 @@ defmodule Spfcheck do
     spf = ctx.map[domain]
 
     Spf.Context.new(domain)
+    |> Map.put(:dns, ctx.dns)
     |> Map.put(:spf, spf)
     |> Spf.Parser.parse()
     |> dot_domain_defs(ctx, acc)

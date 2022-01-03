@@ -534,13 +534,6 @@ defmodule Spf.Lexer do
     end
   end
 
-  # defp ignore(parser) do
-  #   fn input, ctx ->
-  #     with {:ok, _term, rest, ctx} <- parser.(input, ctx),
-  #          do: {:ok, [], rest, upd(ctx, rest)}
-  #   end
-  # end
-
   defp many(parser) do
     # note, applies `parser` 0 or more times:
     # - if `parser` *never* fails, this will loop forever!
@@ -560,7 +553,6 @@ defmodule Spf.Lexer do
   defp mark(parser, name) do
     fn input, ctx ->
       with {:ok, term, rest, ctx} <- parser.(input, set(ctx, name)) do
-        # IO.inspect({term, rest, input, ctx.input}, label: "mark #{name}")
         {:ok, {name, term, range(ctx, name)}, rest, del(ctx, name)}
       end
     end
@@ -621,7 +613,6 @@ defmodule Spf.Lexer do
           do: {:error, :until, input, ctx},
           else: {:ok, [], input, ctx}
       else
-        # TODO: was {:ok, ..} = until(stop).(rest, ctx)
         with {:ok, chars, rest, ctx} <- until(stop).(rest, ctx),
              do: {:ok, [char | chars], rest, upd(ctx, rest)}
       end
@@ -629,7 +620,8 @@ defmodule Spf.Lexer do
   end
 
   defp until(parser, stop) when is_function(stop, 2) do
-    # apply parser 0 or more times, until stop parser says so (or parser itself fails)
+    # apply parser 0 or more times, until stop parser says so or fail
+    # - note: if parser fails before stop says to stop, nothing is parsed
     fn input, ctx ->
       case stop.(input, ctx) do
         {:ok, _, _, _} ->
@@ -639,14 +631,6 @@ defmodule Spf.Lexer do
           with {:ok, term, rest, ctx} <- parser.(input, ctx),
                {:ok, terms, rest, ctx} <- until(parser, stop).(rest, ctx) do
             {:ok, [term | terms], rest, upd(ctx, rest)}
-          else
-            _ ->
-              # if input was consumed, return :ok, else it's an :error
-              if input == ctx.input do
-                {:error, :until, input, ctx}
-              else
-                {:ok, [], input, ctx}
-              end
           end
       end
     end

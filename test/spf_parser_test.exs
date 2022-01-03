@@ -292,6 +292,15 @@ defmodule Spf.ParserTest do
       assert :syntax_error == parse("exp:example.123").error
       assert :syntax_error == parse("exp=example.com/24").error
     end
+
+    test "03 - explain string with errors" do
+      ctx =
+        Spf.Context.new("example.com")
+        |> Map.put(:explain_string, "%{x} is an error")
+        |> Spf.Parser.explain()
+
+      assert "" == ctx.explanation
+    end
   end
 
   describe "unknown-modifier" do

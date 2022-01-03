@@ -34,19 +34,17 @@ defmodule Spf.Parser do
   """
   @spec explain(Spf.Context.t()) :: Spf.Context.t()
   def explain(%{explain_string: explain} = context) do
-    case tokenize_exp(explain) do
-      {:error, _, _, _} ->
-        Map.put(context, :explanation, "")
+    # TODO: tokenize_exp actually never fails ...
+    with {:ok, [{:exp_str, tokens, _range}], _, _} <- tokenize_exp(explain),
+         {:ok, string} <- expand(context, tokens, :explain) do
+      Map.put(context, :explanation, string)
+    else
+      {:error, reason} ->
+        log(context, :parse, :warn, "explain - invalid (#{reason})")
+        |> Map.put(:explanation, "")
 
-      {:ok, [{:exp_str, tokens, _range}], _, _} ->
-        case expand(context, tokens, :explain) do
-          {:error, reason} ->
-            log(context, :parse, :warn, "explain - invalid (#{reason})")
-            |> Map.put(:explanation, "")
-
-          {:ok, string} ->
-            Map.put(context, :explanation, string)
-        end
+      _ ->
+        log(context, :parse, :warn, "explain not parsed")
     end
   end
 
