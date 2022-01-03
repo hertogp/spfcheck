@@ -11,6 +11,23 @@ defmodule Spf.ParserTest do
     |> Spf.Parser.parse()
   end
 
+  describe "edge cases" do
+    @describetag :parser_edge_cases
+    test "01 - txt too long" do
+      filler = String.duplicate("ip4:255.255.255.255 ", 200)
+      spf = "v=spf1 #{filler}-all"
+
+      ctx =
+        Spf.Context.new("example.com")
+        |> Map.put(:spf, spf)
+        |> Spf.Parser.parse()
+
+      msg = List.first(ctx.msg)
+      assert :warn == elem(msg, 2)
+      assert String.contains?(elem(msg, 3), "TXT length")
+    end
+  end
+
   describe "all-mechanism" do
     @describetag :parse_all
 
@@ -133,6 +150,11 @@ defmodule Spf.ParserTest do
       assert :syntax_error == parse("ip4:").error
       assert :syntax_error == parse("ip4:example.com").error, "not a prefix"
     end
+
+    test "04 - missing digits" do
+      assert :syntax_error == parse("ip4:1.1/24").error
+      assert :syntax_error == parse("ip4:1.01.1/24").error
+    end
   end
 
   describe "ip6-mechanism" do
@@ -244,6 +266,20 @@ defmodule Spf.ParserTest do
       assert :syntax_error == parse("exists:example.com-").error
       assert :syntax_error == parse("exists:example.123").error
     end
+
+    test "03 - exists with some macro's" do
+      assert [{:exists, [?+, "example.com"], 0..10}] == parse("exists:%{s}").ast
+
+      ctx =
+        Spf.Context.new("example.com")
+        |> Map.put(:dns, %{
+          {"example.com", :a} => ["1.2.3.4"],
+          {"4.3.2.1.in-addr.arpa", :ptr} => {:error, :nxdomain}
+        })
+        |> Map.put(:spf, "exists:%{p}")
+
+      assert [{:exists, [?+, "unknown"], 0..10}] == Spf.Parser.parse(ctx).ast
+    end
   end
 
   describe "redirect-modifier" do
@@ -301,6 +337,37 @@ defmodule Spf.ParserTest do
 
       assert "" == ctx.explanation
     end
+
+    test "04 - explain string with r-macro" do
+      ctx =
+        Spf.Context.new("example.com")
+        |> Map.put(:explain_string, "%{r} is unknown")
+        |> Spf.Parser.explain()
+
+      assert "unknown is unknown" == ctx.explanation
+    end
+
+    test "05 - explain string with t-macro" do
+      ctx =
+        Spf.Context.new("example.com")
+        |> Map.put(:t0, 42)
+        |> Map.put(:explain_string, "%{t} is the meaning of life")
+        |> Spf.Parser.explain()
+
+      assert "42 is the meaning of life" == ctx.explanation
+    end
+
+    test "06 - explain is empty" do
+      # this is a bit artificial, since in an `exp=string`, string can never be
+      # an empty string
+
+      ctx =
+        Spf.Context.new("example.com")
+        |> Map.put(:explain, "")
+        |> Spf.Parser.explain()
+
+      assert "" == ctx.explanation
+    end
   end
 
   describe "unknown-modifier" do
@@ -344,6 +411,36 @@ defmodule Spf.ParserTest do
       assert nil == parse("ptr=something").error
       assert nil == parse("include=something").error
       assert nil == parse("exists=something").error
+    end
+  end
+
+  describe "version" do
+    @describetag :version
+    test "01 - normal version" do
+      assert [{:version, [1], 0..5}] == parse("v=spf1").spf_tokens
+    end
+
+    test "01 - abnormal version" do
+      assert [{:version, [42], 0..6}] == parse("v=spf42").spf_tokens
+    end
+  end
+
+  describe "whitespace" do
+    @describetag :whitespace
+    test "01 - whitespace" do
+      assert [{:whitespace, [" "], 0..0}] == parse(" ").spf_tokens
+    end
+
+    test "02 - multiple whitespace" do
+      assert [{:whitespace, ["  "], 0..1}] == parse("  ").spf_tokens
+    end
+
+    test "03 - tab as whitespace" do
+      assert [{:whitespace, ["\t"], 0..0}] == parse("\t").spf_tokens
+    end
+
+    test "04 - mix of space and tab as whitespace" do
+      assert [{:whitespace, [" \t "], 0..2}] == parse(" \t ").spf_tokens
     end
   end
 end

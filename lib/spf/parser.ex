@@ -293,8 +293,10 @@ defmodule Spf.Parser do
       ?d -> ctx.domain
       ?h -> ctx.helo
       ?s -> ctx.sender
-      ?l -> split(ctx.sender) |> elem(0)
-      ?o -> split(ctx.sender) |> elem(1)
+      # ?l -> split(ctx.sender) |> elem(0)
+      ?l -> ctx.local
+      # ?o -> split(ctx.sender) |> elem(1)
+      ?o -> ctx.domain
       ?v -> if ctx.atype == :a, do: "in-addr", else: "ip6"
       ?r -> "unknown"
       ?c -> macro_c(ctx.ip)
