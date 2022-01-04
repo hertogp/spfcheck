@@ -461,11 +461,14 @@ defmodule Spf.DNS do
     type = Keyword.get(opts, :type, Map.get(ctx, :atype, :a))
 
     case from_cache(ctx, name, type) do
+      # note that from_cache may return {ctx, {:error, :illegal_name}}
       {ctx, {:error, :cache_miss}} ->
+        # cache miss and a legal name here
         tick(ctx, :num_dnsq)
         |> query(name, type, stats)
 
       {ctx, result} ->
+        # either positive result, or {:error, :illegal_name}
         tick(ctx, :num_dnsq)
         |> do_stats(name, type, result, stats, cached: true)
     end
@@ -607,21 +610,16 @@ defmodule Spf.DNS do
 
     do_stats(ctx, name, type, result, stats)
   rescue
+    # query should never see illegal names (like example..com), so donot
+    # worry about inet_res.resolve() raising FunctionClauseError because
+    # it cannot encode the domain name's labels.
+
     x in CaseClauseError ->
       error = {:error, :unknown_rr_type}
 
       ctx =
         update(ctx, {name, type, error})
         |> log(:dns, :error, "DNS error: #{name} #{type}: #{inspect(x)}")
-
-      {ctx, error}
-
-    x in FunctionClauseError ->
-      error = {:error, :illegal_name}
-
-      ctx =
-        update(ctx, {name, type, error})
-        |> log(:dns, :error, "DNS illegal name: #{name} #{Exception.message(x)}")
 
       {ctx, error}
   end
@@ -683,10 +681,8 @@ defmodule Spf.DNS do
   # cache stores either
   # - {name, type} -> {:error, :err_code}, or
   # - {name, type} -> [rrdata]
-  # @spec cache(dns_result, Spf.Context, binary, rrtype) :: Spf.Context.t()
-  # defp cache({:error, {reason, _dns_msg}} = _result, ctx, name, type),
-  #   do: update(ctx, {name, type, {:error, reason}})
 
+  @spec cache(dns_result, Spf.Context.t(), binary, rrtype) :: Spf.Context.t()
   defp cache({:error, reason}, ctx, name, type),
     do: update(ctx, {name, type, {:error, reason}})
 
@@ -700,7 +696,7 @@ defmodule Spf.DNS do
   defp update(ctx, {domain, type, {:error, reason}}) do
     error =
       case reason do
-        {:servfail, _} -> {:error, :servfail}
+        {error_type, _} -> {:error, error_type}
         reason -> {:error, reason}
       end
 
@@ -728,22 +724,17 @@ defmodule Spf.DNS do
 
   # charlists_tostr/2
   # note:
+  # - charlists_tostr is called on non-error dns results, since update/2 has
+  #   separate func to inserting errors into the cache (it overwrites).
   # - given a single rdata & type, turn its charlists into binaries (if any)
   # - e.g. charlists_tostr('some text record', :txt)
   # - relies on the fact that query is used for SPF related DNS queries
   #   and authority (:soa) queries only.
   #   (so the number of rrtypes to support is limited)
 
-  #  keep error-tuples as is
-  defp charlists_tostr({:error, reason}, _),
-    do: {:error, reason}
-
-  # :a, :aaaa rdata, preserve error-tuple (if any)
-  defp charlists_tostr(ip, rrtype) when rrtype in [:a, :aaaa] do
-    "#{Pfx.new(ip)}"
-  rescue
-    _ -> ip
-  end
+  # :a, :aaaa rdata
+  defp charlists_tostr(ip, rrtype) when rrtype in [:a, :aaaa],
+    do: "#{Pfx.new(ip)}"
 
   # :mta name to string
   defp charlists_tostr({pref, domain}, :mx),
@@ -771,8 +762,6 @@ defmodule Spf.DNS do
       end
 
     log(ctx, :dns, :debug, "DNS cache has #{map_size(ctx.dns)} entries")
-  rescue
-    err -> log(ctx, :dns, :error, "failed to read #{fpath}: #{Exception.message(err)}")
   end
 
   @spec load_zonedata(Spf.Context.t(), binary | [binary]) :: Spf.Context.t()
@@ -814,12 +803,8 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rrtype_decode(type) do
-    case @rrtypes[String.trim(type) |> String.downcase()] do
-      nil -> {:error, "unsupported RR type"}
-      type -> {:ok, type}
-    end
-  end
+  defp rrtype_decode(type),
+    do: {:ok, @rrtypes[String.trim(type) |> String.downcase()]}
 
   defp rrdata_decode(type, rdata) do
     error = String.downcase(rdata)
@@ -830,6 +815,9 @@ defmodule Spf.DNS do
     end
   end
 
+  # Notes: rrdata_type_decode
+  # - lines are split using regex @rgxtypes, so only those types need
+  #   to be dealt with.
   defp rrdata_type_decode(type, rdata) when type in [:txt, :spf],
     do: {:ok, no_quotes(rdata)}
 
@@ -839,7 +827,6 @@ defmodule Spf.DNS do
     case {type, pfx.maxlen} do
       {:a, 32} -> {:ok, rdata}
       {:aaaa, 128} -> {:ok, String.downcase(rdata)}
-      _ -> {:error, "illegal address"}
     end
   rescue
     _ -> {:error, "illegal address"}
@@ -877,9 +864,6 @@ defmodule Spf.DNS do
     end
   end
 
-  defp rrdata_type_decode(type, _rdata),
-    do: {:error, :rrtype, "#{type}"}
-
   # CACHE->LINES
 
   @spec rr_encode(binary, atom, any) :: binary
@@ -896,7 +880,7 @@ defmodule Spf.DNS do
     |> String.trim_leading(":")
   end
 
-  defp rrdata_encode(type, ip) when type in [:a, :aaaa] and is_tuple(ip) do
+  defp rrdata_encode(type, ip) when type in [:a, :aaaa] do
     "#{Pfx.new(ip)}"
   rescue
     # just in case..

@@ -3,7 +3,6 @@ defmodule SpfDNSTest do
   doctest Spf.DNS, import: true
 
   describe "DNS cache" do
-    @tag tst: "dns.00"
     test "00 - caches zonedata from heredoc" do
       zonedata = """
       example.com A 1.2.3.4
@@ -68,7 +67,6 @@ defmodule SpfDNSTest do
       assert result == {:ok, ["1.1.1.1"]}
     end
 
-    @tag tst: "dns.01"
     test "01 - DNS cache from a list of lines" do
       zonedata =
         """
@@ -139,7 +137,16 @@ defmodule SpfDNSTest do
       assert result == {:ok, ["1.1.1.1"]}
     end
 
-    @tag tst: "dns.03"
+    test "02 - dns cache from non-existing file" do
+      # feed Spf.DNS.load the current working dir -> File.read will yield an
+      # {:error, :eisdir}
+      ctx =
+        Spf.Context.new("some.tld")
+        |> Spf.DNS.load(".")
+
+      Enum.any?(ctx.msg, fn msg -> elem(msg, 3) |> String.contains?(":eisdir") end)
+    end
+
     test "03 - dns cache rr-errors overwrite always" do
       zonedata = """
       example.com A 1.2.3.4
@@ -161,7 +168,6 @@ defmodule SpfDNSTest do
       {_ctx, {:error, :servfail}} = Spf.DNS.resolve(ctx, "example.com", type: :mx)
     end
 
-    @tag tst: "dns.04"
     test "04 - circular cname's yield :servfail" do
       zonedata = """
       example.com cname example.org
@@ -202,8 +208,7 @@ defmodule SpfDNSTest do
       assert result == {:error, :servfail}
     end
 
-    @tag tst: "dns.05"
-    test "05 - updating cache w/ error overwrites" do
+    test "05 - updating cache w/ timeout error overwrites" do
       zonedata = """
       example.com TXT some text record
       """
@@ -213,6 +218,165 @@ defmodule SpfDNSTest do
 
       {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
       assert {:error, :timeout} == result
+    end
+
+    test "06 - updating cache w/ servfail error overwrites" do
+      zonedata = """
+      example.com TXT some text record
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      ctx = Spf.DNS.load(ctx, "example.com TXT SERVFAIL")
+
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
+      assert {:error, :servfail} == result
+    end
+
+    test "07 - unsupported RR type" do
+      zonedata = """
+      example.com XYZ an unknown RR type
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+
+      assert Enum.any?(ctx.msg, fn entry -> elem(entry, 3) |> String.contains?("malformed RR") end)
+    end
+
+    test "08 - cname's with errors" do
+      zonedata = """
+      example.com cname example.org
+      example.org cname timeout
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :a)
+      assert {:error, :timeout} == result
+    end
+
+    test "09 - trying to resolve an unknown rr-type" do
+      zonedata = """
+      example.com a 1.2.3.4
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :xyz)
+      assert {:error, :unknown_rr_type} == result
+    end
+
+    test "10 - trying to resolve an illegal name" do
+      zonedata = """
+      example.com a 1.2.3.4
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example..com", type: :xyz)
+      assert {:error, :illegal_name} == result
+    end
+
+    test "11 - trying to resolve an not-implemented" do
+      # test error response similar to servfail, in this case:
+      # {:error, {:notimp, dns_msg}}
+      ctx = Spf.Context.new("some.tld")
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :mf)
+      assert {:error, :notimp} == result
+    end
+
+    test "12 - a zonedata's soa record should be correct" do
+      zonedata = """
+      example.com. soa ns.example.com noc.example.com 1 2 3 4 five
+      example.org  soa ns.example.123 noc.example.com 1 2 3 4 5
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+
+      assert Enum.any?(ctx.msg, fn msg -> elem(msg, 3) |> String.contains?("illegal ttl") end)
+    end
+  end
+
+  describe "dns cache to lines" do
+    test "01 - mx records" do
+      zonedata = """
+      example.com. mx 10 mail.example.com
+      """
+
+      # note:
+      # - trailing dot should be removed
+      # - mx becomes MX
+
+      lines =
+        Spf.Context.new("some.tld", dns: zonedata)
+        |> Spf.DNS.to_list()
+
+      assert ["example.com MX 10 mail.example.com"] == lines
+    end
+
+    test "02 - spf records" do
+      # although not used for evaluation, they are supported in Spf.DNS cache
+      zonedata = """
+      example.com. spf v=spf1 -all
+      """
+
+      # note:
+      # - trailing dot should be removed
+      # - spf becomes SPF
+
+      lines =
+        Spf.Context.new("some.tld", dns: zonedata)
+        |> Spf.DNS.to_list()
+
+      assert ["example.com SPF v=spf1 -all"] == lines
+    end
+
+    test "03 - when someone messed up the context.dns cache manually" do
+      # note:
+      # - trailing dot should be removed
+      # - a becomes A
+
+      lines =
+        Spf.Context.new("some.tld")
+        |> Map.put(:dns, %{{"example.com", :a} => ["1.1.1.400"]})
+        |> Spf.DNS.to_list()
+
+      assert ["example.com A 1.1.1.400"] == lines
+    end
+
+    test "04 - when someone messed up the zonedata" do
+      zonedata = """
+      example.com a 1.1.1.400
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      assert Enum.any?(ctx.msg, fn entry -> elem(entry, 3) |> String.contains?("RR ignored") end)
+
+      assert Enum.any?(ctx.msg, fn entry ->
+               elem(entry, 3) |> String.contains?("illegal address")
+             end)
+    end
+
+    test "05 - when someone messed up the zonedata" do
+      zonedata = """
+      example.com aaaa acdc:1976:defg
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      assert Enum.any?(ctx.msg, fn entry -> elem(entry, 3) |> String.contains?("RR ignored") end)
+
+      assert Enum.any?(ctx.msg, fn entry ->
+               elem(entry, 3) |> String.contains?("illegal address")
+             end)
+    end
+
+    test "06 - when someone messed up the zonedata" do
+      zonedata = """
+      example.com aaaa 11-22-33-44-55-66
+      """
+
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      assert Enum.any?(ctx.msg, fn entry -> elem(entry, 3) |> String.contains?("RR ignored") end)
+
+      assert Enum.any?(ctx.msg, fn entry ->
+               elem(entry, 3) |> String.contains?("illegal address")
+             end)
     end
   end
 end
