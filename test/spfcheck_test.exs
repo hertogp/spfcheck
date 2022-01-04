@@ -38,6 +38,50 @@ defmodule SpfcheckTest do
     end)
   end
 
+  describe "spfcheck warnings" do
+    test "01 - less specific, no conflict" do
+      dns = """
+      example.com txt v=spf1 a a/24 -all
+      example.com a 1.2.3.4
+      """
+
+      res =
+        spfcheck_stderr(["example.com", "-d", dns])
+        |> String.downcase()
+
+      assert String.contains?(res, "more specific")
+    end
+
+    test "02 - less specific, with conflict" do
+      dns = """
+      example.com txt v=spf1 a -a/24 -all
+      example.com a 1.2.3.4
+      """
+
+      res =
+        spfcheck_stderr(["example.com", "-d", dns])
+        |> String.downcase()
+
+      assert String.contains?(res, "more specific")
+      assert String.contains?(res, "inconsistent")
+    end
+  end
+
+  describe "spfcheck - weird dns" do
+    test "01 - txt RR has servfail" do
+      dns = """
+      example.com txt SERVFAIL
+      """
+
+      res =
+        spfcheck_stderr(["example.com", "-d", dns])
+        |> String.downcase()
+
+      assert String.contains?(res, "spf[0]-eval-error")
+      assert String.contains?(res, "servfail")
+    end
+  end
+
   describe "spfcheck --ip flag" do
     # resolves against real DNS
     test "001 - default ip" do
@@ -274,6 +318,28 @@ defmodule SpfcheckTest do
 
       # wrap at 18 or so, but allow for the offset
       refute Enum.any?(res, fn len -> len > 5 + 18 end)
+    end
+  end
+
+  describe "spfcheck nameserver flag" do
+    test "01 - google ipv4 dns" do
+      # use cache
+      dns = "example.com txt v=spf1 ip4:1.1.1.0/24 ip4:1.1.2/24 ip6:acdc:1976::/32 -all\n#{@soa}"
+
+      res =
+        spfcheck_stderr(["-v", "5", "-n", "8.8.8.8", "-n", "8.8.4.4", "-d", dns, "example.com"])
+
+      assert String.contains?(res, "{{8, 8, 8, 8}, 53}")
+      assert String.contains?(res, "{{8, 8, 4, 4}, 53}")
+    end
+
+    test "02 - google ipv4 dns" do
+      # use google's dns
+      res = spfcheck_stderr(["-v", "5", "-n", "8.8.8.8", "-n", "8.8.4.4", "example.com"])
+
+      assert String.contains?(res, "{{8, 8, 8, 8}, 53}")
+      assert String.contains?(res, "{{8, 8, 4, 4}, 53}")
+      assert String.contains?(res, "verdict fail")
     end
   end
 

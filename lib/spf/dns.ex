@@ -558,16 +558,8 @@ defmodule Spf.DNS do
     delta = if stats, do: 1, else: 0
 
     case result do
-      {:error, :cache_miss} ->
-        # result didn't include an answer for given `type`
-        result = {:error, :zero_answers}
-
-        {update(ctx, {name, type, result})
-         |> tick(:num_dnsv, delta)
-         |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
-
       {:error, :zero_answers} ->
-        # a previously cache_miss, cached as zero answers
+        # a previous cache_miss, cached as zero answers
         {tick(ctx, :num_dnsv, delta) |> log(:dns, :warn, "#{qry} - ZERO answers"), result}
 
       {:error, :nxdomain} ->

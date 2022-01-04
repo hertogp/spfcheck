@@ -34,17 +34,14 @@ defmodule Spf.Parser do
   """
   @spec explain(Spf.Context.t()) :: Spf.Context.t()
   def explain(%{explain_string: explain} = context) do
-    # TODO: tokenize_exp actually never fails ...
-    with {:ok, [{:exp_str, tokens, _range}], _, _} <- tokenize_exp(explain),
-         {:ok, string} <- expand(context, tokens, :explain) do
+    {:ok, [{:exp_str, tokens, _range}], _, _} = tokenize_exp(explain)
+
+    with {:ok, string} <- expand(context, tokens, :explain) do
       Map.put(context, :explanation, string)
     else
       {:error, reason} ->
         log(context, :parse, :warn, "explain - invalid (#{reason})")
         |> Map.put(:explanation, "")
-
-      _ ->
-        log(context, :parse, :warn, "explain not parsed")
     end
   end
 
@@ -61,7 +58,6 @@ defmodule Spf.Parser do
 
   The parser will log warnings for:
   - an SPF string length longer than 512 characters
-  - any residue text in the SPF string after parsing
   - when an exp modifier is present, but the SPF record cannot fail
   - SPF records with implicit endings
   - ignoring a redirect modifier because the all mechanism is present
@@ -116,7 +112,6 @@ defmodule Spf.Parser do
     |> Map.put(:spf_rest, rest)
     |> Map.put(:ast, [])
     |> check(:spf_length)
-    |> check(:spf_residue)
     |> then(fn ctx -> Enum.reduce(tokens, ctx, &parse/2) end)
     |> check(:explain_reachable)
     |> check(:no_implicit)
@@ -159,9 +154,6 @@ defmodule Spf.Parser do
   end
 
   @spec cidr(Spf.Context.t(), [] | token) :: {atom, list} | {:error, :einvalid}
-  defp cidr(_ctx, []),
-    do: {:ok, [32, 128]}
-
   defp cidr(ctx, {:cidr, [len4, len6], range}) do
     term = spf_term(ctx, range)
 
@@ -190,8 +182,6 @@ defmodule Spf.Parser do
   end
 
   @spec check_toplabel([token], atom) :: [token]
-  defp check_toplabel([], _), do: []
-
   defp check_toplabel(tokens, :domspec) do
     with {:literal, [label], range} <- List.last(tokens) do
       domain = String.replace(label, ~r/\.$/, "")
@@ -418,19 +408,6 @@ defmodule Spf.Parser do
     case String.length(ctx.spf) do
       len when len > 512 ->
         log(ctx, :parse, :warn, "#{term} - TXT length #{len} > 512 characters")
-
-      _ ->
-        ctx
-    end
-  end
-
-  defp check(ctx, :spf_residue) do
-    # Spf_residue
-    term = "spf[#{ctx.nth}] #{ctx.domain}"
-
-    case String.length(ctx.spf_rest) do
-      len when len > 0 ->
-        log(ctx, :parse, :warn, "#{term} - SPF residue #{inspect(ctx.spf_rest)}")
 
       _ ->
         ctx
@@ -739,11 +716,7 @@ defmodule Spf.Parser do
   end
 
   defp parse({:error, _tokvalue, range} = _token, ctx) do
-    # Unknown
+    # Unknown term (CatchAll)
     error(ctx, :parse, :syntax_error, "#{spf_term(ctx, range)} - syntax error", :permerror)
   end
-
-  defp parse({_, _, range}, ctx),
-    # CatchAll
-    do: log(ctx, :parse, :error, "#{spf_term(ctx, range)} - Spf.parser.check has no handler!!")
 end

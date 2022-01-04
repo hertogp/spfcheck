@@ -348,6 +348,77 @@ defmodule SpfTest do
     end
   end
 
+  describe "mechanisms with servfail" do
+    test "001 - ptr record has servfail" do
+      sender = "someone@example.com"
+      ip = "1.2.3.4"
+      verdict = :temperror
+
+      zonedata = """
+      example.com TXT v=spf1 ptr +all
+      4.3.2.1.in-addr.arpa ptr SERVFAIL
+      """
+
+      ctx = Spf.check(sender, ip: ip, dns: zonedata)
+
+      msg =
+        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
+
+      assert ctx.verdict == verdict, msg
+    end
+
+    test "002 - mx record has servfail" do
+      sender = "someone@example.com"
+      ip = "1.2.3.4"
+      verdict = :temperror
+
+      zonedata = """
+      example.com TXT v=spf1 mx +all
+      example.com mx SERVFAIL
+      """
+
+      ctx = Spf.check(sender, ip: ip, dns: zonedata)
+
+      msg =
+        "got #{ctx.verdict}, expected #{verdict}" <> info(ctx) <> "\nctx.map\n#{inspect(ctx.map)}"
+
+      assert ctx.verdict == verdict, msg
+    end
+
+    test "003 - txt has some unknown error" do
+      sender = "someone@example.com"
+      ip = "1.2.3.4"
+      verdict = :temperror
+
+      # need to manually set the dns cache, since reading RR's only supports
+      # a subset of errors seen in the wild.
+
+      ctx =
+        Spf.Context.new(sender, ip: ip)
+        |> Map.put(:dns, %{{"example.com", :txt} => {:error, :unknown_error}})
+        |> Spf.Eval.evaluate()
+
+      assert ctx.verdict == verdict
+    end
+
+    test "004 - txt has some unknown error" do
+      sender = "someone@example.com"
+      ip = "1.2.3.4"
+      verdict = :temperror
+
+      # need to manually set the dns cache, since reading RR's only supports
+      # a subset of errors seen in the wild.  In this case, inet_res error
+      # format is simulated similar to {:error, {:servfail, dns_msg}}
+
+      ctx =
+        Spf.Context.new(sender, ip: ip)
+        |> Map.put(:dns, %{{"example.com", :txt} => {:error, {:unknown_error, "unknown error"}}})
+        |> Spf.Eval.evaluate()
+
+      assert ctx.verdict == verdict
+    end
+  end
+
   describe "verdict is correct" do
     test "001 - -all does not add sender's ip to ctx.ipt" do
       sender = "someone@example.com"
@@ -452,6 +523,23 @@ defmodule SpfTest do
         |> Enum.filter(&String.contains?(&1, "default mask"))
 
       assert length(warnings) > 0
+    end
+  end
+
+  describe "Spf.check without options" do
+    # for illegal names, verdict will be none.
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
+    test "01 - no options" do
+      # localhost not multilabel
+      ctx = Spf.check("localhost")
+      assert :none == ctx.verdict
+    end
+
+    test "02 - domain name too long" do
+      domain = String.duplicate("abcdefghi.", 26) <> "com"
+      assert String.length(domain) > 253
+      ctx = Spf.check(domain)
+      assert :none == ctx.verdict
     end
   end
 end

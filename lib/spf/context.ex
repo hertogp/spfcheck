@@ -184,11 +184,23 @@ defmodule Spf.Context do
     :verdict => :neutral
   }
 
+  @counters [
+    :num_dnsq,
+    :num_dnsm,
+    :num_dnsv,
+    :depth,
+    :num_warn,
+    :num_spf,
+    :num_error,
+    :num_checks
+  ]
+
   # Helpers
 
   @spec ipt_values(list, prefix()) :: list
   defp ipt_values(keyvals, k) do
     # filter & turn keyvals [{pfx, [{q, nth, "term"}]}] into [{q, nth, "term"}]
+    # used to retrieve ipt_values for more/less specifics of given prefix `k`
     keyvals
     |> Enum.filter(fn {p, _vals} -> p != k end)
     |> Enum.map(&elem(&1, 1))
@@ -380,8 +392,8 @@ defmodule Spf.Context do
   at a later stage.
 
   """
-  @spec error(t, atom, atom, binary, nil | atom) :: t
-  def error(context, facility, error, reason, verdict \\ nil) do
+  @spec error(t, atom, atom, binary, atom) :: t
+  def error(context, facility, error, reason, verdict) do
     Map.put(context, :error, error)
     |> Map.put(:reason, reason)
     |> Map.put(:verdict, verdict || context.verdict)
@@ -552,16 +564,10 @@ defmodule Spf.Context do
 
   """
   @spec pop(t) :: t
-  def pop(context) do
-    case context.stack do
-      [] ->
-        log(context, :ctx, :error, "attempted to pop from empty stack")
-
-      [state | tail] ->
-        Map.put(context, :stack, tail)
-        |> Map.merge(state)
-        |> log(:ctx, :debug, "popped state, back to #{state.domain}")
-    end
+  def pop(%{:stack => [state | tail]} = context) do
+    Map.put(context, :stack, tail)
+    |> Map.merge(state)
+    |> log(:ctx, :debug, "popped state, back to #{state.domain}")
   end
 
   @doc """
@@ -655,13 +661,8 @@ defmodule Spf.Context do
 
   """
   @spec tick(t, atom, integer) :: t
-  def tick(context, counter, delta \\ 1) do
+  def tick(context, counter, delta \\ 1) when counter in @counters do
     count = Map.get(context, counter, nil)
-
-    if count do
-      Map.put(context, counter, count + delta)
-    else
-      log(context, :ctx, :error, "unknown counter #{inspect(counter)} - ignored")
-    end
+    Map.put(context, counter, count + delta)
   end
 end

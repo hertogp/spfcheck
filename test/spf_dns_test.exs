@@ -90,6 +90,10 @@ defmodule SpfDNSTest do
       {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :a)
       assert result == {:ok, ["1.2.3.4"]}
 
+      # resolve() defaults type to :a
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.com")
+      assert result == {:ok, ["1.2.3.4"]}
+
       # ipv6 formatting is produced by Pfx
       {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :aaaa)
       assert result == {:ok, ["2001:0:0:0:0:0:0:1"]}
@@ -198,18 +202,17 @@ defmodule SpfDNSTest do
       assert result == {:error, :servfail}
     end
 
-    # @tag tst: "dns.05"
-    # test "05 - updating cache w/ error overwrites" do
-    #   zonedata = """
-    #   example.com TXT some text record
-    #   """
+    @tag tst: "dns.05"
+    test "05 - updating cache w/ error overwrites" do
+      zonedata = """
+      example.com TXT some text record
+      """
 
-    #   ctx = Spf.Context.new("some.tld", dns: zonedata)
-    #   IO.inspect(ctx.dns)
+      ctx = Spf.Context.new("some.tld", dns: zonedata)
+      ctx = Spf.DNS.load(ctx, "example.com TXT TIMEOUT")
 
-    #   ctx = Spf.DNS.load(ctx, "example.com TXT TIMEOUT")
-
-    #   IO.inspect(ctx.dns)
-    # end
+      {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :txt)
+      assert {:error, :timeout} == result
+    end
   end
 end

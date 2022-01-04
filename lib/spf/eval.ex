@@ -23,8 +23,8 @@ defmodule Spf.Eval do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.5
     do: String.match?(str, ~r/^\s*v=spf1(\s|$)/i)
 
-  def spf?(_),
-    do: false
+  # def spf?(_),
+  #   do: false
 
   @doc """
   Given a [`context`](`t:Spf.Context.t/0`) retrieve and evaluate the associated SPF record.
@@ -241,24 +241,30 @@ defmodule Spf.Eval do
 
   @spec check_domain(Spf.Context.t()) :: Spf.Context.t()
   defp check_domain(ctx) do
-    # check domain, if not a legal fqdn -> evaluation result is :none
-    # since there is no domain to actually check
-    if ctx.error do
-      ctx
-    else
-      case Spf.DNS.check_domain(ctx.domain) do
-        {:ok, _domain} ->
-          ctx
+    # as a first action of evaluate(ctx), check the domain:
+    # - if not a legal fqdn -> evaluation result is :none
+    case Spf.DNS.check_domain(ctx.domain) do
+      {:ok, _domain} ->
+        ctx
 
-        {:error, reason} ->
-          error(ctx, :eval, :illegal_domain, "domain error (#{reason})", :none)
-      end
+      {:error, reason} ->
+        error(ctx, :eval, :illegal_domain, "domain error (#{reason})", :none)
     end
   end
 
   @spec grep_spf(Spf.Context.t()) :: Spf.Context.t()
   defp grep_spf(ctx) do
     # either set ctx.spf to an SPF record, or set ctx.error to some atom error
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.3
+    # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.4
+    # *temperror* for:
+    # - servfail (RCODE 2)
+    # - some error (where RCODE !=0 (NOERROR) and RCODE!=3 (NXDOMAIN)), or
+    # - timeout
+    # *none* for:
+    # - nxdomain
+    # - zero_answers
+    # - malformed domain
     {ctx, result} = Spf.DNS.resolve(ctx, ctx.domain, type: :txt, stats: false)
 
     case Spf.DNS.filter(result, &spf?/1) do
@@ -279,12 +285,6 @@ defmodule Spf.Eval do
           :permerror
         )
 
-      {:error, :timeout} ->
-        error(ctx, :eval, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
-
-      {:error, :servfail} ->
-        error(ctx, :eval, :servfail, "txt #{ctx.domain} - DNS error (servfail)", :temperror)
-
       {:error, :nxdomain} ->
         error(ctx, :eval, :nxdomain, "txt #{ctx.domain} - DNS error (nxdomain)", :none)
 
@@ -294,8 +294,14 @@ defmodule Spf.Eval do
       {:error, :illegal_name} ->
         error(ctx, :eval, :illegal_name, "txt #{ctx.domain} - DNS error (illegal name)", :none)
 
+      {:error, :timeout} ->
+        error(ctx, :eval, :timeout, "txt #{ctx.domain} - DNS error (timeout)", :temperror)
+
+      {:error, :servfail} ->
+        error(ctx, :eval, :servfail, "txt #{ctx.domain} - DNS error (servfail)", :temperror)
+
       {:error, reason} ->
-        Map.put(ctx, :error, reason)
+        error(ctx, :eval, :dns_error, "txt #{ctx.domain} - DNS error (#{reason})", :temperror)
     end
   end
 
@@ -478,15 +484,10 @@ defmodule Spf.Eval do
   end
 
   # REDIRECT
-  defp evalp(ctx, [{:redirect, [:einvalid], range} | _tail]) do
-    # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
-    error(ctx, :eval, :no_redir_domain, "#{spf_term(ctx, range)} - invalid domain", :permerror)
-  end
-
   defp evalp(ctx, [{:redirect, [domain], range} | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
     # - if redirect domain has no SPF -> permerror
-    # - if redirect domain is mailformed -> permerror
+    # - if redirect domain is mailformed (seen by evaluate())-> permerror
     # - otherwise its result is the result for this SPF
     term = spf_term(ctx, range)
     trailing? = length(tail) > 0
@@ -512,13 +513,5 @@ defmodule Spf.Eval do
         ctx
       end
     end
-  end
-
-  # TERM UNKNOWN -> internal error
-  defp evalp(ctx, [{_, _, range} | tail]) do
-    term = spf_term(ctx, range)
-
-    log(ctx, :eval, :error, "#{term} - skipping, eval has no handler!!")
-    |> evalp(tail)
   end
 end
