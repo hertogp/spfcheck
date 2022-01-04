@@ -36,7 +36,7 @@ defmodule Spfcheck.MixProject do
   end
 
   defp elixirc_paths(:dev),
-    do: IO.inspect(["lib", "dev"], label: :dev)
+    do: ["lib", "dev"]
 
   defp elixirc_paths(_),
     do: ["lib"]
