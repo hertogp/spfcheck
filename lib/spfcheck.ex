@@ -281,6 +281,7 @@ defmodule Spfcheck do
   end
 
   # Report topics
+
   defp report(ctx, opts) do
     report = Keyword.get(opts, :report, "") |> String.downcase() |> String.split("", trim: true)
     width = Keyword.get(opts, :width, 60)
@@ -302,6 +303,8 @@ defmodule Spfcheck do
     if markdown,
       do: IO.puts("\n# #{ctx.domain}"),
       else: IO.puts("")
+
+    ctx = Map.put(ctx, :log, nil)
 
     for item <- topics, do: topic(ctx, item, markdown, width)
   end

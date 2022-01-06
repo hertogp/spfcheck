@@ -9,14 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- [ ] use the DNS cache when generating a graph for SPF policy
-- [ ] expand link-target names when creating links in a dot-digraph
+- [x] use the DNS cache when generating a graph for SPF policy
+- [x] expand link-target names when creating links in a dot-digraph
       now an include:%{l}.x.%{d} points to -> (%13) instead of xyz.x.domain
-- [ ] use full sender in evaluation result on top of the graph
+
+### changed
+
+- [x] also list local part of sender in evaluation result on top of the graph
 
 ### TODO - *internal* changes
 
-- [ ] replace String.slice with binary_part/3
+- [x] replace String.slice with binary_part/3
 - [ ] replace <<char::utf8>> with <<char::8>> during lexing (its all ascii anyway, right?)
 
 
