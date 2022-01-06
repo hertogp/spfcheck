@@ -157,21 +157,35 @@ defmodule Spfcheck do
 
     if batch > 0 do
       Task.Supervisor.start_link(name: Spf.TaskSupervisor)
-
-      fun = fn line -> do_line(opts, line) end
-
-      IO.stream()
-      |> Stream.chunk_every(batch)
-      |> Stream.map(fn chunk -> Enum.map(chunk, fn s -> String.trim(s) end) end)
-      |> Stream.map(fn chunk ->
-        Task.Supervisor.async_stream_nolink(Spf.TaskSupervisor, chunk, fun, timeout: :infinity)
-      end)
-      |> Enum.to_list()
-      |> Enum.map(fn stream -> Enum.to_list(stream) end)
+      do_batch(batch, opts)
     else
       IO.stream()
       |> Enum.each(&do_line(opts, String.trim(&1)))
     end
+  end
+
+  defp do_batch(0, _opts),
+    do: :ok
+
+  defp do_batch(max, opts) do
+    batch =
+      IO.stream(:stdio, :line)
+      |> Enum.take(max)
+      |> Enum.map(&String.trim/1)
+      |> Enum.map(
+        &Task.Supervisor.async_nolink(Spf.TaskSupervisor, fn -> do_line(opts, &1) end,
+          shutdown: 20000
+        )
+      )
+      |> Enum.map(fn t -> Task.await(t, :infinity) end)
+
+    max =
+      case batch do
+        [] -> 0
+        _ -> max
+      end
+
+    do_batch(max, opts)
   end
 
   # skip comments and empty lines
