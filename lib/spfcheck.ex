@@ -196,18 +196,19 @@ defmodule Spfcheck do
     |> IO.puts()
   end
 
-  defp dot_domain({nth, ctx}, acc) do
+  defp dot_domain(nth, ctx) do
     domain = ctx.map[nth]
     spf = ctx.map[domain]
 
-    Spf.Context.new(domain)
-    |> Map.put(:dns, ctx.dns)
+    ctx
+    |> Map.put(:log, nil)
+    |> Map.put(:domain, domain)
     |> Map.put(:spf, spf)
     |> Spf.Parser.parse()
-    |> dot_domain_defs(ctx, acc)
+    |> dot_domain_defs(ctx)
   end
 
-  defp dot_domain_defs(new, ctx, acc) do
+  defp dot_domain_defs(new, ctx) do
     nths = Map.keys(ctx.map) |> Enum.filter(fn n -> ctx.map[n] == new.domain end)
     errs = Enum.filter(ctx.msg, fn {n, _, s, _} -> n in nths and s == :error end) |> length()
     warn = Enum.filter(ctx.msg, fn {n, _, s, _} -> n in nths and s == :warn end) |> length()
@@ -225,7 +226,9 @@ defmodule Spfcheck do
 
     entries =
       new.ast
-      |> Enum.map(fn {type, _args, range} -> {new.domain, type, String.slice(new.spf, range)} end)
+      |> Enum.map(fn {type, args, range} ->
+        {new.domain, type, args, String.slice(new.spf, range)}
+      end)
       |> Enum.with_index(&dot_node_entry/2)
 
     rows = Enum.map(entries, fn {r, _v} -> r end)
@@ -237,42 +240,42 @@ defmodule Spfcheck do
         {:error, reason} -> {"DNS error", "#{reason}"}
       end
 
-    [
-      """
-      "#{new.domain}" [label=<
-        <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
-        <TR><TD PORT="TOP" BGCOLOR="#{color}">[#{nths}] #{new.domain}</TD></TR>
-        <TR><TD BGCOLOR="lightgray">#{contact}</TD></TR>
-        #{Enum.join(rows, "\n  ")}
-        #{warn}
-        #{errs}
-        </TABLE>
-        >, shape="plaintext"];
+    """
+    "#{new.domain}" [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD PORT="TOP" BGCOLOR="#{color}">[#{nths}] #{new.domain}</TD></TR>
+      <TR><TD BGCOLOR="lightgray">#{contact}</TD></TR>
+      #{Enum.join(rows, "\n  ")}
+      #{warn}
+      #{errs}
+      </TABLE>
+      >, shape="plaintext"];
 
-        #{Enum.join(vert, "\n  ")}
-      """
-      | acc
-    ]
+      #{Enum.join(vert, "\n  ")}
+    """
   end
 
   # return a table row definition + vertice if applicable
-  defp dot_node_entry({domain, :include, term}, idx) do
-    name = String.replace(term, ~r/.*:/, "")
+  # - only include/redirect will point to another SPF record
+  # - row uses spf term as found in input string
+  # - vertex uses expanded term to point to another record
+  defp dot_node_entry({domain, :include, args, term}, idx) do
+    name = List.last(args)
 
-    row = "<TR><TD PORT=\"#{idx}\">include:#{name}</TD></TR>"
+    row = "<TR><TD PORT=\"#{idx}\">#{term}</TD></TR>"
     vtx = "\"#{domain}\":\"#{idx}\" -> \"#{name}\":\"TOP\";"
     {row, vtx}
   end
 
-  defp dot_node_entry({domain, :redirect, term}, idx) do
-    name = String.replace(term, ~r/.*=/, "")
+  defp dot_node_entry({domain, :redirect, args, term}, idx) do
+    name = List.last(args)
 
-    row = "<TR><TD PORT=\"#{idx}\">redirect=#{name}</TD></TR>"
+    row = "<TR><TD PORT=\"#{idx}\">#{term}</TD></TR>"
     vtx = "\"#{domain}\":\"#{idx}\" -> \"#{name}\":\"TOP\";"
     {row, vtx}
   end
 
-  defp dot_node_entry({_domain, _, term}, _idx) do
+  defp dot_node_entry({_domain, _type, _args, term}, _idx) do
     row = "<TR><TD>#{term}</TD></TR>"
     {row, ""}
   end
@@ -455,18 +458,17 @@ defmodule Spfcheck do
   defp topic(ctx, "g", markdown, _width) do
     if markdown, do: IO.puts("\n## Graphviz\n\n```graphviz")
 
-    domains =
-      for nth <- 0..(ctx.num_spf - 1) do
-        {nth, ctx}
-      end
+    gdefs = for nth <- 0..(ctx.num_spf - 1), do: dot_domain(nth, ctx)
 
-    gdefs = Enum.reduce(domains, [], &dot_domain/2)
-    # use 0-th domain, not ctx.domain (might be a redirected domain)
-    label = "spfcheck(#{ctx.map[0]}, #{ctx.ip}) -> #{ctx.verdict}"
+    # use 0-th domain, not ctx.domain (which might be a redirected domain)
+    label =
+      "spfcheck(#{ctx.local}@#{ctx.map[0]}, #{ctx.ip})" <>
+        " -> #{ctx.verdict},  reason #{ctx.reason}" <>
+        "\n#{ctx.explanation}"
 
     digraph = """
     digraph SPF {
-      label="#{label}\nreason: #{ctx.reason}";
+      label="#{label}";
       labelloc="t";
       rankdir="LR";
       ranksep="1.0 equally";
