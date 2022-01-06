@@ -492,7 +492,7 @@ defmodule Spf.Lexer do
     fn input, ctx ->
       case input do
         "" -> {:error, :eos, input, ctx}
-        <<byte::utf8, rest::binary>> -> {:ok, byte, rest, ctx}
+        <<byte::8, rest::binary>> -> {:ok, byte, rest, ctx}
       end
     end
   end
@@ -516,7 +516,7 @@ defmodule Spf.Lexer do
       c =
         case input do
           "" -> -1
-          <<c::utf8, _rest::binary>> -> c
+          <<c::8, _rest::binary>> -> c
         end
 
       if c in @eoterm,
@@ -605,7 +605,7 @@ defmodule Spf.Lexer do
       {char, rest} =
         case input do
           "" -> {-1, ""}
-          <<c::utf8, rest::binary>> -> {c, rest}
+          <<c::8, rest::binary>> -> {c, rest}
         end
 
       if stop.(char) do
