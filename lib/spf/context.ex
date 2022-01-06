@@ -430,8 +430,8 @@ defmodule Spf.Context do
 
   """
   @spec spf_term(t, Range.t()) :: binary
-  def spf_term(context, range),
-    do: "spf[#{context.nth}] #{String.slice(context.spf, range)}"
+  def spf_term(context, first..last),
+    do: "spf[#{context.nth}] " <> binary_part(context.spf, first, 1 + last - first)
 
   @doc """
   Updates `context`'s message queue and, if available, calls the user supplied log

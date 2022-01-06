@@ -177,17 +177,18 @@ defmodule Spf.Eval do
   defp match(ctx, {_q, _token, range} = _term, tail) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.2
 
+    term = spf_term(ctx, range)
     verdict = verdict(ctx)
 
     if verdict do
       # ctx.ip has a match, so set corresponding result and we're done
-      log(ctx, :eval, :note, "#{spf_term(ctx, range)} - matches #{ctx.ip}")
+      log(ctx, :eval, :note, "#{term} - matches #{ctx.ip}")
       |> tick(:num_checks)
       |> Map.put(:verdict, verdict)
-      |> Map.put(:reason, "#{spf_term(ctx, range)}")
+      |> Map.put(:reason, "#{term}")
     else
       # no match, so continue evaluation
-      log(ctx, :eval, :info, "#{spf_term(ctx, range)} - no match")
+      log(ctx, :eval, :info, "#{term} - no match")
       |> tick(:num_checks)
       |> evalp(tail)
     end
@@ -201,7 +202,7 @@ defmodule Spf.Eval do
 
     case validate?(dns, ctx.ip, name, domain, true) do
       true ->
-        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, spf_term(ctx, range)})
+        addip(ctx, [ctx.ip], [32, 128], {q, ctx.nth, term})
         |> log(:eval, :info, "#{term} - validated #{name} (#{ctx.ip}) for #{domain}")
 
       false ->
@@ -353,10 +354,12 @@ defmodule Spf.Eval do
   # All
   defp evalp(ctx, [{:all, [q], range} = _term | _tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.1
-    log(ctx, :eval, :note, "#{spf_term(ctx, range)} - matches")
+    term = spf_term(ctx, range)
+
+    log(ctx, :eval, :note, "#{term} - matches")
     |> tick(:num_checks)
     |> Map.put(:verdict, qualify(q))
-    |> Map.put(:reason, "#{spf_term(ctx, range)}")
+    |> Map.put(:reason, "#{term}")
   end
 
   # EXISTS
@@ -502,7 +505,7 @@ defmodule Spf.Eval do
       )
     else
       ctx =
-        test(ctx, :eval, :warn, trailing?, "#{spf_term(ctx, range)} - has trailing terms")
+        test(ctx, :eval, :warn, trailing?, "#{term} - has trailing terms")
         |> log(:eval, :note, "#{term} - redirecting to #{domain}")
         |> redirect(domain)
         |> evaluate()

@@ -396,7 +396,7 @@ defmodule Spf.Parser do
   end
 
   defp spf_plus(ctx, range),
-    do: String.slice(ctx.spf, range) |> String.starts_with?("+")
+    do: spf_term(ctx, range) |> String.starts_with?("+")
 
   # CHECKS
   # - checks performed by Spf.Parser at various stages
