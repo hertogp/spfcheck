@@ -10,8 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### fixed
 
 - [x] use the DNS cache when generating a graph for SPF policy
-- [x] expand link-target names when creating links in a dot-digraph
-      now an include:%{l}.x.%{d} points to -> (%13) instead of xyz.x.domain
+- [x] digraph vertices link to the macro expanded targets for include/redirect's
 
 ### changed
 
