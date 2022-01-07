@@ -206,6 +206,23 @@ defmodule SpfcheckTest do
       assert String.contains?(res, "nxdomain")
     end
 
+    test "002 - graph with include/redirect with macros" do
+      dns = """
+      # cache satifies all queries needed
+      example.com txt v=spf1 include:%{d1r}.org redirect=%{d1r}.net"
+      example.org txt v=spf1 ?all
+      example.net txt v=spf1 -all
+      example.com soa ns.example.com xxx.example.com 1 2 3 4 5
+      example.org soa ns.example.com xxx.example.org 1 2 3 4 5
+      example.net soa ns.example.com xxx.example.net 1 2 3 4 5
+      """
+
+      res = spfcheck_stdout(["-d", dns, "-v", "0", "-r", "g", "example.com"])
+      # links point to expanded names of spf[0] macro terms
+      assert String.contains?(res, "\"example.com\":\"0\" -> \"example.org\":\"TOP\";")
+      assert String.contains?(res, "\"example.com\":\"1\" -> \"example.net\":\"TOP\";")
+    end
+
     test "003 - spf" do
       res = spfcheck_stdout(["-v", "0", "-r", "s" | @args])
       # no ANSI escapes in syslog id
