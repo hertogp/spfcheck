@@ -128,7 +128,7 @@ Where:
 - `type` should be one of `A`, `AAAA`, `CNAME`, `MX`, `NS`, `PTR`, `SOA`, `SPF` or `TXT`, and
 - `error` should be one of `FORMERR`, `NXDOMAIN`, `SERVFAIL`, `TIMEOUT` or `ZERO_ANSWERS`
 
-The DNS `type` and `error` are both are case-insensitive and all domains are
+The DNS `type` and `error` are both case-insensitive and all domains are
 taken relative to root ('.') which is always stripped if present.  In case of
 any errors, the resource record is ignored and a warning logged.
 
