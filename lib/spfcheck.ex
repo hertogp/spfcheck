@@ -228,6 +228,35 @@ defmodule Spfcheck do
     |> dot_domain_defs(ctx)
   end
 
+  defp dot_domain_defs(%{:spf => ""} = new, ctx) do
+    # an include/redirect to a non-existing spf record
+    color = "red"
+
+    nths =
+      Map.keys(ctx.map)
+      |> Enum.filter(fn n -> ctx.map[n] == new.domain end)
+      |> Enum.join("][")
+
+    {_, contact} =
+      case Spf.DNS.authority(new, new.domain) do
+        {:ok, _, owner, email} -> {owner, email}
+        {:error, reason} -> {"DNS error", "#{reason}"}
+      end
+
+    {_ctx, result} = Spf.DNS.resolve(ctx, new.domain, type: :txt)
+    IO.inspect(result, label: :ohoh)
+
+    """
+    "#{new.domain}" [label=<
+      <TABLE BORDER="0" CELLBORDER="1" CELLSPACING="0">
+      <TR><TD PORT="TOP" BGCOLOR="#{color}">[#{nths}] #{new.domain}</TD></TR>
+      <TR><TD BGCOLOR="lightgray">#{contact}</TD></TR>
+      <TR><TD>NO SPF</TD></TR>
+      </TABLE>
+      >, shape="plaintext"];
+    """
+  end
+
   defp dot_domain_defs(new, ctx) do
     nths = Map.keys(ctx.map) |> Enum.filter(fn n -> ctx.map[n] == new.domain end)
     errs = Enum.filter(ctx.msg, fn {n, _, s, _} -> n in nths and s == :error end) |> length()
@@ -251,8 +280,8 @@ defmodule Spfcheck do
       end)
       |> Enum.with_index(&dot_node_entry/2)
 
-    rows = Enum.map(entries, fn {r, _v} -> r end)
-    vert = Enum.map(entries, fn {_r, v} -> v end) |> Enum.filter(fn v -> v != "" end)
+    rows = Enum.map(entries, fn {row, _vtx} -> row end)
+    vert = Enum.map(entries, fn {_row, vtx} -> vtx end) |> Enum.filter(fn v -> v != "" end)
 
     {_, contact} =
       case Spf.DNS.authority(new, new.domain) do
