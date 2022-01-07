@@ -9,13 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- [x] use the DNS cache when generating a graph for SPF policy
 - [x] digraph vertices link to the macro expanded targets for include/redirect's
 
 ### changed
 
 - [x] also list local part of sender in evaluation result on top of the graph
-- [x] replace <<char::utf8>> with <<char::8>> during lexing (its all ascii anyway)
+- [x] use the DNS cache when generating a graph for SPF policy
 
 
 ## [0.9.0] - 2022-01-03
