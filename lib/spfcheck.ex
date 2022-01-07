@@ -238,13 +238,10 @@ defmodule Spfcheck do
       |> Enum.join("][")
 
     {_, contact} =
-      case Spf.DNS.authority(new, new.domain) do
+      case Spf.DNS.authority(ctx, new.domain) do
         {:ok, _, owner, email} -> {owner, email}
         {:error, reason} -> {"DNS error", "#{reason}"}
       end
-
-    {_ctx, result} = Spf.DNS.resolve(ctx, new.domain, type: :txt)
-    IO.inspect(result, label: :ohoh)
 
     """
     "#{new.domain}" [label=<
@@ -284,7 +281,7 @@ defmodule Spfcheck do
     vert = Enum.map(entries, fn {_row, vtx} -> vtx end) |> Enum.filter(fn v -> v != "" end)
 
     {_, contact} =
-      case Spf.DNS.authority(new, new.domain) do
+      case Spf.DNS.authority(ctx, new.domain) do
         {:ok, _, owner, email} -> {owner, email}
         {:error, reason} -> {"DNS error", "#{reason}"}
       end

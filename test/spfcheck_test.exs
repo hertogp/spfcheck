@@ -223,6 +223,38 @@ defmodule SpfcheckTest do
       assert String.contains?(res, "\"example.com\":\"1\" -> \"example.net\":\"TOP\";")
     end
 
+    test "002 - graph with include without an spf record but with soa" do
+      # just so we exercise the code paths for non-spf referalls
+      dns = """
+      # cache satifies all queries needed
+      example.com txt v=spf1 include:example.org -all"
+      example.org txt nxdomain
+      example.org soa ns.example.org xxx.example.org 1 2 3 4 5
+      """
+
+      res = spfcheck_stdout(["-d", dns, "-v", "0", "-r", "g", "example.com"])
+      # links point to expanded names of spf[0] macro terms
+      assert String.contains?(res, "\"example.com\":\"0\" -> \"example.org\":\"TOP\";")
+      assert String.contains?(res, "xxx@example.org")
+      assert String.contains?(res, "NO SPF")
+    end
+
+    test "002 - graph with include without an spf record and no soa" do
+      # just so we exercise the code paths for non-spf referalls
+      dns = """
+      # cache satifies all queries needed
+      example.com txt v=spf1 include:example.org -all"
+      example.org txt nxdomain
+      example.org soa nxdomain
+      """
+
+      res = spfcheck_stdout(["-d", dns, "-v", "0", "-r", "g", "example.com"])
+      # links point to expanded names of spf[0] macro terms
+      assert String.contains?(res, "\"example.com\":\"0\" -> \"example.org\":\"TOP\";")
+      assert String.contains?(res, "nxdomain")
+      assert String.contains?(res, "NO SPF")
+    end
+
     test "003 - spf" do
       res = spfcheck_stdout(["-v", "0", "-r", "s" | @args])
       # no ANSI escapes in syslog id
