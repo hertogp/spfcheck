@@ -656,7 +656,10 @@ of dependencies in `mix.exs`:
 ```elixir
 def deps do
   [
-    {:spfcheck, "~> 0.9.0"}
+    {:spfcheck, "~> 0.9.1"}
   ]
 end
 ```
+
+Then ignore `Spfcheck` and start with `Spf.check/2`.
+
