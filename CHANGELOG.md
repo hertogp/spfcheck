@@ -9,14 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- [x] digraph, links from include/redirect's with macros now link to the expanded name
-- [x] digraph, macro expansion of nested records should use the original ip and sender parts
+- digraph, links from include/redirect's with macros now link to the expanded name
+- digraph, macro expansion of nested records should use the original ip and sender parts
 
 ### changed
 
-- [x] digraph, include local part of sender in evaluation result on top of the graph
-- [x] digraph, use the DNS cache when generating a digraph for an SPF policy
-- [x] digraph, include/redirect to a non-SPF record should say so (not just be empty)
+- digraph, include local part of sender in evaluation result on top of the graph
+- digraph, use the DNS cache when generating a digraph for an SPF policy
+- digraph, include/redirect to a non-SPF record should say so (not just be empty)
 
 
 ## [0.9.0] - 2022-01-03
