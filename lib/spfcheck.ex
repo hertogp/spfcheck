@@ -214,10 +214,16 @@ defmodule Spfcheck do
     domain = ctx.map[nth]
     spf = ctx.map[domain]
 
-    ctx
-    |> Map.put(:log, nil)
-    |> Map.put(:domain, domain)
+    # note: copy over dns + macro related fields of the original
+    # maybe keep a map of nth -> ast instead of reparsing, but then again
+    # how often will a graph be reported?
+    Spf.Context.new(domain)
     |> Map.put(:spf, spf)
+    |> Map.put(:dns, ctx.dns)
+    |> Map.put(:ip, ctx.ip)
+    |> Map.put(:sender, ctx.sender)
+    |> Map.put(:helo, ctx.helo)
+    |> Map.put(:local, ctx.local)
     |> Spf.Parser.parse()
     |> dot_domain_defs(ctx)
   end

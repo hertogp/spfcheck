@@ -9,7 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- [x] digraph, links from include/redirect's with macros point to the expanded names
+- [x] digraph, links from include/redirect's with macros now link to the expanded name
+- [x] digraph, macro expansion of nested records should use the original ip and sender parts
 
 ### changed
 
