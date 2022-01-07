@@ -389,6 +389,8 @@ defmodule Spf.Eval do
     term = spf_term(ctx, range)
 
     if loop?(ctx, domain) do
+      # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
+      # testsuite 14.2 include-loop
       error(
         ctx,
         :eval,
@@ -402,6 +404,7 @@ defmodule Spf.Eval do
         |> push(domain)
         |> evaluate()
 
+      # https://www.rfc-editor.org/rfc/rfc7208.html#section-5.2
       case ctx.verdict do
         v when v in [:neutral, :fail, :softfail] ->
           pop(ctx)
@@ -420,7 +423,7 @@ defmodule Spf.Eval do
 
         :temperror ->
           pop(ctx)
-          |> log(:eval, :warn, "#{term} - temp error")
+          |> error(:eval, :include, "#{term} - temporary error", :temperror)
       end
     end
   end
@@ -496,6 +499,8 @@ defmodule Spf.Eval do
     trailing? = length(tail) > 0
 
     if loop?(ctx, domain) do
+      # https://www.rfc-editor.org/rfc/rfc7208.html#section-4.6.4
+      # testsuite 14.8 redirect-loop
       error(
         ctx,
         :eval,

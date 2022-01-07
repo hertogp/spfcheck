@@ -586,7 +586,9 @@ defmodule Spf.Context do
       nth: context.nth,
       ast: context.ast,
       spf: context.spf,
-      explain: context.explain
+      explain: context.explain,
+      verdict: context.verdict,
+      reason: context.reason
     }
 
     nth = context.num_spf

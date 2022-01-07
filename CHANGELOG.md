@@ -9,12 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### fixed
 
-- [x] digraph vertices link to the macro expanded targets for include/redirect's
+- [x] digraph, links from include/redirect's with macros point to the expanded names
 
 ### changed
 
-- [x] also list local part of sender in evaluation result on top of the graph
-- [x] use the DNS cache when generating a graph for SPF policy
+- [x] digraph, include local part of sender in evaluation result on top of the graph
+- [x] digraph, use the DNS cache when generating a digraph for an SPF policy
 
 
 ## [0.9.0] - 2022-01-03
