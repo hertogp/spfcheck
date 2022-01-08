@@ -220,6 +220,9 @@ defmodule Spfcheck do
   defp escape_quotes(str) when is_binary(str),
     do: "\"#{String.replace(str, ~s("), ~s(""))}\""
 
+  defp escape_quotes(atom) when is_atom(atom),
+    do: ":#{atom}"
+
   defp escape_quotes(arg),
     do: arg
 
