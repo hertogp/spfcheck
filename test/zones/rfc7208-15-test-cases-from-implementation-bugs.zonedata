@@ -1,0 +1,15 @@
+# Zonedata for rfc7208-15-test-cases-from-implementation-bugs of the Rfc7208 2014.5 testsuite
+
+2.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.1.0.0.F.F.0.8.B.D.0.1.0.0.2.ip6.arpa PTR smtp6-v.fe.example.org
+_expspf.example.org TXT Sender domain not allowed from this host. Please see http://www.openspf.org/Why?s=mfrom&id=%{S}&ip=%{C}&r=%{R}
+_spf.example.com TXT v=spf1 ptr:fe.example.org ptr:sgp.example.com exp=_expspf.example.org -all
+_spf.example.com SPF v=spf1 ptr:fe.example.org ptr:sgp.example.com exp=_expspf.example.org -all
+example.org TXT v=spf1 mx redirect=_spf.example.com
+example.org SPF v=spf1 mx redirect=_spf.example.com
+example.org MX 10 smtp.example.org
+example.org MX 10 smtp1.example.com
+smtp.example.org A 198.51.100.2
+smtp.example.org AAAA 2001:db8:ff0:100::3
+smtp1.example.com A 192.0.2.26
+smtp1.example.com AAAA 2001:db8:ff0:200::2
+smtp6-v.fe.example.org AAAA 2001:db8:ff0:100::2

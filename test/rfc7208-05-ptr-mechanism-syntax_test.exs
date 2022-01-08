@@ -5,12 +5,28 @@ defmodule Rfc7208.Section5Test do
   # Usage:
   # % mix test
   # % mix test --only set:5
-  # % mix test --only tst:5.y where y is in [0..5]
+  # % mix test --only tst:5.y where y is in [0..7]
 
   describe "rfc7208-05-ptr-mechanism-syntax" do
     @tag set: "5"
     @tag tst: "5.0"
-    test "5.0 ptr-cidr" do
+    test "5.0 ptr-case-change" do
+      # spec 5.5/2 - PTR mechanism syntax - ptr-case-change
+
+      ctx =
+        Spf.check("bar@e6.example.com",
+          helo: "mail.example.com",
+          ip: "2001:db8::1",
+          dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+        )
+
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
+    end
+
+    @tag set: "5"
+    @tag tst: "5.1"
+    test "5.1 ptr-cidr" do
       # spec 5.5/2 - PTR mechanism syntax - ptr-cidr
 
       ctx =
@@ -25,8 +41,24 @@ defmodule Rfc7208.Section5Test do
     end
 
     @tag set: "5"
-    @tag tst: "5.1"
-    test "5.1 ptr-empty-domain" do
+    @tag tst: "5.2"
+    test "5.2 ptr-cname-loop" do
+      # spec 5.5/7 - PTR mechanism syntax - ptr-cname-loop
+
+      ctx =
+        Spf.check("postmaster@loop.example.com",
+          helo: "loop.example.com",
+          ip: "192.0.2.4",
+          dns: "test/zones/rfc7208-05-ptr-mechanism-syntax.zonedata"
+        )
+
+      assert to_string(ctx.verdict) in ["neutral"]
+      assert ctx.explanation == ""
+    end
+
+    @tag set: "5"
+    @tag tst: "5.3"
+    test "5.3 ptr-empty-domain" do
       # spec 5.5/2 - PTR mechanism syntax - ptr-empty-domain
 
       ctx =
@@ -41,8 +73,8 @@ defmodule Rfc7208.Section5Test do
     end
 
     @tag set: "5"
-    @tag tst: "5.2"
-    test "5.2 ptr-match-implicit" do
+    @tag tst: "5.4"
+    test "5.4 ptr-match-implicit" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-match-implicit
 
       ctx =
@@ -57,8 +89,8 @@ defmodule Rfc7208.Section5Test do
     end
 
     @tag set: "5"
-    @tag tst: "5.3"
-    test "5.3 ptr-match-ip6" do
+    @tag tst: "5.5"
+    test "5.5 ptr-match-ip6" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-match-ip6
 
       ctx =
@@ -73,8 +105,8 @@ defmodule Rfc7208.Section5Test do
     end
 
     @tag set: "5"
-    @tag tst: "5.4"
-    test "5.4 ptr-match-target" do
+    @tag tst: "5.6"
+    test "5.6 ptr-match-target" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-match-target
 
       ctx =
@@ -89,8 +121,8 @@ defmodule Rfc7208.Section5Test do
     end
 
     @tag set: "5"
-    @tag tst: "5.5"
-    test "5.5 ptr-nomatch-invalid" do
+    @tag tst: "5.7"
+    test "5.7 ptr-nomatch-invalid" do
       # spec 5.5/5 - PTR mechanism syntax - ptr-nomatch-invalid
 
       ctx =

@@ -5,7 +5,7 @@ defmodule Rfc7208.Section12Test do
   # Usage:
   # % mix test
   # % mix test --only set:12
-  # % mix test --only tst:12.y where y is in [0..22]
+  # % mix test --only tst:12.y where y is in [0..23]
 
   describe "rfc7208-12-semantics-of-exp-and-other-modifiers" do
     @tag set: "12"
@@ -298,7 +298,23 @@ defmodule Rfc7208.Section12Test do
 
     @tag set: "12"
     @tag tst: "12.18"
-    test "12.18 redirect-none" do
+    test "12.18 redirect-implicit" do
+      # spec 6.1/4 - Semantics of exp and other modifiers - redirect-implicit
+
+      ctx =
+        Spf.check("bar@e24.example.com",
+          helo: "e24.example.com",
+          ip: "192.0.2.2",
+          dns: "test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata"
+        )
+
+      assert to_string(ctx.verdict) in ["pass"]
+      assert ctx.explanation == ""
+    end
+
+    @tag set: "12"
+    @tag tst: "12.19"
+    test "12.19 redirect-none" do
       # spec 6.1/4 - Semantics of exp and other modifiers - redirect-none
 
       ctx =
@@ -313,8 +329,8 @@ defmodule Rfc7208.Section12Test do
     end
 
     @tag set: "12"
-    @tag tst: "12.19"
-    test "12.19 redirect-syntax-error" do
+    @tag tst: "12.20"
+    test "12.20 redirect-syntax-error" do
       # spec 6.1/2 - Semantics of exp and other modifiers - redirect-syntax-error
 
       ctx =
@@ -329,8 +345,8 @@ defmodule Rfc7208.Section12Test do
     end
 
     @tag set: "12"
-    @tag tst: "12.20"
-    test "12.20 redirect-twice" do
+    @tag tst: "12.21"
+    test "12.21 redirect-twice" do
       # spec 6/2 - Semantics of exp and other modifiers - redirect-twice
 
       ctx =
@@ -345,8 +361,8 @@ defmodule Rfc7208.Section12Test do
     end
 
     @tag set: "12"
-    @tag tst: "12.21"
-    test "12.21 two-exp-records" do
+    @tag tst: "12.22"
+    test "12.22 two-exp-records" do
       # spec 6.2/4 - Semantics of exp and other modifiers - two-exp-records
 
       ctx =
@@ -361,8 +377,8 @@ defmodule Rfc7208.Section12Test do
     end
 
     @tag set: "12"
-    @tag tst: "12.22"
-    test "12.22 unknown-modifier-syntax" do
+    @tag tst: "12.23"
+    test "12.23 unknown-modifier-syntax" do
       # spec A/3 - Semantics of exp and other modifiers - unknown-modifier-syntax
 
       ctx =

@@ -8,8 +8,8 @@ e3.example.com TXT v=spf1 ip6:::1.1.1.1/129
 e3.example.com SPF v=spf1 ip6:::1.1.1.1/129
 e4.example.com TXT v=spf1 ip6:::1.1.1.1//33
 e4.example.com SPF v=spf1 ip6:::1.1.1.1//33
-e5.example.com TXT v=spf1 ip6:CAFE:BABE:8000::/33
-e5.example.com SPF v=spf1 ip6:CAFE:BABE:8000::/33
+e5.example.com TXT v=spf1 ip6:Cafe:Babe:8000::/33
+e5.example.com SPF v=spf1 ip6:Cafe:Babe:8000::/33
 e6.example.com TXT v=spf1 ip6::CAFE::BABE
 e6.example.com SPF v=spf1 ip6::CAFE::BABE
 mail.example.com A 1.2.3.4

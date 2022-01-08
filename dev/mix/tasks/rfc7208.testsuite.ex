@@ -170,7 +170,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   # Implementation
   alias YamlElixir
 
-  @rfc7208_testsuite Path.join("priv", "rfc7208-tests-2014.05.yml")
+  @rfc7208_testsuite Path.join("priv", "rfc7208-tests.yml")
   # note: we omit CNAME and SOA here, since they're not used in the testsuite
   @rrtypes ["A", "AAAA", "MX", "PTR", "SPF", "TXT"]
 

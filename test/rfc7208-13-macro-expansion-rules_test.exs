@@ -350,14 +350,14 @@ defmodule Rfc7208.Section13Test do
       # spec 7.1/26 - Macro expansion rules - upper-macro
 
       ctx =
-        Spf.check("jack&jill=up@e8.example.com",
+        Spf.check("~jack&jill=up-a_b3.c@e8.example.com",
           helo: "msgbas2x.cos.example.com",
           ip: "192.168.218.42",
           dns: "test/zones/rfc7208-13-macro-expansion-rules.zonedata"
         )
 
       assert to_string(ctx.verdict) in ["fail"]
-      assert ctx.explanation == "http://example.com/why.html?l=jack%26jill%3Dup"
+      assert ctx.explanation == "http://example.com/why.html?l=~jack%26jill%3Dup-a_b3.c"
     end
 
     @tag set: "13"

@@ -5,12 +5,28 @@ defmodule Rfc7208.Section0Test do
   # Usage:
   # % mix test
   # % mix test --only set:0
-  # % mix test --only tst:0.y where y is in [0..10]
+  # % mix test --only tst:0.y where y is in [0..13]
 
   describe "rfc7208-00-initial-processing" do
     @tag set: "0"
     @tag tst: "0.0"
-    test "0.0 domain-literal" do
+    test "0.0 control-char-policy" do
+      # spec 4.6.1/2 - Initial processing - control-char-policy
+
+      ctx =
+        Spf.check("foobar@ctrl.example.com",
+          helo: "hosed",
+          ip: "192.0.2.3",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
+
+      assert to_string(ctx.verdict) in ["permerror"]
+      assert ctx.explanation == ""
+    end
+
+    @tag set: "0"
+    @tag tst: "0.1"
+    test "0.1 domain-literal" do
       # spec 4.3/1 - Initial processing - domain-literal
 
       ctx =
@@ -25,8 +41,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.1"
-    test "0.1 emptylabel" do
+    @tag tst: "0.2"
+    test "0.2 emptylabel" do
       # spec 4.3/1 - Initial processing - emptylabel
 
       ctx =
@@ -41,8 +57,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.2"
-    test "0.2 helo-domain-literal" do
+    @tag tst: "0.3"
+    test "0.3 helo-domain-literal" do
       # spec 4.3/1 - Initial processing - helo-domain-literal
 
       ctx =
@@ -57,8 +73,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.3"
-    test "0.3 helo-not-fqdn" do
+    @tag tst: "0.4"
+    test "0.4 helo-not-fqdn" do
       # spec 4.3/1 - Initial processing - helo-not-fqdn
 
       ctx =
@@ -73,8 +89,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.4"
-    test "0.4 longlabel" do
+    @tag tst: "0.5"
+    test "0.5 longlabel" do
       # spec 4.3/1 - Initial processing - longlabel
 
       ctx =
@@ -90,8 +106,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.5"
-    test "0.5 nolocalpart" do
+    @tag tst: "0.6"
+    test "0.6 nolocalpart" do
       # spec 4.3/2 - Initial processing - nolocalpart
 
       ctx =
@@ -106,8 +122,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.6"
-    test "0.6 non-ascii-mech" do
+    @tag tst: "0.7"
+    test "0.7 non-ascii-mech" do
       # spec 3.1/1 - Initial processing - non-ascii-mech
 
       ctx =
@@ -122,8 +138,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.7"
-    test "0.7 non-ascii-non-spf" do
+    @tag tst: "0.8"
+    test "0.8 non-ascii-non-spf" do
       # spec 4.5/1 - Initial processing - non-ascii-non-spf
 
       ctx =
@@ -138,8 +154,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.8"
-    test "0.8 non-ascii-policy" do
+    @tag tst: "0.9"
+    test "0.9 non-ascii-policy" do
       # spec 3.1/1 - Initial processing - non-ascii-policy
 
       ctx =
@@ -154,8 +170,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.9"
-    test "0.9 non-ascii-result" do
+    @tag tst: "0.10"
+    test "0.10 non-ascii-result" do
       # spec 3.1/1 - Initial processing - non-ascii-result
 
       ctx =
@@ -170,8 +186,8 @@ defmodule Rfc7208.Section0Test do
     end
 
     @tag set: "0"
-    @tag tst: "0.10"
-    test "0.10 toolonglabel" do
+    @tag tst: "0.11"
+    test "0.11 toolonglabel" do
       # spec 4.3/1 - Initial processing - toolonglabel
 
       ctx =
@@ -183,6 +199,38 @@ defmodule Rfc7208.Section0Test do
         )
 
       assert to_string(ctx.verdict) in ["none"]
+      assert ctx.explanation == ""
+    end
+
+    @tag set: "0"
+    @tag tst: "0.12"
+    test "0.12 trailing-space" do
+      # spec 4.5/2 - Initial processing - trailing-space
+
+      ctx =
+        Spf.check("silly@trail.example.com",
+          helo: "hosed",
+          ip: "192.0.2.5",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
+
+      assert to_string(ctx.verdict) in ["fail"]
+      assert ctx.explanation == ""
+    end
+
+    @tag set: "0"
+    @tag tst: "0.13"
+    test "0.13 two-spaces" do
+      # spec 4.6.1 - Initial processing - two-spaces
+
+      ctx =
+        Spf.check("actually@fine.example.com",
+          helo: "hosed",
+          ip: "1.2.3.4",
+          dns: "test/zones/rfc7208-00-initial-processing.zonedata"
+        )
+
+      assert to_string(ctx.verdict) in ["fail"]
       assert ctx.explanation == ""
     end
   end
