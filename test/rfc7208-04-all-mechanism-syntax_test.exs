@@ -12,6 +12,10 @@ defmodule Rfc7208.Section4Test do
     @tag tst: "4.0"
     test "4.0 all-arg" do
       # spec 5.1/1 - ALL mechanism syntax - all-arg
+      _cli = """
+      spfcheck foo@e2.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-04-all-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section4Test do
     @tag tst: "4.1"
     test "4.1 all-cidr" do
       # spec 5.1/1 - ALL mechanism syntax - all-cidr
+      _cli = """
+      spfcheck foo@e3.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-04-all-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e3.example.com",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section4Test do
     @tag tst: "4.2"
     test "4.2 all-dot" do
       # spec 5.1/1 - ALL mechanism syntax - all-dot
+      _cli = """
+      spfcheck foo@e1.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-04-all-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e1.example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section4Test do
     @tag tst: "4.3"
     test "4.3 all-double" do
       # spec 5.1/1 - ALL mechanism syntax - all-double
+      _cli = """
+      spfcheck foo@e5.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-04-all-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5.example.com",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section4Test do
     @tag tst: "4.4"
     test "4.4 all-neutral" do
       # spec 5.1/1 - ALL mechanism syntax - all-neutral
+      _cli = """
+      spfcheck foo@e4.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-04-all-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e4.example.com",

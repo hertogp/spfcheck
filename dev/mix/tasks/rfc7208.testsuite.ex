@@ -3,22 +3,37 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   alias Mix
 
   @moduledoc """
-  This mix task turns
+  This mix task reads
 
-  - `./priv/rfc7208-tests-2014.05.yaml`
+  - `./priv/rfc7208-tests.yaml`
 
-  (the [rfc7208](https://www.rfc-editor.org/rfc/rfc7208.html) [testsuite](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-2014-05-yml/)) and  creates:
+  (the [rfc7208](https://www.rfc-editor.org/rfc/rfc7208.html) [testsuite](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-yml/)) and  creates:
 
-  - a `./test/rfc7208-<xx>-<desc>.exs`, and
-  - a `./test/zones/rfc7208-<xx>-<desc>.zonedata`
+  - `./test/rfc7208-<xx>-<desc>.exs`, along with
+  - `./test/zones/rfc7208-<xx>-<desc>.zonedata`
 
   for each section (see below) in the testsuite.
 
-  Usage:
+  ## Tests
+
+  Tests check the verdict and explanation string for each testcase in the
+  testsuite. They also include a `_cli = \"""spfcheck ...\"""` which can be
+  copied to the command line to see the same testcase with debug output in the
+  terminal.
+
+  Each test is also tagged with:
+  - `set: "section_number"`, and
+  - `tst: "section_number.test_number"`
+
+  so `mix test --only ..`  can focus on a complete section or just one specific
+  test.
+
+  ## Usage:
+
   ```
   mix rfc7208.testsuite
   mix test
-  mix test --only set:x, where x is in 0..14
+  mix test --only set:x, where x is in 0..15
   mix test --only tst:x.y, where y refers to a specific test in section x
   ```
 
@@ -28,11 +43,11 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   - [schema](http://www.open-spf.org/Test_Suite/Schema/)
   - [LICENSE](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-LICENSE/)
 
-  ### Sections of the rfc7208 testsuite include:
+  ## Sections of the rfc7208 testsuite include:
 
   - 0  - Initial processing
   - 1  - Record lookup
-  - 2  - Selecting records <- donot copy `SPF` record to a `TXT` record
+  - 2  - Selecting records
   - 3  - Record evaluation
   - 4  - `ALL` mechanism syntax
   - 5  - `PTR` mechanism syntax
@@ -42,9 +57,10 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   - 9  - `EXISTS` mechanism syntax
   - 10 - `IP4` mechanism syntax
   - 11 - `IP6` mechanism syntax
-  - 12 - Semantics of EXP and other modifiers
+  - 12 - Semantics of `EXP` and other modifiers
   - 13 - Macro expansion rules
   - 14 - Processing limits
+  - 15 - Test cases from implementation bugs
 
   """
 
@@ -71,8 +87,10 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   # Test section 2 is the only one concerned with weeding out (incorrect)
   # queries for type SPF of any kind or proper response to duplicate or
   # conflicting records.  Other sections rely on auto-magic duplication of SPF
-  # to TXT records (by test suite drivers) to test all implementation types with
-  # one specification.
+  # to TXT records (by test suite drivers) to test all implementation types
+  # with one specification.
+  #
+  # => so in section 2, donot copy `SPF` record to a `TXT` record
 
   @shortdoc "Creates the rfc7208 ExUnit testsuite from the rfc's yaml file"
 
@@ -151,6 +169,10 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
         @tag tst: "#{testnumber}"
         test "#{testname}" do
           # #{remark}
+          _cli = \"\"\"
+          spfcheck #{sender} -i #{ip} -h #{helo} -v 5 \\
+           -d #{zonefile}
+          \"\"\"
 
           ctx =
             Spf.check("#{sender}",

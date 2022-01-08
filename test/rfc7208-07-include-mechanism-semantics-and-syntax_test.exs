@@ -12,6 +12,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.0"
     test "7.0 include-cidr" do
       # spec 5.2/1 - Include mechanism semantics and syntax - include-cidr
+      _cli = """
+      spfcheck foo@e9.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e9.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.1"
     test "7.1 include-empty-domain" do
       # spec 5.2/1 - Include mechanism semantics and syntax - include-empty-domain
+      _cli = """
+      spfcheck foo@e8.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e8.example.com",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.2"
     test "7.2 include-fail" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-fail
+      _cli = """
+      spfcheck foo@e1.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e1.example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.3"
     test "7.3 include-neutral" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-neutral
+      _cli = """
+      spfcheck foo@e3.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e3.example.com",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.4"
     test "7.4 include-none" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-none
+      _cli = """
+      spfcheck foo@e7.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e7.example.com",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.5"
     test "7.5 include-permerror" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-permerror
+      _cli = """
+      spfcheck foo@e5.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5.example.com",
@@ -108,6 +132,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.6"
     test "7.6 include-softfail" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-softfail
+      _cli = """
+      spfcheck foo@e2.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2.example.com",
@@ -124,6 +152,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.7"
     test "7.7 include-syntax-error" do
       # spec 5.2/1 - Include mechanism semantics and syntax - include-syntax-error
+      _cli = """
+      spfcheck foo@e6.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e6.example.com",
@@ -140,6 +172,10 @@ defmodule Rfc7208.Section7Test do
     @tag tst: "7.8"
     test "7.8 include-temperror" do
       # spec 5.2/9 - Include mechanism semantics and syntax - include-temperror
+      _cli = """
+      spfcheck foo@e4.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-07-include-mechanism-semantics-and-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e4.example.com",

@@ -12,6 +12,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.0"
     test "1.0 alltimeout" do
       # spec 4.4/2 - Record lookup - alltimeout
+      _cli = """
+      spfcheck foo@alltimeout.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@alltimeout.example.net",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.1"
     test "1.1 both" do
       # spec 4.4/1 - Record lookup - both
+      _cli = """
+      spfcheck foo@both.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@both.example.net",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.2"
     test "1.2 nospftxttimeout" do
       # spec 4.4/1 - Record lookup - nospftxttimeout
+      _cli = """
+      spfcheck foo@nospftxttimeout.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@nospftxttimeout.example.net",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.3"
     test "1.3 spfonly" do
       # spec 4.4/1 - Record lookup - spfonly
+      _cli = """
+      spfcheck foo@spfonly.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@spfonly.example.net",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.4"
     test "1.4 spftimeout" do
       # spec 4.4/1 - Record lookup - spftimeout
+      _cli = """
+      spfcheck foo@spftimeout.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@spftimeout.example.net",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.5"
     test "1.5 txtonly" do
       # spec 4.4/1 - Record lookup - txtonly
+      _cli = """
+      spfcheck foo@txtonly.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@txtonly.example.net",
@@ -108,6 +132,10 @@ defmodule Rfc7208.Section1Test do
     @tag tst: "1.6"
     test "1.6 txttimeout" do
       # spec 4.4/1 - Record lookup - txttimeout
+      _cli = """
+      spfcheck foo@txttimeout.example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-01-record-lookup.zonedata
+      """
 
       ctx =
         Spf.check("foo@txttimeout.example.net",

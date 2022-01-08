@@ -12,6 +12,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.0"
     test "12.0 default-modifier-obsolete" do
       # spec 6/3 - Semantics of exp and other modifiers - default-modifier-obsolete
+      _cli = """
+      spfcheck foo@e19.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e19.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.1"
     test "12.1 default-modifier-obsolete2" do
       # spec 6/3 - Semantics of exp and other modifiers - default-modifier-obsolete2
+      _cli = """
+      spfcheck foo@e20.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e20.example.com",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.2"
     test "12.2 dorky-sentinel" do
       # spec 7.1/6 - Semantics of exp and other modifiers - dorky-sentinel
+      _cli = """
+      spfcheck Macro Error@e8.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("Macro Error@e8.example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.3"
     test "12.3 empty-modifier-name" do
       # spec A/3 - Semantics of exp and other modifiers - empty-modifier-name
+      _cli = """
+      spfcheck foo@e6.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e6.example.com",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.4"
     test "12.4 exp-dns-error" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-dns-error
+      _cli = """
+      spfcheck foo@e21.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e21.example.com",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.5"
     test "12.5 exp-empty-domain" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-empty-domain
+      _cli = """
+      spfcheck foo@e12.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e12.example.com",
@@ -108,6 +132,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.6"
     test "12.6 exp-multiple-txt" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-multiple-txt
+      _cli = """
+      spfcheck foo@e11.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e11.example.com",
@@ -124,6 +152,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.7"
     test "12.7 exp-no-txt" do
       # spec 6.2/4 - Semantics of exp and other modifiers - exp-no-txt
+      _cli = """
+      spfcheck foo@e22.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e22.example.com",
@@ -140,6 +172,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.8"
     test "12.8 exp-syntax-error" do
       # spec 6.2/1 - Semantics of exp and other modifiers - exp-syntax-error
+      _cli = """
+      spfcheck foo@e16.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e16.example.com",
@@ -156,6 +192,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.9"
     test "12.9 exp-twice" do
       # spec 6/2 - Semantics of exp and other modifiers - exp-twice
+      _cli = """
+      spfcheck foo@e14.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e14.example.com",
@@ -172,6 +212,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.10"
     test "12.10 exp-void" do
       # spec 4.6.4/1, 6/2 - Semantics of exp and other modifiers - exp-void
+      _cli = """
+      spfcheck foo@e23.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e23.example.com",
@@ -188,6 +232,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.11"
     test "12.11 explanation-syntax-error" do
       # spec 6.2/4 - Semantics of exp and other modifiers - explanation-syntax-error
+      _cli = """
+      spfcheck foo@e13.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e13.example.com",
@@ -204,6 +252,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.12"
     test "12.12 include-ignores-exp" do
       # spec 6.2/13 - Semantics of exp and other modifiers - include-ignores-exp
+      _cli = """
+      spfcheck foo@e7.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e7.example.com",
@@ -220,6 +272,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.13"
     test "12.13 invalid-modifier" do
       # spec A/3 - Semantics of exp and other modifiers - invalid-modifier
+      _cli = """
+      spfcheck foo@e5.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5.example.com",
@@ -236,6 +292,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.14"
     test "12.14 non-ascii-exp" do
       # spec 6.2/5 - Semantics of exp and other modifiers - non-ascii-exp
+      _cli = """
+      spfcheck foobar@nonascii.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foobar@nonascii.example.com",
@@ -252,6 +312,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.15"
     test "12.15 redirect-cancels-exp" do
       # spec 6.2/13 - Semantics of exp and other modifiers - redirect-cancels-exp
+      _cli = """
+      spfcheck foo@e1.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e1.example.com",
@@ -268,6 +332,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.16"
     test "12.16 redirect-cancels-prior-exp" do
       # spec 6.2/13 - Semantics of exp and other modifiers - redirect-cancels-prior-exp
+      _cli = """
+      spfcheck foo@e3.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e3.example.com",
@@ -284,6 +352,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.17"
     test "12.17 redirect-empty-domain" do
       # spec 6.2/4 - Semantics of exp and other modifiers - redirect-empty-domain
+      _cli = """
+      spfcheck foo@e18.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e18.example.com",
@@ -300,6 +372,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.18"
     test "12.18 redirect-implicit" do
       # spec 6.1/4 - Semantics of exp and other modifiers - redirect-implicit
+      _cli = """
+      spfcheck bar@e24.example.com -i 192.0.2.2 -h e24.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("bar@e24.example.com",
@@ -316,6 +392,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.19"
     test "12.19 redirect-none" do
       # spec 6.1/4 - Semantics of exp and other modifiers - redirect-none
+      _cli = """
+      spfcheck foo@e10.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e10.example.com",
@@ -332,6 +412,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.20"
     test "12.20 redirect-syntax-error" do
       # spec 6.1/2 - Semantics of exp and other modifiers - redirect-syntax-error
+      _cli = """
+      spfcheck foo@e17.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e17.example.com",
@@ -348,6 +432,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.21"
     test "12.21 redirect-twice" do
       # spec 6/2 - Semantics of exp and other modifiers - redirect-twice
+      _cli = """
+      spfcheck foo@e15.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e15.example.com",
@@ -364,6 +452,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.22"
     test "12.22 two-exp-records" do
       # spec 6.2/4 - Semantics of exp and other modifiers - two-exp-records
+      _cli = """
+      spfcheck foobar@tworecs.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foobar@tworecs.example.com",
@@ -380,6 +472,10 @@ defmodule Rfc7208.Section12Test do
     @tag tst: "12.23"
     test "12.23 unknown-modifier-syntax" do
       # spec A/3 - Semantics of exp and other modifiers - unknown-modifier-syntax
+      _cli = """
+      spfcheck foo@e9.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-12-semantics-of-exp-and-other-modifiers.zonedata
+      """
 
       ctx =
         Spf.check("foo@e9.example.com",

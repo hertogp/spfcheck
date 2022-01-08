@@ -12,6 +12,10 @@ defmodule Rfc7208.Section15Test do
     @tag tst: "15.0"
     test "15.0 bytes-bug" do
       # spec 5.4/4 - Test cases from implementation bugs - bytes-bug
+      _cli = """
+      spfcheck test@example.org -i 2001:db8:ff0:100::2 -h example.org -v 5 \
+       -d test/zones/rfc7208-15-test-cases-from-implementation-bugs.zonedata
+      """
 
       ctx =
         Spf.check("test@example.org",

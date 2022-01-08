@@ -12,6 +12,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.0"
     test "9.0 exists-cidr" do
       # spec 5.7/2 - EXISTS mechanism syntax - exists-cidr
+      _cli = """
+      spfcheck foo@e3.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e3.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.1"
     test "9.1 exists-dnserr" do
       # spec 5/8 - EXISTS mechanism syntax - exists-dnserr
+      _cli = """
+      spfcheck foo@e6.example.com -i CAFE:BABE::3 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e6.example.com",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.2"
     test "9.2 exists-empty-domain" do
       # spec 5.7/2 - EXISTS mechanism syntax - exists-empty-domain
+      _cli = """
+      spfcheck foo@e1.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e1.example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.3"
     test "9.3 exists-implicit" do
       # spec 5.7/2 - EXISTS mechanism syntax - exists-implicit
+      _cli = """
+      spfcheck foo@e2.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2.example.com",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.4"
     test "9.4 exists-ip4" do
       # spec 5.7/3 - EXISTS mechanism syntax - exists-ip4
+      _cli = """
+      spfcheck foo@e4.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e4.example.com",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.5"
     test "9.5 exists-ip6" do
       # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6
+      _cli = """
+      spfcheck foo@e4.example.com -i CAFE:BABE::3 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e4.example.com",
@@ -108,6 +132,10 @@ defmodule Rfc7208.Section9Test do
     @tag tst: "9.6"
     test "9.6 exists-ip6only" do
       # spec 5.7/3 - EXISTS mechanism syntax - exists-ip6only
+      _cli = """
+      spfcheck foo@e5.example.com -i CAFE:BABE::3 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-09-exists-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5.example.com",

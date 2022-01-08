@@ -12,6 +12,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.0"
     test "3.0 default-result" do
       # spec 4.7/1 - Record evaluation - default-result
+      _cli = """
+      spfcheck foo@t7.example.com -i 1.2.3.5 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t7.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.1"
     test "3.1 detect-errors-anywhere" do
       # spec 4.6 - Record evaluation - detect-errors-anywhere
+      _cli = """
+      spfcheck foo@t1.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t1.example.com",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.2"
     test "3.2 invalid-domain" do
       # spec 7.1/2 - Record evaluation - invalid-domain
+      _cli = """
+      spfcheck foo@t9.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t9.example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.3"
     test "3.3 invalid-domain-empty-label" do
       # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-empty-label
+      _cli = """
+      spfcheck foo@t10.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t10.example.com",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.4"
     test "3.4 invalid-domain-long" do
       # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-long
+      _cli = """
+      spfcheck foo@t11.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t11.example.com",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.5"
     test "3.5 invalid-domain-long-via-macro" do
       # spec 4.3/1, 4.8/5, 5/10/3 - Record evaluation - invalid-domain-long-via-macro
+      _cli = """
+      spfcheck foo@t12.example.com -i 1.2.3.4 -h %%%%%%%%%%%%%%%%%%%%%% -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t12.example.com",
@@ -108,6 +132,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.6"
     test "3.6 modifier-charset-bad1" do
       # spec 4.6.1/4 - Record evaluation - modifier-charset-bad1
+      _cli = """
+      spfcheck foo@t3.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t3.example.com",
@@ -124,6 +152,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.7"
     test "3.7 modifier-charset-bad2" do
       # spec 4.6.1/4 - Record evaluation - modifier-charset-bad2
+      _cli = """
+      spfcheck foo@t4.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t4.example.com",
@@ -140,6 +172,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.8"
     test "3.8 modifier-charset-good" do
       # spec 4.6.1/2 - Record evaluation - modifier-charset-good
+      _cli = """
+      spfcheck foo@t2.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t2.example.com",
@@ -156,6 +192,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.9"
     test "3.9 redirect-after-mechanisms1" do
       # spec 4.6.3 - Record evaluation - redirect-after-mechanisms1
+      _cli = """
+      spfcheck foo@t5.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t5.example.com",
@@ -172,6 +212,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.10"
     test "3.10 redirect-after-mechanisms2" do
       # spec 4.6.3 - Record evaluation - redirect-after-mechanisms2
+      _cli = """
+      spfcheck foo@t6.example.com -i 1.2.3.5 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t6.example.com",
@@ -188,6 +232,10 @@ defmodule Rfc7208.Section3Test do
     @tag tst: "3.11"
     test "3.11 redirect-is-modifier" do
       # spec 4.6.1/4 - Record evaluation - redirect-is-modifier
+      _cli = """
+      spfcheck foo@t8.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-03-record-evaluation.zonedata
+      """
 
       ctx =
         Spf.check("foo@t8.example.com",

@@ -12,6 +12,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.0"
     test "0.0 control-char-policy" do
       # spec 4.6.1/2 - Initial processing - control-char-policy
+      _cli = """
+      spfcheck foobar@ctrl.example.com -i 192.0.2.3 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("foobar@ctrl.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.1"
     test "0.1 domain-literal" do
       # spec 4.3/1 - Initial processing - domain-literal
+      _cli = """
+      spfcheck foo@[1.2.3.5] -i 1.2.3.5 -h OEMCOMPUTER -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("foo@[1.2.3.5]",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.2"
     test "0.2 emptylabel" do
       # spec 4.3/1 - Initial processing - emptylabel
+      _cli = """
+      spfcheck lyme.eater@A...example.com -i 1.2.3.5 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("lyme.eater@A...example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.3"
     test "0.3 helo-domain-literal" do
       # spec 4.3/1 - Initial processing - helo-domain-literal
+      _cli = """
+      spfcheck  -i 1.2.3.5 -h [1.2.3.5] -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.4"
     test "0.4 helo-not-fqdn" do
       # spec 4.3/1 - Initial processing - helo-not-fqdn
+      _cli = """
+      spfcheck  -i 1.2.3.5 -h A2345678 -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.5"
     test "0.5 longlabel" do
       # spec 4.3/1 - Initial processing - longlabel
+      _cli = """
+      spfcheck lyme.eater@A12345678901234567890123456789012345678901234567890123456789012.example.com -i 1.2.3.5 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check(
@@ -109,6 +133,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.6"
     test "0.6 nolocalpart" do
       # spec 4.3/2 - Initial processing - nolocalpart
+      _cli = """
+      spfcheck @example.net -i 1.2.3.4 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("@example.net",
@@ -125,6 +153,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.7"
     test "0.7 non-ascii-mech" do
       # spec 3.1/1 - Initial processing - non-ascii-mech
+      _cli = """
+      spfcheck foobar@hosed2.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("foobar@hosed2.example.com",
@@ -141,6 +173,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.8"
     test "0.8 non-ascii-non-spf" do
       # spec 4.5/1 - Initial processing - non-ascii-non-spf
+      _cli = """
+      spfcheck foobar@nothosed.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("foobar@nothosed.example.com",
@@ -157,6 +193,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.9"
     test "0.9 non-ascii-policy" do
       # spec 3.1/1 - Initial processing - non-ascii-policy
+      _cli = """
+      spfcheck foobar@hosed.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("foobar@hosed.example.com",
@@ -173,6 +213,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.10"
     test "0.10 non-ascii-result" do
       # spec 3.1/1 - Initial processing - non-ascii-result
+      _cli = """
+      spfcheck foobar@hosed3.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("foobar@hosed3.example.com",
@@ -189,6 +233,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.11"
     test "0.11 toolonglabel" do
       # spec 4.3/1 - Initial processing - toolonglabel
+      _cli = """
+      spfcheck lyme.eater@A123456789012345678901234567890123456789012345678901234567890123.example.com -i 1.2.3.5 -h mail.example.net -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check(
@@ -206,6 +254,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.12"
     test "0.12 trailing-space" do
       # spec 4.5/2 - Initial processing - trailing-space
+      _cli = """
+      spfcheck silly@trail.example.com -i 192.0.2.5 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("silly@trail.example.com",
@@ -222,6 +274,10 @@ defmodule Rfc7208.Section0Test do
     @tag tst: "0.13"
     test "0.13 two-spaces" do
       # spec 4.6.1 - Initial processing - two-spaces
+      _cli = """
+      spfcheck actually@fine.example.com -i 1.2.3.4 -h hosed -v 5 \
+       -d test/zones/rfc7208-00-initial-processing.zonedata
+      """
 
       ctx =
         Spf.check("actually@fine.example.com",

@@ -12,6 +12,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.0"
     test "6.0 a-bad-cidr4" do
       # spec 5.3/2 - A mechanism syntax - a-bad-cidr4
+      _cli = """
+      spfcheck foo@e6a.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e6a.example.com",
@@ -28,6 +32,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.1"
     test "6.1 a-bad-cidr6" do
       # spec 5.3/2 - A mechanism syntax - a-bad-cidr6
+      _cli = """
+      spfcheck foo@e7.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e7.example.com",
@@ -44,6 +52,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.2"
     test "6.2 a-bad-domain" do
       # spec 7.1/2 - A mechanism syntax - a-bad-domain
+      _cli = """
+      spfcheck foo@e9.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e9.example.com",
@@ -60,6 +72,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.3"
     test "6.3 a-bad-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-bad-toplabel
+      _cli = """
+      spfcheck foo@e12.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e12.example.com",
@@ -76,6 +92,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.4"
     test "6.4 a-cidr4-0" do
       # spec 5.3/3 - A mechanism syntax - a-cidr4-0
+      _cli = """
+      spfcheck foo@e2.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2.example.com",
@@ -92,6 +112,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.5"
     test "6.5 a-cidr4-0-ip6" do
       # spec 5.3/3 - A mechanism syntax - a-cidr4-0-ip6
+      _cli = """
+      spfcheck foo@e2.example.com -i 1234::1 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2.example.com",
@@ -108,6 +132,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.6"
     test "6.6 a-cidr6" do
       # spec 5.3/2 - A mechanism syntax - a-cidr6
+      _cli = """
+      spfcheck foo@e6.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e6.example.com",
@@ -124,6 +152,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.7"
     test "6.7 a-cidr6-0-ip4" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip4
+      _cli = """
+      spfcheck foo@e2a.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2a.example.com",
@@ -140,6 +172,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.8"
     test "6.8 a-cidr6-0-ip4mapped" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip4mapped
+      _cli = """
+      spfcheck foo@e2a.example.com -i ::FFFF:1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2a.example.com",
@@ -156,6 +192,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.9"
     test "6.9 a-cidr6-0-ip6" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-ip6
+      _cli = """
+      spfcheck foo@e2a.example.com -i 1234::1 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2a.example.com",
@@ -172,6 +212,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.10"
     test "6.10 a-cidr6-0-nxdomain" do
       # spec 5.3/3 - A mechanism syntax - a-cidr6-0-nxdomain
+      _cli = """
+      spfcheck foo@e2b.example.com -i 1234::1 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e2b.example.com",
@@ -188,6 +232,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.11"
     test "6.11 a-colon-domain" do
       # spec 7.1/2 - A mechanism syntax - a-colon-domain
+      _cli = """
+      spfcheck foo@e11.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e11.example.com",
@@ -204,6 +252,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.12"
     test "6.12 a-colon-domain-ip4mapped" do
       # spec 7.1/2 - A mechanism syntax - a-colon-domain-ip4mapped
+      _cli = """
+      spfcheck foo@e11.example.com -i ::FFFF:1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e11.example.com",
@@ -220,6 +272,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.13"
     test "6.13 a-dash-in-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-dash-in-toplabel
+      _cli = """
+      spfcheck foo@e14.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e14.example.com",
@@ -236,6 +292,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.14"
     test "6.14 a-dual-cidr-ip4-default" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-default
+      _cli = """
+      spfcheck foo@e8b.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e8b.example.com",
@@ -252,6 +312,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.15"
     test "6.15 a-dual-cidr-ip4-err" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-err
+      _cli = """
+      spfcheck foo@e8e.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e8e.example.com",
@@ -268,6 +332,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.16"
     test "6.16 a-dual-cidr-ip4-match" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip4-match
+      _cli = """
+      spfcheck foo@e8.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e8.example.com",
@@ -284,6 +352,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.17"
     test "6.17 a-dual-cidr-ip6-default" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip6-default
+      _cli = """
+      spfcheck foo@e8a.example.com -i 2001:db8:1234::cafe:babe -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e8a.example.com",
@@ -300,6 +372,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.18"
     test "6.18 a-dual-cidr-ip6-match" do
       # spec 5.3/2 - A mechanism syntax - a-dual-cidr-ip6-match
+      _cli = """
+      spfcheck foo@e8.example.com -i 2001:db8:1234::cafe:babe -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e8.example.com",
@@ -316,6 +392,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.19"
     test "6.19 a-empty-domain" do
       # spec 5.3/2 - A mechanism syntax - a-empty-domain
+      _cli = """
+      spfcheck foo@e13.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e13.example.com",
@@ -332,6 +412,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.20"
     test "6.20 a-ip6-dualstack" do
       # spec 5.3/3 - A mechanism syntax - a-ip6-dualstack
+      _cli = """
+      spfcheck foo@ipv6.example.com -i 1234::1 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@ipv6.example.com",
@@ -348,6 +432,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.21"
     test "6.21 a-multi-ip1" do
       # spec 5.3/3 - A mechanism syntax - a-multi-ip1
+      _cli = """
+      spfcheck foo@e10.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e10.example.com",
@@ -364,6 +452,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.22"
     test "6.22 a-multi-ip2" do
       # spec 5.3/3 - A mechanism syntax - a-multi-ip2
+      _cli = """
+      spfcheck foo@e10.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e10.example.com",
@@ -380,6 +472,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.23"
     test "6.23 a-null" do
       # spec 7.1/2 - A mechanism syntax - a-null
+      _cli = """
+      spfcheck foo@e3.example.com -i 1.2.3.5 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e3.example.com",
@@ -396,6 +492,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.24"
     test "6.24 a-numeric" do
       # spec 7.1/2 - A mechanism syntax - a-numeric
+      _cli = """
+      spfcheck foo@e4.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e4.example.com",
@@ -412,6 +512,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.25"
     test "6.25 a-numeric-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-numeric-toplabel
+      _cli = """
+      spfcheck foo@e5.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5.example.com",
@@ -428,6 +532,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.26"
     test "6.26 a-nxdomain" do
       # spec 5.3/3 - A mechanism syntax - a-nxdomain
+      _cli = """
+      spfcheck foo@e1.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e1.example.com",
@@ -444,6 +552,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.27"
     test "6.27 a-only-toplabel" do
       # spec 7.1/2 - A mechanism syntax - a-only-toplabel
+      _cli = """
+      spfcheck foo@e5a.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5a.example.com",
@@ -460,6 +572,10 @@ defmodule Rfc7208.Section6Test do
     @tag tst: "6.28"
     test "6.28 a-only-toplabel-trailing-dot" do
       # spec 7.1/2 - A mechanism syntax - a-only-toplabel-trailing-dot
+      _cli = """
+      spfcheck foo@e5b.example.com -i 1.2.3.4 -h mail.example.com -v 5 \
+       -d test/zones/rfc7208-06-a-mechanism-syntax.zonedata
+      """
 
       ctx =
         Spf.check("foo@e5b.example.com",
