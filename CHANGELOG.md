@@ -15,7 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [x] switched to testsuite [rfc7208-tests.yml](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-yml/) which appears to be newer and has
   more tests.
-- [x] in case of a syntax error, also log the final verdict on stderr
+- [x] in case of a syntax error, also log the verdict on stderr
 
 
 ## [0.9.1] - 2022-01-07
