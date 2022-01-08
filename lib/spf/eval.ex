@@ -52,6 +52,14 @@ defmodule Spf.Eval do
     |> grep_spf()
     |> Spf.Parser.parse()
     |> eval()
+    |> then(
+      &log(
+        &1,
+        :eval,
+        :note,
+        "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}, reason #{&1.reason}"
+      )
+    )
   end
 
   @doc """
@@ -216,9 +224,9 @@ defmodule Spf.Eval do
     # - ipt[prefix] -> [{q, nth, token}] => list of tokens and SPF-id that added the prefix
     # - the token contains the qualifier that, if matched, says what the result should be
     # notes:
-    # - prefixes can be contributed multiple times by Nxterms in Mxrecords
+    # - prefixes can be contributed multiple times by Nx terms in Mx records
     # - the last {token, nth} to do so, is listed first
-    # - so only check for the first token for the current ctx.nth
+    # - so only check for the first token of the current ctx.nth
     # - having verdict does not necessarily stop evaluation (e.g. when inside an include)
     with {_pfx, qlist} <- Iptrie.lookup(ctx.ipt, ctx.ip),
          {data, _} <- List.keytake(qlist, ctx.nth, 1),
@@ -317,14 +325,6 @@ defmodule Spf.Eval do
     |> explain()
     |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.t0)
     |> check_limits()
-    |> then(
-      &log(
-        &1,
-        :eval,
-        :note,
-        "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}, reason #{&1.reason}"
-      )
-    )
   end
 
   @spec evalp(Spf.Context.t(), list) :: Spf.Context.t()

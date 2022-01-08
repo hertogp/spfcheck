@@ -205,10 +205,23 @@ defmodule Spfcheck do
 
   @spec csv_result(Spf.Context.t()) :: :ok
   defp csv_result(ctx) do
-    Enum.map(@csv_fields, fn field -> inspect(ctx[field]) end)
+    # Enum.map(@csv_fields, fn field -> inspect(ctx[field]) end)
+    # |> Enum.join(",")
+    # |> IO.puts()
+    @csv_fields
+    |> Enum.map(fn field -> escape_quotes(ctx[field]) end)
     |> Enum.join(",")
     |> IO.puts()
   end
+
+  defp escape_quotes(""),
+    do: ""
+
+  defp escape_quotes(str) when is_binary(str),
+    do: "\"#{String.replace(str, ~s("), ~s(""))}\""
+
+  defp escape_quotes(arg),
+    do: arg
 
   defp dot_domain(nth, ctx) do
     domain = ctx.map[nth]
