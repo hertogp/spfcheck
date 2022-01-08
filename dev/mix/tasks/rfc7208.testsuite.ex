@@ -43,7 +43,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   - [schema](http://www.open-spf.org/Test_Suite/Schema/)
   - [LICENSE](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-LICENSE/)
 
-  ## Sections of the rfc7208 testsuite include:
+  ## RFC7208 testsuite sections
 
   - 0  - Initial processing
   - 1  - Record lookup
