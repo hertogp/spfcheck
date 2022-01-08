@@ -3,12 +3,16 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   alias Mix
 
   @moduledoc """
-  This mix task takes the
-  [rfc7208](https://www.rfc-editor.org/rfc/rfc7208.html) testsuite (a yaml
-  file) and for each section it creates:
+  This mix task turns
 
-  - a test-file in the test dir, and
-  - a zone-file in the test/zones subdir.
+  - `./priv/rfc7208-tests-2014.05.yaml`
+
+  (the [rfc7208](https://www.rfc-editor.org/rfc/rfc7208.html) [testsuite](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-2014-05-yml/)) and  creates:
+
+  - a `./test/rfc7208-<xx>-<desc>.exs`, and
+  - a `./test/zones/rfc7208-<xx>-<desc>.zonedata`
+
+  for each section (see below) in the testsuite.
 
   Usage:
   ```
@@ -22,6 +26,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   - [open-spf testsuite](http://www.open-spf.org/Test_Suite)
   - [rfc7208.2014-05 tests](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-2014-05-yml)
   - [schema](http://www.open-spf.org/Test_Suite/Schema/)
+  - [LICENSE](http://www.open-spf.org/svn/project/test-suite/rfc7208-tests-LICENSE/)
 
   ### Sections of the rfc7208 testsuite include:
 
@@ -40,6 +45,7 @@ defmodule Mix.Tasks.Rfc7208.Testsuite do
   - 12 - Semantics of EXP and other modifiers
   - 13 - Macro expansion rules
   - 14 - Processing limits
+
   """
 
   # From the testsuite description
