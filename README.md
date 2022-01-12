@@ -587,7 +587,7 @@ explanation:
 Finally, the `-w` flag can be used to control the width used when printing
 information of certain topics.  Primarily meant so a markdown formatted report
 can be easily converted to pdf.  Default value is 60, but you can make it as
-wide as necessary.  This is useful when expirementating with records.
+wide as necessary.  This is useful when experimenting with records.
 
 ```txt
 # normally output is wrapped at 60 columns
