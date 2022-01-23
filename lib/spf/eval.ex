@@ -47,18 +47,18 @@ defmodule Spf.Eval do
   """
   @spec evaluate(Spf.Context.t()) :: Spf.Context.t()
   def evaluate(ctx) do
+    ctx =
+      ctx
+      |> check_domain()
+      |> grep_spf()
+      |> Spf.Parser.parse()
+      |> eval()
+
     ctx
-    |> check_domain()
-    |> grep_spf()
-    |> Spf.Parser.parse()
-    |> eval()
-    |> then(
-      &log(
-        &1,
-        :eval,
-        :note,
-        "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}, reason #{&1.reason}"
-      )
+    |> log(
+      :eval,
+      :note,
+      "spf[#{ctx.nth}] #{ctx.domain} - verdict #{ctx.verdict}, reason #{ctx.reason} (#{ctx.duration} ms)"
     )
   end
 
@@ -323,7 +323,7 @@ defmodule Spf.Eval do
   defp eval(ctx) do
     evalp(ctx, ctx.ast)
     |> explain()
-    |> Map.put(:duration, (DateTime.utc_now() |> DateTime.to_unix()) - ctx.t0)
+    |> Map.put(:duration, System.monotonic_time(:millisecond) - ctx.t0)
     |> check_limits()
   end
 

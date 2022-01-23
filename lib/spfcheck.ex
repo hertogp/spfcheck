@@ -205,9 +205,6 @@ defmodule Spfcheck do
 
   @spec csv_result(Spf.Context.t()) :: :ok
   defp csv_result(ctx) do
-    # Enum.map(@csv_fields, fn field -> inspect(ctx[field]) end)
-    # |> Enum.join(",")
-    # |> IO.puts()
     @csv_fields
     |> Enum.map(fn field -> escape_quotes(ctx[field]) end)
     |> Enum.join(",")
@@ -268,6 +265,7 @@ defmodule Spfcheck do
       </TABLE>
       >, shape="plaintext"];
     """
+    |> String.trim()
   end
 
   defp dot_domain_defs(new, ctx) do
@@ -315,6 +313,7 @@ defmodule Spfcheck do
 
       #{Enum.join(vert, "\n  ")}
     """
+    |> String.trim()
   end
 
   # return a table row definition + vertice if applicable
@@ -374,13 +373,15 @@ defmodule Spfcheck do
   # Header (meta)
   defp meta_data(_ctx, markdown, opts) do
     if markdown do
-      meta = """
-      ---
-      title: #{Keyword.get(opts, :title, "SPF report")}
-      author: #{Keyword.get(opts, :author, "spfcheck")}
-      date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
-      ...
-      """
+      meta =
+        """
+        ---
+        title: #{Keyword.get(opts, :title, "SPF report")}
+        author: #{Keyword.get(opts, :author, "spfcheck")}
+        date: #{DateTime.utc_now() |> Calendar.strftime("%c")}
+        ...
+        """
+        |> String.trim()
 
       IO.puts(meta)
     end
@@ -531,17 +532,18 @@ defmodule Spfcheck do
         " -> #{ctx.verdict},  reason #{ctx.reason}" <>
         "\n#{ctx.explanation}"
 
-    digraph = """
-    digraph SPF {
-      label="#{label}";
-      labelloc="t";
-      rankdir="LR";
-      ranksep="1.0 equally";
+    digraph =
+      """
+      digraph SPF {
+        label="#{label}";
+        labelloc="t";
+        rankdir="LR";
+        ranksep="1.0 equally";
 
-      #{Enum.join(gdefs, "\n\n")}
-
-      }
-    """
+        #{Enum.join(gdefs, "\n\n")}
+        }
+      """
+      |> String.trim()
 
     IO.puts(digraph)
 

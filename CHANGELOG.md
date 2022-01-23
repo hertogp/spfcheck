@@ -7,13 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [unreleased]
 
-- [ ] remove unnessary newlines in the directed graph's
-- [ ] same for reports in markdown
-
 ### changed
 
-- [ ] duration of an SPF policy evaluation is now in milliseconds, rather than seconds
-- [ ] duration (per record) is logged at info level for each SPF record evaluated
+- [x] duration of an SPF policy evaluation is now in milliseconds, rather than seconds
+- [x] duration [ms] is logged at info level for each SPF record evaluated
 
 
 ## [0.9.2] - 2022-01-08

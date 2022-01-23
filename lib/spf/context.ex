@@ -543,7 +543,7 @@ defmodule Spf.Context do
     |> opt_sender(sender, opts)
     |> opt_ip(opts)
     |> opt_nameserver(opts)
-    |> Map.put(:t0, System.os_time(:second))
+    |> Map.put(:t0, System.monotonic_time(:millisecond))
     |> Spf.DNS.load(Keyword.get(opts, :dns, nil))
     |> then(&log(&1, :ctx, :info, "DNS cache preloaded with #{map_size(&1.dns)} entrie(s)"))
     |> then(&log(&1, :ctx, :info, "verbosity level #{&1.verbosity}"))
@@ -588,7 +588,8 @@ defmodule Spf.Context do
       spf: context.spf,
       explain: context.explain,
       verdict: context.verdict,
-      reason: context.reason
+      reason: context.reason,
+      t0: context.t0
     }
 
     nth = context.num_spf
@@ -603,6 +604,7 @@ defmodule Spf.Context do
     |> Map.put(:ast, [])
     |> Map.put(:spf, "")
     |> Map.put(:explain, nil)
+    |> Map.put(:t0, System.monotonic_time(:millisecond))
     |> log(:ctx, :debug, "pushed state for #{state.domain}")
   end
 
