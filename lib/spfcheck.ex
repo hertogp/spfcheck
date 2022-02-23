@@ -174,7 +174,7 @@ defmodule Spfcheck do
       |> Enum.map(&String.trim/1)
       |> Enum.map(
         &Task.Supervisor.async_nolink(Spf.TaskSupervisor, fn -> do_line(opts, &1) end,
-          shutdown: 20000
+          shutdown: 20_000
         )
       )
       |> Enum.map(fn t -> Task.await(t, :infinity) end)
@@ -440,9 +440,8 @@ defmodule Spfcheck do
         IO.puts("No warnings.")
 
       msgs ->
-        Enum.map(msgs, fn {nth, facility, severity, msg} ->
-          IO.puts("%spf[#{nth}]-#{facility}-#{severity}: #{msg}")
-        end)
+        for {nth, facility, severity, msg} <- msgs,
+            do: IO.puts("%spf[#{nth}]-#{facility}-#{severity}: #{msg}")
     end
 
     if markdown, do: IO.puts("```"), else: IO.puts("")
@@ -462,9 +461,8 @@ defmodule Spfcheck do
         IO.puts("No errors.")
 
       msgs ->
-        Enum.map(msgs, fn {nth, facility, severity, msg} ->
-          IO.puts("%spf[#{nth}]-#{facility}-#{severity}: #{msg}")
-        end)
+        for {nth, facility, severity, msg} <- msgs,
+            do: IO.puts("%spf[#{nth}]-#{facility}-#{severity}: #{msg}")
     end
 
     if markdown, do: IO.puts("```"), else: IO.puts("")

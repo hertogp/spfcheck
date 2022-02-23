@@ -22,7 +22,7 @@ defmodule Spf.LexerTest do
     test "02 - lexes empty string" do
       spf = ""
       {:ok, tokens, rest, ctx} = Spf.Lexer.tokenize_spf(spf)
-      assert 0 == length(tokens)
+      assert [] == tokens
       assert "" == rest
       assert "" == ctx.input
     end
