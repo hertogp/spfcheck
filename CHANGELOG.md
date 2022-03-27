@@ -11,7 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - [x] duration of an SPF policy evaluation is now in milliseconds, rather than seconds
     - duration is also logged at info level for each SPF record evaluated
-
+- [x] log each SPF txt record's length & include in spf report section
+- [ ] log total sum of SPF txt record lengths
 
 ## [0.9.2] - 2022-01-08
 

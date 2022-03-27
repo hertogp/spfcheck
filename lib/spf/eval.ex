@@ -47,18 +47,18 @@ defmodule Spf.Eval do
   """
   @spec evaluate(Spf.Context.t()) :: Spf.Context.t()
   def evaluate(ctx) do
-    ctx =
-      ctx
-      |> check_domain()
-      |> grep_spf()
-      |> Spf.Parser.parse()
-      |> eval()
-
     ctx
-    |> log(
-      :eval,
-      :note,
-      "spf[#{ctx.nth}] #{ctx.domain} - verdict #{ctx.verdict}, reason #{ctx.reason} (#{ctx.duration} ms)"
+    |> check_domain()
+    |> grep_spf()
+    |> Spf.Parser.parse()
+    |> eval()
+    |> tap(
+      &log(
+        &1,
+        :eval,
+        :note,
+        "spf[#{&1.nth}] #{&1.domain} - verdict #{&1.verdict}, reason #{&1.reason} (#{&1.duration} ms)"
+      )
     )
   end
 

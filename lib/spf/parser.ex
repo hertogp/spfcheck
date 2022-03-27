@@ -407,10 +407,10 @@ defmodule Spf.Parser do
 
     case String.length(ctx.spf) do
       len when len > 512 ->
-        log(ctx, :parse, :warn, "#{term} - TXT length #{len} > 512 characters")
+        log(ctx, :parse, :warn, "#{term} - TXT length #{len} > 512 bytes")
 
-      _ ->
-        ctx
+      len ->
+        log(ctx, :parse, :info, "#{term} - TXT length #{len} bytes")
     end
   end
 

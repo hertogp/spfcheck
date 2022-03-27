@@ -418,8 +418,9 @@ defmodule Spfcheck do
         end
 
       spf = ctx.map[domain] |> text_wrap(width, "\n    ")
-      spf = if String.length(spf) < 1, do: "No SPF found", else: spf
-      IO.puts("[#{nth}] #{domain} -- (#{owner}, #{email})")
+      len = String.length(spf)
+      spf = if len < 1, do: "No SPF found", else: spf
+      IO.puts("[#{nth}] #{domain} -- #{len} bytes, (#{owner}, #{email})")
       IO.puts("    #{spf}\n")
     end
 
