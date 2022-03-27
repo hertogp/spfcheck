@@ -493,7 +493,7 @@ defmodule Spf.Eval do
   defp evalp(ctx, [{:redirect, [domain], range} | tail]) do
     # https://www.rfc-editor.org/rfc/rfc7208.html#section-6.1
     # - if redirect domain has no SPF -> permerror
-    # - if redirect domain is mailformed (seen by evaluate())-> permerror
+    # - if redirect domain is malformed (seen by evaluate())-> permerror
     # - otherwise its result is the result for this SPF
     term = spf_term(ctx, range)
     trailing? = length(tail) > 0

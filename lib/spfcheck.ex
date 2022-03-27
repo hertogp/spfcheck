@@ -498,7 +498,7 @@ defmodule Spfcheck do
   defp topic(ctx, "d", markdown, width) do
     if markdown, do: IO.puts("\n## DNS\n\n```")
 
-    Spf.DNS.to_list(ctx)
+    Spf.DNS.to_list(ctx, valid: true)
     |> Enum.map(fn rr -> text_wrap(rr, width, "\n    ") end)
     |> Enum.join("\n")
     |> IO.puts()

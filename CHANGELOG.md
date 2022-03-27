@@ -5,14 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [unreleased]
+## [0.10.0] - 2022-03-27
 
 ### changed
 
-- [x] duration of an SPF policy evaluation is now in milliseconds, rather than seconds
-    - duration is also logged at info level for each SPF record evaluated
-- [x] log each SPF txt record's length & include in spf report section
-- [ ] log total sum of SPF txt record lengths
+- duration of an SPF policy evaluation is now in milliseconds, rather than seconds
+- duration is now also logged at info level for each SPF record evaluated
+- each SPF txt record's length is logged at the info level & included in spf report section
+
+### fixed
+
+- `-r d` report now outputs valid entries first (not all), followed by problematic dns entries
+    - so no more double entries in the reporting output
 
 ## [0.9.2] - 2022-01-08
 

@@ -24,7 +24,7 @@ defmodule Spf.Context do
   - `contact` is gleaned from the soa record for `domain` under evaluation
   - `depth` is the nested depth during recursion, used to print a tree of log messages
   - `dns` is the DNS cache, used to report on DNS information gathered during evaluation
-  - `duration` is the time (in seconds) it took to evaluate the SPF policy
+  - `duration` is the time (in milliseconds) it took to evaluate the SPF policy
   - `error` set by either `Spf.Parser` or `Spf.Eval` and halts evaluation if set
   - `explain` is the token for the `exp=`-modifier, if any (not needed for actual evaluation)
   - `explain_string` is the explanation after all expansions (when available and applicable)
