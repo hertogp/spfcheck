@@ -273,12 +273,18 @@ defmodule SpfDNSTest do
       assert {:error, :illegal_name} == result
     end
 
-    test "11 - trying to resolve an not-implemented" do
-      # test error response similar to servfail, in this case:
-      # {:error, {:notimp, dns_msg}}
+    test "11 - trying to resolve an obsoleted RRtype" do
+      # Note:
+      # - see https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-4
+      # - systemd's stub resolver now returns :refused instead of :notimp
+      # - https://github.com/systemd/systemd/blob/main/src/resolve/resolved-dns-stub.c#L926
+      # - https://github.com/systemd/systemd/commit/30ee7071703226bf84e69f983ad1c08283e4b891
+      # - real nameservers will do :NOERROR with a zero answer (NODATA)
+      # So we only check if we get an :error and ignore the specific reason.
       ctx = Spf.Context.new("some.tld")
       {_ctx, result} = Spf.DNS.resolve(ctx, "example.com", type: :mf)
-      assert {:error, :notimp} == result
+
+      assert {:error, _} = result
     end
 
     test "12 - a zonedata's soa record should be correct" do
